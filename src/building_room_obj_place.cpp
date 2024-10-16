@@ -986,7 +986,7 @@ bool building_t::add_bedroom_objs(rand_gen_t rgen, room_t &room, vect_cube_t &bl
 				get_closet_cubes(closet, cubes);
 				door_t door(cubes[4], dim, !dir, 0); // open=0
 				door.d[dim][0] = door.d[dim][1] = door.get_center_dim(dim); // shrink to zero width
-				door.for_closet = 1; // flag so that we don't try to add a light switch by this door, etc.
+				door.set_for_closet(); // flag so that we don't try to add a light switch by this door, etc.
 				add_interior_door(door, 0, 1, 1); // is_bathroom=0, make_unlocked=1, make_closed=1
 				interior->doors.back().obj_ix = closet_obj_id;
 			}
@@ -2472,7 +2472,7 @@ bool building_t::add_storage_objs(rand_gen_t rgen, room_t const &room, float zva
 
 	// first pass to record the doors in this room
 	for (auto i = interior->door_stacks.begin(); i != interior->door_stacks.end(); ++i) { // check both dirs
-		if ((i->no_room_conn() || i->is_bldg_conn || i->is_connected_to_room(room_id)) && is_cube_close_to_door(test_cube, 0.0, 0, *i, 2)) {
+		if ((i->no_room_conn() || i->get_bldg_conn() || i->is_connected_to_room(room_id)) && is_cube_close_to_door(test_cube, 0.0, 0, *i, 2)) {
 			ds_ixs.push_back(i - interior->door_stacks.begin());
 		}
 	}
@@ -5028,6 +5028,7 @@ bool building_t::is_light_placement_valid(cube_t const &light, room_t const &roo
 	if (has_bcube_int(light, interior->elevators )) return 0;
 	if (has_bcube_int(light, interior->escalators)) return 0; // conservative; is this needed?
 	if (!check_cube_within_part_sides(light))       return 0; // handle non-cube buildings
+	if (!interior->elevator_equip_room.is_all_zeros() && interior->elevator_equip_room.intersects(light)) return 0;
 
 	// the fc_occluders test below will handle stairs cutouts, but we still need to handle the ceiling above stairs;
 	// check stairs with walled sides because these may clip through ceiling lights; lights completely contained in the stairs look okay and are allowed
@@ -5220,10 +5221,12 @@ bool building_t::remove_padlock_from_door(unsigned door_ix, point const &remove_
 	float const center(door.get_center_dim(dim));
 	vect_room_object_t &objs(interior->room_geom->objs);
 	assert(door.obj_ix >= 0 && unsigned(door.obj_ix+1) < objs.size()); // must be space for two locks
+	bool saw_padlock(0);
 
 	for (unsigned d = 0; d < 2; ++d) {
 		room_object_t &obj(objs[door.obj_ix + d]);
-		assert(obj.type == TYPE_PADLOCK);
+		if (obj.type != TYPE_PADLOCK) continue; // may have been skipped above if the door has a single entry
+		saw_padlock = 1;
 		bool const keep(((remove_pos[dim] - center)*(obj.get_center_dim(dim) - center)) > 0.0); // keep if it's on the side that was opened
 
 		if (keep) {
@@ -5232,6 +5235,7 @@ bool building_t::remove_padlock_from_door(unsigned door_ix, point const &remove_
 		}
 		else {obj.remove();}
 	} // for d
+	assert(saw_padlock); // at least one padlock must have been removed
 	interior->room_geom->invalidate_model_geom();
 	return 1;
 }

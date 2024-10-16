@@ -55,6 +55,7 @@ struct person_base_t : public waiting_obj_t {
 struct path_pt_t : public point {
 	bool fixed=0; // path segment is fixed and AI can't select a new path/dest (can't follow the player)
 	path_pt_t(point const &p, bool f=0) : point(p), fixed(f) {}
+	path_pt_t(float x, float y, float z, bool f=0) : point(x, y, z), fixed(f) {}
 };
 
 struct ai_path_t : public vector<path_pt_t> {
@@ -62,6 +63,7 @@ struct ai_path_t : public vector<path_pt_t> {
 	void clear() {vector<path_pt_t>::clear(); uses_nav_grid = is_shortened = 0;}
 	void add(path_pt_t const &p) {if (empty() || p != back()) {push_back(p);}}
 	void add(point const &p, unsigned f) {add(path_pt_t(p, f));}
+	void add(float x, float y, float z, unsigned f=0) {add(path_pt_t(x, y, z, f));}
 	void add(ai_path_t const &path);
 };
 
@@ -74,7 +76,7 @@ struct person_t : public person_base_t { // building person
 	int cur_bldg=-1, cur_room=-1, dest_room=-1; // Note: -1 is unassigned
 	unsigned short cur_rseed=1;
 	uint8_t goal_type=GOAL_TYPE_NONE, cur_elevator=0, cur_escalator=0, dest_elevator_floor=0, ai_state=AI_STOP, has_key=0;
-	bool following_player=0, saw_player_hide=0, is_first_path=1, on_new_path_seg=0;
+	bool following_player=0, saw_player_hide=0, is_first_path=1, on_new_path_seg=0, in_tunnel=0;
 	bool last_used_elevator=0, last_used_escalator=0, last_used_stairs=0, must_re_call_elevator=0, has_room_geom=0, in_pool=0, prev_walked_down=0, no_wait_at_dest=0;
 	ai_path_t path; // stored backwards, next point on path is path.back()
 

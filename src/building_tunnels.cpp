@@ -7,7 +7,9 @@
 extern double tfticks;
 
 float query_min_height(cube_t const &c, float stop_at);
+colorRGBA choose_pipe_color(rand_gen_t &rgen);
 
+// *** tunnel_seg_t ***
 
 tunnel_seg_t::tunnel_seg_t(point const &p1, point const &p2, float radius_) : radius(radius_) {
 	if      (p1.x == p2.x) {dim = 1;}
@@ -48,9 +50,19 @@ cube_t tunnel_seg_t::get_room_conn_block() const {
 	block.z2() = block.z1() + 0.22*radius; // set the height
 	return block;
 }
+point tunnel_seg_t::get_room_conn_pt(float zval) const {
+	assert(room_conn);
+	point pt(0.0, 0.0, zval);
+	pt[ dim] = bcube_ext.get_center_dim(dim);
+	pt[!dim] = bcube_ext.d[!dim][room_dir];
+	return pt;
+}
+
+// *** Placement ***
 
 void building_t::get_valid_extb_room_end_doors(room_t const &room, float zval, unsigned room_id, float end_pad_ext, cube_with_ix_t doors[2]) const {
 	assert(interior);
+	if (has_pool() && (int)room_id == interior->pool.room_ix) return; // no false doors or tunnels in swimming pool room
 
 	if (!room.is_hallway) {
 		float const dx(room.dx()), dy(room.dy());
@@ -146,13 +158,23 @@ bool building_t::try_place_tunnel_at_extb_hallway_end(room_t &room, unsigned roo
 		// try extending tunnel in both directions
 		for (unsigned d = 0; d < 2; ++d) {
 			for (unsigned n = 0; n < num_steps; ++n) {
-				point p1e(p1), p2e(p2);
-				(d ? p2e : p1e)[!dim] += (d ? 1.0 : -1.0)*step_len;
-				if (!is_tunnel_placement_valid(p1e, p2e, check_radius)) break; // can't extend further in this dir
-				p1 = p1e; p2 = p2e; // accept the new length
+				if (d) {
+					point p2e(p2);
+					p2e[!dim] += step_len;
+					if (!is_tunnel_placement_valid(p2, p2e, check_radius)) break; // can't extend further in this dir
+					p2 = p2e; // accept the new length
+				}
+				else {
+					point p1e(p1);
+					p1e[!dim] -= step_len;
+					if (!is_tunnel_placement_valid(p1e, p1, check_radius)) break; // can't extend further in this dir
+					p1 = p1e; // accept the new length
+				}
 			}
 		} // for dir
-		  // split into three segments (center, left, right)
+		// split into three segments (center, left, right)
+		// TODO: add bends at the ends if there's space
+		unsigned const tseg_ix(interior->tunnels.size());
 		float const gate_dist_from_end(5.0*floor_spacing);
 		point pa(p1), pb(p2);
 		pa[!dim] = door.d[!dim][0] + sm_shift_val; // left  end of room connection
@@ -162,13 +184,17 @@ bool building_t::try_place_tunnel_at_extb_hallway_end(room_t &room, unsigned roo
 		tseg_l.closed_ends[0] = tseg_r.closed_ends[1] = tseg_l.has_gate = tseg_r.has_gate = 1;
 		tseg_l.gate_pos = p1[!dim] + gate_dist_from_end;
 		tseg_r.gate_pos = p2[!dim] - gate_dist_from_end;
+		tseg_l.conn_ix[1] = tseg_ix;
+		tseg_r.conn_ix[0] = tseg_ix;
+		for (unsigned d = 0; d < 2; ++d) {tseg_c.conn_ix[d] = tseg_ix + d + 1;}
 		tunnel_seg_t *to_add[3] = {&tseg_c, &tseg_l, &tseg_r};
 		float const water_level(rgen.rand_uniform(0.0, 1.0)*0.2*radius), water_flow(rgen.signed_rand_float());
 
 		for (unsigned n = 0; n < 3; ++n) {
 			tunnel_seg_t &tseg(*to_add[n]);
-			tseg.water_level = water_level;
-			tseg.water_flow  = water_flow;
+			tseg.water_level  = water_level;
+			tseg.water_flow   = water_flow;
+			tseg.conn_room_ix = room_id;
 			interior->tunnels.emplace_back(tseg);
 		}
 		interior->basement_ext_bcube.assign_or_union_with_cube(tunnel_seg_t(p1, p2, radius).bcube); // add full tunnel to bcube
@@ -177,6 +203,133 @@ bool building_t::try_place_tunnel_at_extb_hallway_end(room_t &room, unsigned roo
 	} // for d
 	return 0;
 }
+
+void building_t::add_tunnel_objects(rand_gen_t rgen) {
+	assert(has_room_geom());
+	vect_room_object_t &objs(interior->room_geom->objs);
+
+	for (tunnel_seg_t const &t : interior->tunnels) {
+		if (t.room_conn) continue; // nothing added to these tunnels
+		// add smaller pipes
+		unsigned const num_pipes(rgen.rand() % 3); // 0-2
+
+		for (unsigned n = 0; n < num_pipes; ++n) {
+			float const radius(0.05*t.radius*rgen.rand_uniform(0.5, 1.0));
+			float const v1(t.p[0][t.dim] + 2.0*radius), v2(t.p[1][t.dim] - 2.0*radius);
+			if (v1 >= v2) continue; // too short a tunnel; shouldn't happen
+			float const pos(rgen.rand_uniform(v1, v2)), height(t.radius*rgen.rand_uniform(0.7, 0.9));
+			if (t.has_gate && fabs(pos - t.gate_pos) < 2.0*radius) continue; // too close to the gate
+			float const zval(t.p[0].z + height), hlen(sqrt(t.radius*t.radius - height*height) + 2.0*radius);
+			cube_t pipe;
+			set_wall_width(pipe, t.p[0][!t.dim], hlen, !t.dim);
+			set_wall_width(pipe, pos,  radius, t.dim);
+			set_wall_width(pipe, zval, radius, 2);
+			objs.emplace_back(pipe, TYPE_PIPE, 0, !t.dim, 0, RO_FLAG_NOCOLL, 1.0, SHAPE_CYLIN, choose_pipe_color(rgen)); // horizontal, room_id=0
+		} // for n
+	} // for t
+}
+
+bool building_interior_t::point_in_tunnel(point const &pos, float expand) const {
+	for (tunnel_seg_t const &t : tunnels) {
+		if (t.bcube_ext.contains_pt_exp(pos, expand)) return 1;
+	}
+	return 0;
+}
+bool building_interior_t::point_near_tunnel_entrance(point const &pos) const {
+	for (tunnel_seg_t const &t : tunnels) {
+		if (!t.room_conn) continue;
+		cube_t c(t.bcube_ext);
+		c.union_with_cube(get_room(t.conn_room_ix)); // include the connected room
+		if (c.contains_pt(pos)) return 1;
+	}
+	return 0;
+}
+int building_interior_t::get_tunnel_ix_for_point(point const &pos) const {
+	for (auto t = tunnels.begin(); t != tunnels.end(); ++t) {
+		if (t->bcube_ext.contains_pt(pos)) return (t - tunnels.begin());
+	}
+	return -1; // not found
+}
+int building_interior_t::get_tunnel_ix_for_room(unsigned room_ix) const {
+	for (auto t = tunnels.begin(); t != tunnels.end(); ++t) {
+		if (t->room_conn && t->conn_room_ix == room_ix) return (t - tunnels.begin());
+	}
+	return -1; // not found
+}
+
+// Note: paths include end_pt and start_pt
+bool building_interior_t::get_tunnel_path_from_room(point const &end_pt, unsigned room_ix, ai_path_t &path) const { // room => tunnel
+	path.clear();
+	room_t const &room(get_room(room_ix));
+	if (!room.has_tunnel_conn()) return 0;
+	int const pt_tix(get_tunnel_ix_for_point(end_pt));
+	if (pt_tix < 0) return 0; // end_pt not in a tunnel
+	if (tunnels[pt_tix].conn_room_ix != room_ix) return 0; // end_pt tunnel not connected to this room
+	int const room_tix(get_tunnel_ix_for_room(room_ix));
+	assert(room_tix >= 0); // should be found
+	tunnel_seg_t const &tseg(tunnels[room_tix]);
+	path.add(tseg.get_room_conn_pt(end_pt.z)); // room to tunnel transition
+	
+	if (room_tix != pt_tix) { // not in the room connector segment
+		path.add(tseg.bcube.xc(), tseg.bcube.yc(), end_pt.z); // center of tunnel entrance segment
+		if (!get_tunnel_path(room_tix, pt_tix, -1, path)) {path.clear(); return 0;}
+		reverse(path.begin()+2, path.end());
+	}
+	path.add(end_pt);
+	return 1;
+}
+bool building_interior_t::get_tunnel_path_to_room(point const &start_pt, unsigned &room_ix, ai_path_t &path) const { // tunnel => room
+	path.clear();
+	int const pt_tix(get_tunnel_ix_for_point(start_pt));
+	if (pt_tix < 0) return 0; // start_pt not in a tunnel
+	room_ix = tunnels[pt_tix].conn_room_ix;
+	int const room_tix(get_tunnel_ix_for_room(room_ix));
+	assert(room_tix >= 0); // should be found
+	tunnel_seg_t const &tseg(tunnels[room_tix]);
+	path.add(start_pt);
+
+	if (room_tix != pt_tix) { // not in the room connector segment
+		if (!get_tunnel_path(pt_tix, room_tix, -1, path)) {path.clear(); return 0;}
+		reverse(path.begin()+1, path.end());
+		path.add(tseg.bcube.xc(), tseg.bcube.yc(), start_pt.z); // center of tunnel entrance segment
+	}
+	path.add(tseg.get_room_conn_pt(start_pt.z)); // tunnel to room transition
+	return 1;
+}
+bool building_interior_t::get_tunnel_path_two_pts(point const &start_pt, point const &end_pt, ai_path_t &path) const {
+	int const s_tix(get_tunnel_ix_for_point(start_pt));
+	if (s_tix < 0) return 0;
+	int const e_tix(get_tunnel_ix_for_point(end_pt));
+	if (s_tix < 0) return 0;
+	tunnel_seg_t const &s_tseg(tunnels[s_tix]), &e_tseg(tunnels[e_tix]);
+	if (s_tseg.conn_room_ix != e_tseg.conn_room_ix) return 0; // different tunnel networks
+	path.add(start_pt);
+
+	if (s_tix != e_tix) { // not in the same segment
+		if (!get_tunnel_path(s_tix, e_tix, -1, path)) {path.clear(); return 0;}
+		reverse(path.begin()+2, path.end());
+	}
+	path.add(end_pt);
+	return 1;
+}
+bool building_interior_t::get_tunnel_path(unsigned tix1, unsigned tix2, int prev_tix, ai_path_t &path) const {
+	if (tix1 == tix2) return 1; // paths connected
+	tunnel_seg_t const &tseg(tunnels[tix1]);
+
+	for (unsigned d = 0; d < 2; ++d) { // try both ends
+		int const new_tix(tseg.conn_ix[d]);
+		if (new_tix < 0 || new_tix == prev_tix) continue;
+		if (!get_tunnel_path(new_tix, tix2, tix1, path)) continue;
+		assert(!path.empty());
+		point const &tseg_pt(tseg.p[d]), &path_pt(path.back());
+		if (tseg.has_gate && tseg.gate_pos > min(tseg_pt[tseg.dim], path_pt[tseg.dim]) && tseg.gate_pos < max(tseg_pt[tseg.dim], path_pt[tseg.dim])) continue; // blocked by gate
+		path.emplace_back(tseg_pt.x, tseg_pt.y, path.back().z);
+		return 1;
+	} // for d
+	return 0;
+}
+
+// *** Drawing ***
 
 // tunnels really should be drawn as building interior verts rather than small static objects, but the code here is much more flexible and more efficient
 void building_room_geom_t::add_tunnel(tunnel_seg_t const &t) {
@@ -228,14 +381,16 @@ void building_room_geom_t::add_tunnel(tunnel_seg_t const &t) {
 				v.t[1] *= tscale;
 				mat.itri_verts.push_back(v);
 			} // for i
-			  // indices have the same quad topology, so copy and offset them
+			// indices have the same quad topology, so copy and offset them
 			for (unsigned i = 0; i < num_ixs; ++i) {mat.indices.push_back(mat.indices[ixs_start_ix+i] + vert_ix_off);}
 		} // for d
 	}
 	// draw closed ends in black so that they appear to extend into darkness
 	if (t.closed_ends[0] || t.closed_ends[1]) {
 		assert(!t.room_conn); // not supported
+		unsigned const start_ix(mat.itri_verts.size());
 		mat.add_ortho_cylin_to_verts(t.bcube, BLACK, t.dim, t.closed_ends[0], t.closed_ends[1], 1, 0, 1.0, 1.0, 1.0, 1.0, 1);
+		for (auto v = mat.itri_verts.begin()+start_ix; v != mat.itri_verts.end(); ++v) {v->set_norm_to_zero();} // zero normal to prevent wet effect
 	}
 	// draw gate if present
 	if (t.has_gate) {
@@ -244,16 +399,16 @@ void building_room_geom_t::add_tunnel(tunnel_seg_t const &t) {
 		float const bar_spacing(2*t.radius/(num_bars + 1)), bar_radius(0.025*t.radius);
 		float const zc(t.bcube.zc()), rsq(t.radius*t.radius);
 		float bar_pos(t.bcube.d[!dim][0] + bar_spacing);
-		rgeom_mat_t &bar_mat(get_metal_material(shadowed, 0, 1)); // inc_shadows=0 (no light), dynamic=0, small=1
-		colorRGBA const bar_color(BKGRAY);
+		rgeom_mat_t &bar_mat(get_material(tid_nm_pair_t(get_texture_by_name("metals/67_rusty_dirty_metal.jpg")), shadowed, 0, 1)); // inc_shadows=0 (no light), small=1
+		colorRGBA const bar_color(DK_GRAY);
 
 		for (unsigned n = 0; n < num_bars; ++n, bar_pos += bar_spacing) {
 			cube_t bar;
-			float const dist(bar_pos - centerline), hheight(sqrt(rsq - dist*dist) + bar_radius);
+			float const dist(bar_pos - centerline), hheight(sqrt(rsq - dist*dist) + bar_radius), len_tc(0.25*hheight/bar_radius);
 			set_wall_width(bar, zc,         hheight,     2  );
 			set_wall_width(bar, t.gate_pos, bar_radius,  dim);
 			set_wall_width(bar, bar_pos,    bar_radius, !dim);
-			bar_mat.add_vcylin_to_verts(bar, bar_color, 0, 0, 0, 0, 1.0, 1.0, 1.0, 1.0, 0, bar_ndiv); // draw sides but not ends
+			bar_mat.add_vcylin_to_verts(bar, bar_color, 0, 0, 0, 0, 1.0, 1.0, 1.0, 1.0, 0, bar_ndiv, 0.0, 0, len_tc); // draw sides but not ends
 		}
 	}
 }

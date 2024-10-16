@@ -18,7 +18,7 @@ room_object_t player_hiding_obj;
 vect_cube_t reused_avoid_cubes[2]; // temporary that's reused across frames and people
 bool debug_mode(0);
 
-extern bool player_is_hiding, player_on_escalator;
+extern bool player_is_hiding, player_on_escalator, player_in_tunnel;
 extern int frame_counter, display_mode, animate2, player_in_elevator;
 extern float fticks;
 extern building_params_t global_building_params;
@@ -2230,6 +2230,30 @@ bool building_t::run_ai_pool_logic(person_t &person, float &speed_mult) const {
 	return 1; // in the pool
 }
 
+bool building_t::run_ai_tunnel_logic(person_t &person, float &speed_mult) const {
+	if (interior->tunnels.empty() || !point_in_extended_basement(person.pos)) return 0;
+	point const dest(cur_player_building_loc.pos.x, cur_player_building_loc.pos.y, person.pos.z);
+
+	if (person.in_tunnel) {
+		if (player_in_tunnel) {
+			if (!interior->get_tunnel_path_two_pts(person.pos, dest, person.path)) return 0;
+			speed_mult *= 2.0; // faster
+		}
+		else { // player not in tunnel
+			unsigned room_ix(0); // unused
+			if (!interior->get_tunnel_path_to_room(person.pos, room_ix, person.path)) return 0;
+		}
+		assert(!person.path.empty());
+		person.path.erase(person.path.begin()); // remove person.pos
+		return 1;
+	}
+	else if (player_in_tunnel) { // not in tunnel, but player in tunnel
+		int const room_ix(get_room_containing_pt(person.pos));
+		if (room_ix >= 0 && interior->get_tunnel_path_from_room(dest, room_ix, person.path)) return 1;
+	}
+	return 0;
+}
+
 int building_t::run_ai_elevator_logic(person_t &person, float delta_dir, rand_gen_t &rgen) {
 	assert(person.goal_type == GOAL_TYPE_ELEVATOR);
 	if (!has_room_geom()) return person.ai_state; // if player has moved away and room_geom was deleted, remain in the current state
@@ -2385,6 +2409,10 @@ bool zombie_in_attack_range(person_t &person) {
 	point const feet_pos(person.pos.x, person.pos.y, person.get_z1()), player_feet_pos(cur_player_building_loc.pos - vector3d(0.0, 0.0, player_height));
 	return (fabs(feet_pos.z - player_feet_pos.z) < 0.5*player_height && dist_less_than(feet_pos, player_feet_pos, 1.2f*(person.radius + building_t::get_scaled_player_radius())));
 }
+void clamp_person_to_building_bcube(point &pos, cube_t bcube, float radius, float fc_thick) {
+	bcube.z1() += fc_thick + radius; // make sure feet are above the floor
+	bcube.clamp_pt(pos);
+}
 
 // Note: non-const because this updates room light and door state
 int building_t::ai_room_update(person_t &person, float delta_dir, unsigned person_ix, rand_gen_t &rgen) {
@@ -2392,7 +2420,7 @@ int building_t::ai_room_update(person_t &person, float delta_dir, unsigned perso
 	if (person.speed == 0.0) {person.anim_time = 0.0; return AI_STOP;} // stopped
 	assert(interior);
 	if (!interior->room_geom && frame_counter < 60) {person.anim_time = 0.0; return AI_WAITING;} // wait until room geom is generated for this building
-	float const coll_dist(COLL_RADIUS_SCALE*person.radius), floor_spacing(get_window_vspace());
+	float const coll_dist(COLL_RADIUS_SCALE*person.radius), floor_spacing(get_window_vspace()), fc_thick(get_fc_thickness());
 	float &wait_time(person.waiting_start); // reuse this field
 	float speed_mult(1.0);
 	person.following_player = person.is_stopped = 0; // reset for this frame
@@ -2459,14 +2487,21 @@ int building_t::ai_room_update(person_t &person, float delta_dir, unsigned perso
 		return run_ai_elevator_logic(person, delta_dir, rgen);
 	}
 	person.must_re_call_elevator = 0; // reset if we got out of the elevator logic with this set
-	bool const prev_in_pool(person.in_pool);
+	bool const has_rgeom(has_room_geom()), prev_in_pool(person.in_pool);
 	person.in_pool = 0; // reset for this frame
 	run_ai_pool_logic(person, speed_mult); // handle AI inside the pool; this can happen for zombies
-	if (prev_in_pool && !person.in_pool) {person.retreat_time = 0.5*TICKS_PER_SECOND;} // retreat for 0.5s to avoid falling back into the pool chasing the player
+	
+	if (prev_in_pool && !person.in_pool) { // stepped out of the pool
+		assert(has_pool());
+		person.retreat_time = 0.5*TICKS_PER_SECOND; // retreat for 0.5s to avoid falling back into the pool chasing the player
+		person.abort_dest(); // reset target to avoid walking back toward the pool
+		max_eq(person.pos.z, (get_room(interior->pool.room_ix).z1() + fc_thick + person.radius)); // make sure completely out of pool
+	}
+	//if (zombie_attack_mode && run_ai_tunnel_logic(person, speed_mult)) {reverse(person.path.begin(), person.path.end());}
 	build_nav_graph();
 
 	if (zombie_attack_mode && player_is_hiding && person.saw_player_hide && global_building_params.ai_opens_doors && global_building_params.ai_sees_player_hide >= 2 &&
-		player_hiding_obj.type != TYPE_NONE && same_room_and_floor_as_player(person) && cur_player_building_loc.building_ix == person.cur_bldg)
+		player_hiding_obj.type != TYPE_NONE && same_room_and_floor_as_player(person) && cur_player_building_loc.building_ix == person.cur_bldg && has_rgeom)
 	{
 		// open the closet, stall, or shower door (closet door should already be open)
 		// it may not be safe to use an object iterator or even an index since we're in a different thread, so do a linear search for the target object
@@ -2485,7 +2520,7 @@ int building_t::ai_room_update(person_t &person, float delta_dir, unsigned perso
 		} // for i
 	}
 	bool choose_dest(!person.target_valid());
-	bool const update_path(!person.in_pool && need_to_update_ai_path(person)), has_rgeom(has_room_geom());
+	bool const update_path(!person.in_pool && !person.in_tunnel && need_to_update_ai_path(person));
 	// if room objects spawn in, select a new dest to avoid walking through objects based on our previous, possibly invalid path;
 	// but not if this person is on stairs/ramp/escalator or an elevator, or they may end at an invalid zval between floors
 	if (has_rgeom && !person.has_room_geom && !person.on_fixed_path() && person.ai_state < AI_ENTER_ELEVATOR) {person.abort_dest();}
@@ -2622,7 +2657,7 @@ int building_t::ai_room_update(person_t &person, float delta_dir, unsigned perso
 	else { // optimization for aligned dir
 		new_pos = person.pos + max_dist*person.dir;
 	}
-	if (!person.in_pool) { // make sure the person is inside the building, in case they were pushed by another person
+	if (!person.in_pool && !person.in_tunnel) { // make sure the person is inside the building, in case they were pushed by another person
 		cube_t clip_cube;
 		
 		if (has_basement() && new_pos.z < ground_floor_z1) { // in the basement
@@ -2652,8 +2687,9 @@ int building_t::ai_room_update(person_t &person, float delta_dir, unsigned perso
 			else {clip_cube = basement;} // basement only
 		}
 		else {clip_cube = bcube;} // above ground
+		// make sure person stays within building bcube; can't clip to room because person may be exiting it
 		clip_cube.expand_by_xy(-coll_dist); // shrink
-		clip_cube.clamp_pt_xy(new_pos); // make sure person stays within building bcube; can't clip to room because person may be exiting it
+		clamp_person_to_building_bcube(new_pos, clip_cube, person.radius, fc_thick);
 	}
 	if (!is_cube() && !person.on_fixed_path() && !check_cube_within_part_sides(person.get_bcube() + (new_pos - person.pos))) { // outside the building
 		int const part_ix(get_part_ix_containing_pt(new_pos));
@@ -2711,7 +2747,7 @@ int building_t::ai_room_update(person_t &person, float delta_dir, unsigned perso
 		cube_t sc; sc.set_from_sphere(new_pos, coll_dist); // sphere bounding cube
 
 		for (auto i = interior->door_stacks.begin(); i != interior->door_stacks.end(); ++i) { // can be slow, but not as slow as iterating over doors
-			if (new_pos.z < i->z1() || new_pos.z > i->z2()) continue; // wrong part/floor
+			if (new_pos.z < i->z1() || new_pos.z > i->z2())    continue; // wrong part/floor
 			if (!i->get_open_door_path_bcube().intersects(sc)) continue; // no intersection with door
 			cube_t const dbc(i->get_true_bcube());
 
@@ -2742,11 +2778,18 @@ int building_t::ai_room_update(person_t &person, float delta_dir, unsigned perso
 	handle_vert_cylin_tape_collision(new_pos, person.pos, person.get_z1(), person.get_z2(), person.radius, 0); // should be okay to use zvals from old pos; is_player=0
 	// logic to clip this person to correct room Z-bounds in case something went wrong; remove if/when this is fixed
 	// Note: we probably can't use the room Z bounds here becase the person may be on the stairs connecting two stacked parts
-	float const true_z1(point_in_extended_basement_not_basement(new_pos) ? get_bcube_z1_inc_ext_basement() : bcube.z1());
-	float const min_valid_zval(true_z1 + get_fc_thickness() + person.radius), max_valid_zval(bcube.z2() - person.radius); // Note: max should include the attic
+	float true_z1(bcube.z1());
 
-	if (/*player_in_this_building &&*/ !person.in_pool && !person.on_stairs() && person.cur_room >= 0) { // movement in XY, not on stairs, room is valid: snap to nearest floor
-		// this is optional and is done just in case something went wrong
+	if (point_in_extended_basement_not_basement(new_pos)) {
+		// round to an exact floor; needed for shallow swimming pools less than a floor in depth
+		float const extb_depth(bcube.z1() - interior->basement_ext_bcube.z1());
+		int const extb_num_floors(round_fp(extb_depth/floor_spacing + 0.25)); // bias larger to capture pool depth slightly less than half a floor
+		min_eq(true_z1, (bcube.z1() - extb_num_floors*floor_spacing));
+	}
+	float const min_valid_zval(true_z1 + fc_thick + person.radius), max_valid_zval(bcube.z2() - person.radius); // Note: max should include the attic
+
+	if (/*player_in_this_building &&*/ !person.in_pool && !person.in_tunnel && !person.on_stairs() && person.cur_room >= 0) {
+		// movement in XY, not on stairs, room is valid: snap to nearest floor; this is optional and is done just in case something went wrong
 		room_t room(get_room(person.cur_room));
 
 		if (!room.contains_pt(new_pos)) { // maybe we just exited the stairs into a different part and cur_room hasn't been updated yet
@@ -2828,7 +2871,7 @@ void building_t::move_person_to_not_collide(person_t &person, person_t const &ot
 	}
 	if (!point_in_building_or_basement_bcube(person.pos)) { // this can happen on rare occasions, due to fp inaccuracy or multiple collisions
 		//cout << TXT(rsum) << TXT(sep_dist) << TXT(move_dist) << TXT(room_ix) << TXT(other.pos.str()) << TXT(person.pos.str()) << TXT(bcube.str()) << endl;
-		bcube.clamp_pt_xy(person.pos); // just clamp pos so that it doesn't assert later
+		clamp_person_to_building_bcube(person.pos, bcube, person.radius, get_fc_thickness()); // just clamp pos so that it doesn't assert later
 	}
 }
 
