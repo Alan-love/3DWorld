@@ -40,7 +40,10 @@ bool building_t::extend_underground_basement(rand_gen_t rgen) {
 				float const fc_thick(get_fc_thickness());
 				set_cube_zvals(cand_door, basement.z1()+fc_thick, basement.z2()-fc_thick); // change z to span floor to ceiling for interior door
 				cand_door.translate_dim(dim, (dir ? 1.0 : -1.0)*0.25*get_wall_thickness()); // zero width, centered on the door
-				if (add_underground_exterior_rooms(rgen, cand_door, basement, dim, dir, 0.25*len)) return 1; // exit on success
+				bool ret(0);
+#pragma omp critical(add_underground_exterior_rooms)
+				ret = add_underground_exterior_rooms(rgen, cand_door, basement, dim, dir, 0.25*len);
+				if (ret) return 1; // exit on success
 			} // for e
 		} // for d
 		if (!is_house) return 0; // not large enough for office building
@@ -85,7 +88,6 @@ struct ext_basement_room_params_t {
 
 bool building_t::is_basement_room_not_int_bldg(cube_t const &room, building_t const *exclude) const {
 	// check for other buildings, including their extended basements;
-	// Warning: not thread safe, since we can be adding basements to another building at the same time
 	if (check_buildings_cube_coll(room, 0, 1, this, exclude)) return 0; // xy_only=0, inc_basement=1, exclude ourself
 	cube_t const grid_bcube(get_grid_bcube_for_building(*this));
 	assert(!grid_bcube.is_all_zeros()); // must be found
@@ -402,8 +404,8 @@ void building_t::maybe_assign_extb_room_as_swimming(rand_gen_t &rgen) {
 void building_t::add_wall_section_above_pool_room_door(door_stack_t &ds, room_t const &room) {
 	float const ceil_zval(room.z2() - get_fc_thickness());
 	if (ds.z2() >= ceil_zval) return; // no gap above door
-	ds.mult_floor_room = 1; // counts as multi-floor (for drawing top edge)
-	interior->get_door(ds.first_door_ix).mult_floor_room = 1;
+	ds.set_mult_floor(); // counts as multi-floor (for drawing top edge)
+	interior->get_door(ds.first_door_ix).set_mult_floor();
 	cube_t wall(ds);
 	set_wall_width(wall, ds.get_center_dim(ds.dim), 0.5*get_wall_thickness(), ds.dim);
 	set_cube_zvals(wall, ds.z2(), ceil_zval);
@@ -545,7 +547,17 @@ bool building_t::max_expand_underground_room(cube_t &room, bool dim, bool dir, r
 	room = exp_room;
 	float const max_depth(room.z2() - get_max_sea_level());
 	unsigned const max_num_floors(max(1U, min(global_building_params.max_ext_basement_room_depth, unsigned(floor(max_depth/floor_spacing)))));
-	if (max_num_floors > 1) {room.z1() -= floor_spacing*(rgen.rand() % max_num_floors);} // maybe expand downward for additional floors
+	
+	if (max_num_floors > 1) { // maybe expand downward for additional floors
+		unsigned const num_floors_add(rgen.rand() % max_num_floors);
+
+		for (unsigned n = 0; n < num_floors_add; ++n) {
+			cube_t cand(room);
+			set_cube_zvals(cand, room.z1()-floor_spacing, room.z1()); // one floor below
+			if (check_buildings_cube_coll(cand, 0, 1, this)) break; // check for extended basement and tunnels below; xy_only=0, inc_basement=1, exclude ourself
+			room.z1() = cand.z1();
+		}
+	}
 	return 1;
 }
 
@@ -1013,7 +1025,8 @@ void building_t::add_backrooms_objs(rand_gen_t rgen, room_t &room, float zval, u
 					// this should add one door and one door stack
 					assert(door.d[!dim][0] > wall.d[!dim][0] && door.d[!dim][1] < wall.d[!dim][1]);
 					remove_section_from_cube_and_add_door(wall, wall2, door.d[!dim][0], door.d[!dim][1], !dim, open_dir, 0, make_unlocked, make_closed); // is_bathroom=0
-					interior->door_stacks.back().in_backrooms = interior->doors.back().in_backrooms = 1;
+					interior->door_stacks.back().set_backrooms();
+					interior->doors      .back().set_backrooms();
 					walls_to_add.push_back(wall2); // keep high side as it won't be used with any other doors
 					// add a blocker so that no ceiling lights are placed in the path of this door
 					cube_t blocker(door);
@@ -1162,10 +1175,13 @@ void building_t::add_backrooms_objs(rand_gen_t rgen, room_t &room, float zval, u
 			if (sub_room.get_has_mirror()) {room.set_has_mirror();}
 		}
 		// 2 or more rooms
-		else if (rgen.rand_bool()) { // add furnace
+		if (!objs_added) { // maybe make a machine room
+			objs_added = add_machines_to_room(rgen, sub_room, zval, room_id, tot_light_amt, objs_start);
+		}
+		if (!objs_added && rgen.rand_bool()) { // add furnace
 			objs_added = add_furnace_to_room(rgen, sub_room, zval, room_id, tot_light_amt, sub_objs_start);
 		}
-		else { // add water heater
+		if (!objs_added) { // add water heater
 			objs_added = add_water_heaters(rgen, sub_room, zval, room_id, tot_light_amt, sub_objs_start, 1); // single_only=1
 		}
 		if (!objs_added) {} // try other objects or room types?
@@ -1259,7 +1275,6 @@ void building_t::add_missing_backrooms_lights(rand_gen_t rgen, float zval, unsig
 	} // for i
 	unsigned const lights_end(objs.size());
 	point const ref_light_center(ref_light.get_cube_center());
-	vect_cube_t to_add;
 
 	for (cube_t const &r : rooms_to_light) {
 		bool has_light(0);
@@ -1272,15 +1287,18 @@ void building_t::add_missing_backrooms_lights(rand_gen_t rgen, float zval, unsig
 		room_object_t light(ref_light); // what if this is a short light that was blocked by a doorway? use a different light?
 		light += vector3d((r.xc() - ref_light_center.x), (r.yc() - ref_light_center.y), 0.0);
 		bool const room_dim(r.dx() < r.dy()); // longer room dim
-		to_add.clear();
-		try_place_light_on_ceiling(light, room_t(room, r), room_dim, get_fc_thickness(), 1, 0, 1, 1, objs_start, to_add, rgen); // or wall light?
-
-		for (cube_t const &L : to_add) { // should be size 1
-			light.copy_from(L);
-			light.obj_id = light_ix_assign.get_ix_for_light(light);
-			objs.push_back(light);
-		}
+		add_sub_room_light(light, room_t(room, r), room_dim, objs_start, light_ix_assign, rgen);
 	} // for r
+}
+void building_t::add_sub_room_light(room_object_t light, room_t &room, bool dim, unsigned objs_start, light_ix_assign_t &light_ix_assign, rand_gen_t &rgen) {
+	vect_cube_t to_add;
+	try_place_light_on_ceiling(light, room, dim, get_fc_thickness(), 1, 0, 1, 1, objs_start, to_add, rgen); // or wall light?
+
+	for (cube_t const &L : to_add) { // should be size 1
+		light.copy_from(L);
+		light.obj_id = light_ix_assign.get_ix_for_light(light);
+		interior->room_geom->objs.push_back(light);
+	}
 }
 
 bool building_room_geom_t::cube_int_backrooms_walls(cube_t const &c) const { // used for door opening collision checks
@@ -1358,12 +1376,6 @@ bool building_interior_t::point_in_ext_basement_room(point const &pos, float exp
 	if (pool.valid && pool.contains_pt_exp(pos, expand)) return 1;
 	return 0;
 }
-bool building_interior_t::point_in_tunnel(point const &pos, float expand) const {
-	for (tunnel_seg_t const &t : tunnels) {
-		if (t.bcube_ext.contains_pt_exp(pos, expand)) return 1;
-	}
-	return 0;
-}
 // returns true if cube is completely contained in any single room; tunnels are ignored
 bool building_interior_t::cube_in_ext_basement_room(cube_t const &c, bool xy_only) const {
 	if (ext_basement_hallway_room_id < 0)        return 0; // no ext basement rooms
@@ -1426,6 +1438,7 @@ void building_t::try_connect_ext_basement_to_building(building_t &b) {
 				float const door_center(rgen.rand_uniform(shared_lo+wall_hwidth+wall_thickness, shared_hi-wall_hwidth-wall_thickness));
 				bool const dir(r1->d[d][0] < r2->d[d][0]); // dir sign from r1 => r2 in dim d
 				cube_t cand_join(*r1);
+				cand_join.z2() = cand_join.z1() + floor_spacing; // make it exactly one floor, in case this room connects to a tall pool room
 				cand_join.d[d][ dir] = r2->d[d][!dir];
 				cand_join.d[d][!dir] = r1->d[d][ dir];
 				if (cand_join.get_sz_dim(d) < min_connect_dist) continue;
@@ -1466,7 +1479,8 @@ void building_t::try_connect_ext_basement_to_building(building_t &b) {
 			// subtract door from walls of each building
 			for (unsigned bix = 0; bix < 2; ++bix) {subtract_cube_from_cubes(door, buildings[bix]->interior->walls[r.hallway_dim]);}
 		} // for dir
-		b.interior->doors.back().is_bldg_conn = b.interior->door_stacks.back().is_bldg_conn = 1; // door added to the other building, and separates the two buildings
+		b.interior->doors      .back().set_bldg_conn(); // door added to the other building, and separates the two buildings
+		b.interior->door_stacks.back().set_bldg_conn();
 		cube_t ext_bcube(r);
 		ext_bcube.d[r.hallway_dim][r.connect_dir] = r.conn_bcube.d[r.hallway_dim][r.connect_dir]; // extend to cover the entire width of the adjacent hallway in the other building
 

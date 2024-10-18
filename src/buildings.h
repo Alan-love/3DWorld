@@ -497,7 +497,7 @@ enum {RTYPE_NOTSET=0, RTYPE_HALL, RTYPE_STAIRS, RTYPE_OFFICE, RTYPE_BATH, RTYPE_
 	  RTYPE_DINING, RTYPE_STUDY, RTYPE_ENTRY, RTYPE_LIBRARY, RTYPE_STORAGE, RTYPE_GARAGE, RTYPE_SHED, RTYPE_LOBBY, RTYPE_LAUNDRY, RTYPE_CARD,
 	  RTYPE_PLAY, RTYPE_ART, RTYPE_UTILITY, RTYPE_PARKING, RTYPE_RAMP_EXIT, RTYPE_ATTIC, RTYPE_MASTER_BED, RTYPE_UNFINISHED, RTYPE_SERVER, RTYPE_POOL,
 	  RTYPE_SWIM, RTYPE_SECURITY, RTYPE_LOUNGE, RTYPE_COMMON, RTYPE_BACKROOMS, RTYPE_RETAIL, RTYPE_ELEVATOR, RTYPE_CONF, RTYPE_MACHINE, RTYPE_INTERR,
-	  NUM_RTYPES};
+	  RTYPE_ELEV_EQUIP, NUM_RTYPES};
 typedef uint8_t room_type;
 
 inline bool is_bathroom (room_type   const rtype) {return (rtype == RTYPE_BATH || rtype == RTYPE_MENS || rtype == RTYPE_WOMENS);}
@@ -508,13 +508,14 @@ std::string const room_names[NUM_RTYPES] =
 	{"Unset", "Hallway", "Stairs", "Office", "Bathroom", "Men's Restroom", "Women's Restroom", "Bedroom", "Kitchen", "Living Room",
 	 "Dining Room", "Study", "Entryway", "Library", "Storage Room", "Garage", "Shed", "Lobby", "Laundry Room", "Card Room",
 	 "Play Room", "Art Room", "Utility Room", "Parking Garage", "Ramp Exit", "Attic", "Master Bedroom", "Unfinished Room", "Server Room", "Pool Room",
-	 "Swimming Pool Room", "Security Room", "Lounge", "Common Room", "Backrooms", "Retail", "Elevator", "Conference Room", "Machine Room", "Interrogation Room"};
+	 "Swimming Pool Room", "Security Room", "Lounge", "Common Room", "Backrooms", "Retail", "Elevator", "Conference Room", "Machine Room", "Interrogation Room",
+	 "Elev Equip Room"};
 // short room names for elevator buttons (should be <= 8 characters)
 std::string const room_names_short[NUM_RTYPES] =
 	{"", "Hall", "Stairs", "Office", "Bath", "Men", "Women", "Bed", "Kitchen", "Living",
 	"Dining", "Study", "Entry", "Library", "Storage", "Garage", "Shed", "Lobby", "Laundry", "Card",
 	"Play", "Art", "Utility", "Garage", "Ramp", "Attic", "Bed", "", "Server", "Pool",
-	"Swim", "Security", "Lounge", "Common", "Basement", "Retail", "Elevator"};
+	"Swim", "Security", "Lounge", "Common", "Basement", "Retail", "Elevator", "Equipment"};
 
 enum {SHAPE_STRAIGHT=0, SHAPE_U, SHAPE_WALLED, SHAPE_WALLED_SIDES, SHAPE_RAMP, SHAPE_L}; // stairs shapes; SHAPE_L is unused
 typedef uint8_t stairs_shape;
@@ -1013,7 +1014,7 @@ struct building_room_geom_t {
 	vector<obj_model_inst_t> obj_model_insts;
 	vector<door_handle_t> door_handles; // for 3D model drawing
 	vector<unsigned> moved_obj_ids;
-	vect_rat_t    rats;
+	vect_rat_t    rats, sewer_rats;
 	vect_spider_t spiders;
 	vect_snake_t  snakes;
 	vect_insect_t insects;
@@ -1395,6 +1396,8 @@ typedef vector<extb_room_t> vect_extb_room_t;
 
 struct tunnel_seg_t {
 	bool dim=0, room_conn=0, room_dir=0, has_gate=0, closed_ends[2]={};
+	int conn_ix[2]={-1,-1}; // index of adjacent connected tunnel in each dir; -1 is none
+	unsigned conn_room_ix=0;
 	float radius=0.0, gate_pos=0.0, water_level=0.0, water_flow=0.0;
 	point p[2];
 	cube_t bcube, bcube_ext; // bcube_ext includes the area connecting to the door when room_conn=1
@@ -1403,6 +1406,8 @@ struct tunnel_seg_t {
 	void set_as_room_conn(bool rdir, float wall_gap);
 	cube_t get_player_walk_area(point const &player_pos, float player_radius) const;
 	cube_t get_room_conn_block() const;
+	point get_room_conn_pt(float zval) const;
+	bool is_blocked_by_gate(point const &p1, point const &p2) const;
 	float get_length() const {return (p[1][dim] - p[0][dim]);}
 };
 typedef vector<tunnel_seg_t> vect_tunnel_seg_t;
@@ -1484,8 +1489,17 @@ struct escalator_t : public oriented_cube_t { // Note: not yet used
 	void get_all_cubes(cube_t cubes[7]) const;
 };
 
+// door flags
+unsigned const DOOR_FLAG_MULT_FLOOR = 0x01; // multi-floor room door
+unsigned const DOOR_FLAG_FOR_CLOSET = 0x02; // closet door
+unsigned const DOOR_FLAG_BLDG_CONN  = 0x04; // door connecting two different buildings
+unsigned const DOOR_FLAG_BACKROOMS  = 0x08; // door in backrooms
+unsigned const DOOR_FLAG_SMALL_ROOM = 0x10; // door for a small room such as an elevator equipment room
+unsigned const DOOR_FLAG_AUTO_CLOSE = 0x20; // door automatically closes (office bathroom)
+
 struct door_base_t : public cube_t {
-	bool dim=0, open_dir=0, hinge_side=0, on_stairs=0, mult_floor_room=0, for_closet=0, is_bldg_conn=0, in_backrooms=0;
+	bool dim=0, open_dir=0, hinge_side=0, on_stairs=0;
+	uint8_t flags=0;
 	uint16_t conn_room[2]={}; // on each side of the door
 	// is it useful to store the two rooms in the door/door_stack? this will speed up connectivity searches for navigation and room assignment,
 	// but only for finding the second room connected to a door, because we still need to iterate over all doors;
@@ -1502,11 +1516,26 @@ struct door_base_t : public cube_t {
 	cube_t get_clearance_bcube() const {cube_t bc(*this); bc.expand_in_dim(dim,     get_width    ()); return bc;}
 	cube_t get_open_door_path_bcube() const;
 	cube_t get_open_door_bcube_for_room(cube_t const &room) const;
-	bool not_a_room_separator() const {return (on_stairs || for_closet || in_backrooms || is_bldg_conn);}
+	bool not_a_room_separator() const {return (on_stairs || get_for_closet() || get_backrooms() || get_bldg_conn() || get_small_room());}
 	bool is_same_stack(door_base_t const &d) const {return (d.x1() == x1() && d.y1() == y1());}
-	bool is_connected_to_room(unsigned room_id) const {return (!no_room_conn() && (room_id == conn_room[0] || room_id == conn_room[1]) && !is_bldg_conn);}
+	bool is_connected_to_room(unsigned room_id) const {return (!no_room_conn() && (room_id == conn_room[0] || room_id == conn_room[1]) && !get_bldg_conn());}
 	bool no_room_conn() const {return (conn_room[0] == 0 && conn_room[1] == 0);}
+	bool use_min_open_amt() const {return (get_bldg_conn() || get_small_room());} // building connector doors don't have adj building info to determine open amount
 	unsigned get_conn_room(unsigned room_id) const;
+
+	void set_mult_floor() {flags |= DOOR_FLAG_MULT_FLOOR;}
+	void set_for_closet() {flags |= DOOR_FLAG_FOR_CLOSET;}
+	void set_bldg_conn () {flags |= DOOR_FLAG_BLDG_CONN ;}
+	void set_backrooms () {flags |= DOOR_FLAG_BACKROOMS ;}
+	void set_small_room() {flags |= DOOR_FLAG_SMALL_ROOM;}
+	void set_auto_close() {flags |= DOOR_FLAG_AUTO_CLOSE;}
+	void clear_auto_close() {flags &= ~DOOR_FLAG_AUTO_CLOSE;}
+	bool get_mult_floor() const {return (flags & DOOR_FLAG_MULT_FLOOR);}
+	bool get_for_closet() const {return (flags & DOOR_FLAG_FOR_CLOSET);}
+	bool get_bldg_conn () const {return (flags & DOOR_FLAG_BLDG_CONN );}
+	bool get_backrooms () const {return (flags & DOOR_FLAG_BACKROOMS );}
+	bool get_small_room() const {return (flags & DOOR_FLAG_SMALL_ROOM);}
+	bool get_auto_close() const {return (flags & DOOR_FLAG_AUTO_CLOSE);}
 };
 struct door_stack_t : public door_base_t {
 	unsigned first_door_ix=0, num_doors=1; // first_door_ix is on the lowest floor
@@ -1514,7 +1543,7 @@ struct door_stack_t : public door_base_t {
 	door_stack_t(door_base_t const &db, unsigned fdix) : door_base_t(db), first_door_ix(fdix) {}
 };
 struct door_t : public door_base_t {
-	bool open=0, blocked=0, auto_close=0;
+	bool open=0, blocked=0;
 	uint8_t locked=0; // 1=regular lock, >= 2=padlock, where color index is locked-2
 	int obj_ix=-1; // for closets, etc.
 	float open_amt=0.0; // 0.0=fully closed, 1.0=fully open
@@ -1532,7 +1561,7 @@ struct door_t : public door_base_t {
 	void set_locked_unlockable() {locked = MAX_LOCK_INDEX;}; // use a lock for which there is no matching color key
 	unsigned get_padlock_color_ix() const {assert(is_padlocked()); assert(locked < MAX_LOCK_INDEX); return (locked - 2);}
 	void toggle_open_state(bool allow_partial_open=0);
-	void make_auto_close() {auto_close = 1; open = 0; open_amt = 0.0;}
+	void make_auto_close() {set_auto_close(); open = 0; open_amt = 0.0;}
 	void make_fully_open_or_closed() {open_amt = (open ? 1.0 : 0.0);}
 	bool next_frame();
 };
@@ -1646,7 +1675,7 @@ struct building_interior_t {
 	std::unique_ptr<building_conn_info_t> conn_info;
 	cube_with_ix_t pg_ramp, attic_access; // ix stores {2*dim + dir}
 	indoor_pool_t pool;
-	cube_t basement_ext_bcube;
+	cube_t basement_ext_bcube, elevator_equip_room;
 	draw_range_t draw_range;
 	unsigned extb_walls_start[2] = {0,0};
 	unsigned gen_room_details_pass=0;
@@ -1691,6 +1720,13 @@ struct building_interior_t {
 	vector<room_t>::const_iterator ext_basement_rooms_start() const;
 	bool point_in_ext_basement_room(point const &pos, float expand=0.0) const;
 	bool point_in_tunnel(point const &pos, float expand=0.0) const;
+	bool point_near_tunnel_entrance(point const &pos) const;
+	int get_tunnel_ix_for_point(point const &pos) const;
+	int get_tunnel_ix_for_room (unsigned room_ix) const;
+	bool get_tunnel_path_from_room(point const &end_pt,   unsigned  room_ix, float radius, ai_path_t &path) const;
+	bool get_tunnel_path_to_room  (point const &start_pt, unsigned &room_ix, ai_path_t &path) const;
+	bool get_tunnel_path_two_pts(point const &start_pt, point const &end_pt, float radius, ai_path_t &path) const;
+	bool get_tunnel_path(unsigned tix1, unsigned tix2, int prev_tix, ai_path_t &path) const;
 	bool cube_in_ext_basement_room(cube_t const &c, bool xy_only) const;
 	door_t const &get_ext_basement_door() const;
 	void assign_master_bedroom(float window_vspacing, float floor_thickness);
@@ -1924,7 +1960,7 @@ struct building_t : public building_geom_t {
 		unsigned windows_per_room, unsigned windows_per_room_side, bool hall_dim, bool hall_dir, rand_gen_t &rgen);
 	bool maybe_assign_interior_garage(bool &gdim, bool &gdir);
 	void add_parking_garage_ramp(rand_gen_t &rgen);
-	bool add_machines_to_room(rand_gen_t rgen, room_t const &room, float zval, unsigned room_id, float tot_light_amt, unsigned objs_start);
+	bool add_machines_to_room(rand_gen_t rgen, room_t const &room, float zval, unsigned room_id, float tot_light_amt, unsigned objs_start, bool less_clearance=0);
 	void add_ceilings_floors_stairs(rand_gen_t &rgen, cube_t const &part, cube_t const &hall, unsigned part_ix, unsigned num_floors,
 		unsigned rooms_start, bool use_hallway, bool first_part_this_stack, float window_hspacing[2], float window_border);
 	void connect_stacked_parts_with_stairs(rand_gen_t &rgen, cube_t const &part);
@@ -2016,7 +2052,7 @@ struct building_t : public building_geom_t {
 	bool check_for_water_splash(point const &pos_bs, float size=1.0, bool full_room_height=0, bool draw_splash=0, bool alert_zombies=1) const;
 	cube_t calc_splash_bounds(point const &pos) const;
 	void draw_water(vector3d const &xlate) const;
-	void debug_people_in_building(shader_t &s) const;
+	void debug_people_in_building(shader_t &s, point const &camera_bs) const;
 	void subtract_stairs_and_elevators_from_cube(cube_t const &c, vect_cube_t &cube_parts, bool inc_stairs=1, bool inc_elevators=1) const;
 	void add_split_roof_shadow_quads(building_draw_t &bdraw) const;
 	void clear_room_geom();
@@ -2040,7 +2076,8 @@ struct building_t : public building_geom_t {
 	void all_ai_room_update(rand_gen_t &rgen, float delta_dir);
 	int ai_room_update(person_t &person, float delta_dir, unsigned person_ix, rand_gen_t &rgen);
 	int run_ai_elevator_logic(person_t &person, float delta_dir, rand_gen_t &rgen);
-	bool run_ai_pool_logic(person_t &person, float &speed_mult) const;
+	bool run_ai_pool_logic  (person_t &person, float &speed_mult) const;
+	bool run_ai_tunnel_logic(person_t &person, float &speed_mult) const;
 	bool maybe_zombie_retreat(unsigned person_ix, point const &hit_pos);
 	void register_person_hit(unsigned person_ix, room_object_t const &obj, vector3d const &velocity);
 	bool is_room_backrooms(unsigned room_ix)   const {return get_room(room_ix).is_backrooms();}
@@ -2074,6 +2111,7 @@ public:
 	template<typename T> void add_animals_on_floor(T &animals, unsigned building_ix, unsigned num_min, unsigned num_max, float sz_min, float sz_max) const;
 	void update_animals(point const &camera_bs, unsigned building_ix);
 	void update_rats   (point const &camera_bs, unsigned building_ix);
+	void update_sewer_rats(point const &camera_bs, unsigned building_ix);
 	void update_spiders(point const &camera_bs, unsigned building_ix);
 	void update_snakes (point const &camera_bs, unsigned building_ix);
 	void update_insects(point const &camera_bs, unsigned building_ix);
@@ -2144,6 +2182,8 @@ public:
 	bool cube_int_ext_basement(cube_t const &c) const {return (interior && interior->basement_ext_bcube.intersects(c));} // includes pools
 	bool point_in_building_or_basement_bcube(point const &pos) const {return (bcube.contains_pt(pos) || point_in_extended_basement(pos));}
 	bool point_in_extb_conn_room(point const &pos_bs) const;
+	bool cube_intersects_extb_room(cube_t const &c) const;
+	bool cube_intersects_basement_or_extb_room(cube_t const &c) const {return (c.intersects(get_basement()) || cube_intersects_extb_room(c));}
 	bool point_in_courtyard(point const &pos_bs) const;
 	bool point_on_basement_stairs(point const &pos_bs) const;
 	float get_bcube_z1_inc_ext_basement() const {return (has_ext_basement() ? min(bcube.z1(), interior->basement_ext_bcube.z1()) : bcube.z1());}
@@ -2158,9 +2198,9 @@ public:
 	void try_connect_ext_basement_to_building(building_t &b);
 	void finalize_extb_conn_rooms(unsigned ds_start);
 	template<typename T> void add_door_verts(cube_t const &D, T &drawer, door_rotation_t &drot, uint8_t door_type, bool dim, bool dir,
-		float open_amt, bool opens_out, bool exterior, bool on_stairs=0, bool hinge_side=0, bool is_bldg_conn=0, bool draw_top_edge=0) const;
+		float open_amt, bool opens_out, bool exterior, bool on_stairs=0, bool hinge_side=0, bool open_min_amt=0, bool draw_top_edge=0) const;
 	tquad_with_ix_t set_door_from_cube(cube_t const &c, bool dim, bool dir, unsigned type, float pos_adj, bool exterior,
-		float open_amt, bool opens_out, bool opens_up, bool swap_sides, bool is_bldg_conn, door_rotation_t &drot) const;
+		float open_amt, bool opens_out, bool opens_up, bool swap_sides, bool open_min_amt, door_rotation_t &drot) const;
 	tquad_with_ix_t set_interior_door_from_cube(door_t const &door) const;
 	cube_t get_door_bounding_cube(door_t const &door) const;
 	cube_t get_attic_access_door_avoid() const;
@@ -2343,6 +2383,7 @@ private:
 	int choose_air_intake_room() const;
 	int vent_in_attic_test(cube_t const &vent, bool dim) const;
 	void add_exterior_ac_pipes(rand_gen_t rgen);
+	void add_tunnel_objects   (rand_gen_t rgen);
 	void add_interior_window_objects();
 	void add_padlocks(rand_gen_t rgen);
 	bool add_padlock_to_door     (unsigned door_ix, unsigned lock_color_mask, rand_gen_t &rgen);
@@ -2350,11 +2391,11 @@ private:
 	vector3d get_parked_car_size() const;
 	cube_t get_ext_basement_door_blocker() const;
 	void add_parking_garage_objs(rand_gen_t rgen, room_t const &room, float zval, unsigned room_id, unsigned floor_ix,
-		unsigned num_floors, unsigned &nlights_x, unsigned &nlights_y, float &light_delta_z);
+		unsigned num_floors, unsigned &nlights_x, unsigned &nlights_y, float &light_delta_z, light_ix_assign_t &light_ix_assign);
 	void add_backrooms_objs(rand_gen_t rgen, room_t &room, float zval, unsigned room_id, unsigned floor_ix, vect_cube_t &rooms_to_light);
 	void add_missing_backrooms_lights(rand_gen_t rgen, float zval, unsigned room_id, unsigned objs_start, unsigned lights_start,
 		room_object_t const &ref_light, vect_cube_t const &rooms_to_light, light_ix_assign_t &light_ix_assign);
-	bool cube_intersects_basement_or_extb_room(cube_t const &c) const;
+	void add_sub_room_light(room_object_t light, room_t &room, bool dim, unsigned objs_start, light_ix_assign_t &light_ix_assign, rand_gen_t &rgen);
 	bool add_basement_pipes(vect_cube_t const &obstacles, vect_cube_t const &walls, vect_cube_t const &beams, vect_riser_pos_t const &risers, vect_cube_t &pipe_cubes,
 		unsigned room_id, unsigned num_floors, unsigned objs_start, float ceil_zval, rand_gen_t &rgen, unsigned pipe_type, bool allow_place_fail=0);
 	void add_ext_basement_hallway_pipes_recur(unsigned room_id, bool hall_dim, unsigned pipe_type, float radius_factor,

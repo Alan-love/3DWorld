@@ -314,7 +314,7 @@ void building_t::gen_room_details(rand_gen_t &rgen, unsigned building_ix) {
 
 			if (is_parking_garage) { // parking garage; added first because this sets the number of lights
 				assert(r->interior == 1);
-				add_parking_garage_objs(rgen, *r, room_center.z, room_id, f, num_floors, nx, ny, light_delta_z);
+				add_parking_garage_objs(rgen, *r, room_center.z, room_id, f, num_floors, nx, ny, light_delta_z, light_ix_assign);
 			}
 			else if (is_backrooms) { // should be single floor only
 				add_backrooms_objs(rgen, *r, room_center.z, room_id, f, rooms_to_light);
@@ -652,7 +652,7 @@ void building_t::gen_room_details(rand_gen_t &rgen, unsigned building_ix) {
 							door_t &door(interior->doors[dix]);
 							if (!ds.is_same_stack(door)) break; // moved to a different stack, done
 							if (door.z1() > room_center.z || door.z2() < room_center.z) continue; // wrong floor
-							door.auto_close = 0;
+							door.clear_auto_close();
 						}
 					}
 					is_numbered_room = 1; // increments room number even if not numbered (so that numbers are consistent across floors)
@@ -873,6 +873,7 @@ void building_t::gen_room_details(rand_gen_t &rgen, unsigned building_ix) {
 		}
 	} // for r (room)
 	if (is_house) {interior->assign_master_bedroom(window_vspacing, floor_thickness);}
+	add_tunnel_objects(rgen);
 	add_interior_window_objects();
 	add_padlocks(rgen);
 	bool const has_toilet(building_obj_model_loader.is_model_valid(OBJ_MODEL_TOILET)), has_sink(building_obj_model_loader.is_model_valid(OBJ_MODEL_SINK));
@@ -1607,7 +1608,7 @@ void building_t::add_wall_and_door_trim() { // and window trim
 	// add vertical strips on each side + strip on top of interior doors
 	for (auto d = interior->door_stacks.begin(); d != interior->door_stacks.end(); ++d) {
 		if (d->on_stairs) continue; // no frame for stairs door, skip
-		add_trim_for_door_or_int_window(*d, d->dim, d->mult_floor_room, 0, door_trim_width, trim_thickness, door_trim_exp); // draw_bot_trim=0
+		add_trim_for_door_or_int_window(*d, d->dim, d->get_mult_floor(), 0, door_trim_width, trim_thickness, door_trim_exp); // draw_bot_trim=0
 	}
 	// handle interior windows similar to interior doors, except we also draw bottom trim
 	for (cube_t const &w : interior->int_windows) {
@@ -1843,9 +1844,9 @@ void building_t::add_wall_and_door_trim() { // and window trim
 		flooring_exp.z2() += 0.5*i->dz(); // slightly taller
 
 		for (door_stack_t const &ds : interior->door_stacks) {
-			if (ds.on_stairs || ds.for_closet) continue; // skip basement and closet doors
+			if (ds.on_stairs || ds.get_for_closet()) continue; // skip basement and closet doors
 			cube_t door_bc(ds.get_true_bcube());
-			if (!i->intersects(door_bc))       continue;
+			if (!i->intersects(door_bc)) continue;
 			door_bc.expand_in_dim(ds.dim, -0.05*door_bc.get_sz_dim(ds.dim)); // shrink slightly to prevent Z-fighting
 			assert(i->intersects(door_bc));
 			cube_t trim(flooring_exp);

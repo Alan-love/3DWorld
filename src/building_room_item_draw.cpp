@@ -936,8 +936,7 @@ void building_room_geom_t::create_static_vbos(building_t const &building) {
 		default: break;
 		} // end switch
 	} // for i
-	for (escalator_t  const &e : building.interior->escalators) {add_escalator(e, building.get_window_vspace(), 1, 0);} // draw_static=1, draw_dynamic=0
-	for (tunnel_seg_t const &t : building.interior->tunnels   ) {add_tunnel(t);}
+	for (escalator_t const &e : building.interior->escalators) {add_escalator(e, building.get_window_vspace(), 1, 0);} // draw_static=1, draw_dynamic=0
 	add_skylights_details(building);
 	for (room_object_t &rug : rugs) {add_rug(rug);} // rugs are added last so that alpha blending of their edges works
 	// Note: verts are temporary, but cubes are needed for things such as collision detection with the player and ray queries for indir lighting
@@ -955,6 +954,7 @@ void building_room_geom_t::create_small_static_vbos(building_t const &building) 
 	add_small_static_objs_to_verts(expanded_objs, building.get_trim_color(), 0, floor_ceil_gap); // inc_text=0
 	add_small_static_objs_to_verts(objs,          building.get_trim_color(), 0, floor_ceil_gap); // inc_text=0
 	add_attic_interior_and_rafters(building, 2.0/obj_scale, 0); // only if there's an attic; detail_pass=0
+	for (tunnel_seg_t const &t : building.interior->tunnels) {add_tunnel(t);}
 }
 
 void building_room_geom_t::add_nested_objs_to_verts(vect_room_object_t const &objs_to_add) {
@@ -1238,7 +1238,7 @@ void building_room_geom_t::create_door_vbos(building_t const &building) {
 
 	for (door_t const &d : doors) { // interior doors; opens_out=0, exterior=0
 		door_rotation_t drot;
-		building.add_door_verts(d, *this, drot, door_type, d.dim, d.open_dir, d.open_amt, 0, 0, d.on_stairs, d.hinge_side, d.is_bldg_conn, d.mult_floor_room); // opens_out=0, exterior=0
+		building.add_door_verts(d, *this, drot, door_type, d.dim, d.open_dir, d.open_amt, 0, 0, d.on_stairs, d.hinge_side, d.use_min_open_amt(), d.get_mult_floor()); // opens_out=0, exterior=0
 		if (!global_building_params.add_door_handles) continue;
 		if (d.on_stairs) continue; // skip basement stairs doors since they're not drawn when open anyway
 		
@@ -1707,7 +1707,7 @@ void building_room_geom_t::draw(brg_batch_draw_t *bbd, shader_t &s, shader_t &am
 	if (bbd != nullptr) {bbd->set_camera_dir_mask(camera_bs, ((camera_bs.z < building.ground_floor_z1) ? building.get_bcube_inc_extensions() : building.bcube));}
 	brg_batch_draw_t *const bbd_in(bbd); // capture bbd for instance drawing before setting to null if player_in_building
 	if (player_in_building_or_doorway) {bbd = nullptr;} // use immediate drawing when player is in the building because draw order matters for alpha blending
-	bool const update_tunnel_water(animate2 && player_in_building && !shadow_only && player_in_tunnel);
+	bool const update_tunnel_water(animate2 && player_in_building && !shadow_only && (player_in_tunnel || building.interior->point_near_tunnel_entrance(camera_bs)));
 	bool enable_indir(0), update_escalators(0);
 
 	if (animate2 && player_in_building && !shadow_only && !reflection_pass) { // maybe update escalators
@@ -2359,7 +2359,7 @@ void append_line_pt(vector<vert_wrap_t> &line_pts, point const &pos) {
 	if (line_pts.size() > 1) {line_pts.emplace_back(line_pts.back());} // duplicate point to create a line segment
 	line_pts.emplace_back(pos);
 }
-void building_t::debug_people_in_building(shader_t &s) const {
+void building_t::debug_people_in_building(shader_t &s, point const &camera_bs) const {
 	if (!has_people()) return;
 	shader_t color_shader;
 	color_shader.begin_color_only_shader(YELLOW);

@@ -147,8 +147,7 @@ float const FITTING_LEN(1.25), FITTING_RADIUS(1.1); // relative to radius
 
 float get_pipe_dist_to_wall(float radius, float trim_thickness) {return max(FITTING_RADIUS*radius, (radius + 2.0f*trim_thickness));}
 
-bool building_t::cube_intersects_basement_or_extb_room(cube_t const &c) const {
-	if (c.intersects(get_basement())) return 1;
+bool building_t::cube_intersects_extb_room(cube_t const &c) const {
 	if (!has_ext_basement() || !c.intersects(interior->basement_ext_bcube)) return 0;
 
 	for (auto r = interior->ext_basement_rooms_start(); r != interior->rooms.end(); ++r) {
@@ -176,12 +175,12 @@ bool building_t::add_basement_pipes(vect_cube_t const &obstacles, vect_cube_t co
 	if (r_main == 0.0) return 0; // hot water heater but no hot water pipes?
 	float const insul_thickness(0.4), min_insum_len(4.0); // both relative to pipe radius
 	float const window_vspacing(get_window_vspace()), fc_thickness(get_fc_thickness()), wall_thickness(get_wall_thickness());
+	float const radius_factor(add_insul ? 1.0+insul_thickness : 1.0), max_pipe_radius(max_pipe_radius_mult[pipe_type]*wall_thickness);
+	min_eq(r_main, max_pipe_radius); // limit pipe radius; even with these limits, we can still have hot water and cold water clipping through each other with enough flow
 	float const pipe_zval(ceil_zval   - FITTING_RADIUS*r_main); // includes clearance for fittings vs. beams (and lights - mostly)
 	float const pipe_min_z1(pipe_zval - FITTING_RADIUS*r_main);
 	float const align_dist(2.0*wall_thickness); // align pipes within this range (in particular sinks and stall toilets)
-	float const radius_factor(add_insul ? 1.0+insul_thickness : 1.0), max_pipe_radius(max_pipe_radius_mult[pipe_type]*wall_thickness);
 	float const r_main_spacing(radius_factor*r_main); // include insulation thickness for hot water pipes
-	min_eq(r_main, max_pipe_radius); // limit pipe radius; even with these limits, we can still have hot water and cold water clipping through each other with enough flow
 	assert(pipe_zval > bcube.z1());
 	vector<pipe_t> pipes, fittings, extb_conn, vert_conn_pipes;
 	cube_t pipe_end_bcube;
@@ -457,7 +456,7 @@ bool building_t::add_basement_pipes(vect_cube_t const &obstacles, vect_cube_t co
 		++num_conn_segs;
 	} // for v
 	if (mp[0][dim] >= mp[1][dim]) return 0; // no pipes connected to main? I guess there's nothing to do here
-	unsigned const conn_pipe_fittings_end(fittings.size());
+	unsigned const conn_pipe_fittings_end(fittings.size()), conn_pipes_end(pipes.size());
 
 	// reroute extended basement pipe(s) from next to door to the end of the hallway; only one of them should actually be connected
 	for (pipe_t const &ep : extb_conn) {
@@ -533,7 +532,7 @@ bool building_t::add_basement_pipes(vect_cube_t const &obstacles, vect_cube_t co
 						bool bad_place(0);
 
 						// check if the pipe is too close to an existing conn pipe; allow it to contain the other pipe in dim
-						for (auto p = pipes.begin()+conn_pipes_start; p != pipes.end(); ++p) {
+						for (auto p = pipes.begin()+conn_pipes_start; p != pipes.begin()+conn_pipes_end; ++p) {
 							cube_t const other_bcube(p->get_bcube());
 							if (!pipe_bcube.intersects(other_bcube)) continue;
 							if (pipe_bcube.d[dim][0] > other_bcube.d[dim][0] || pipe_bcube.d[dim][1] < other_bcube.d[dim][1]) {bad_place = 1; break;}
@@ -555,15 +554,21 @@ bool building_t::add_basement_pipes(vect_cube_t const &obstacles, vect_cube_t co
 				point exit_conn(mp[0]); // can use either mp
 				exit_conn[dim] = conn_pipe_pos.front(); // connect directly to the pipe
 				exit_pos = get_closest_wall_pos(exit_conn, r_main_spacing, basement, walls, obstacles, 1);
+				point exit_fc_pos(exit_pos);
 				
-				if (exit_pos[!dim] != exit_conn[!dim]) { // exit point not along the main pipe; create a right angle bend
-					// this doesn't look quite right when the exit point is on the same side of the main pipe as the connector pipe, but this is relatively rare
-					pipes.emplace_back(exit_conn, exit_pos, r_main, !dim, PIPE_MEC, 3); // main exit connector, bends at both ends
-					exit_pipe_end_flags = 0; // the above pipe will provide the bend, so it's not needed at the top of the exit pipe
+				if (exit_pos == exit_conn) { // no valid wall found
+					exit_fc_pos.z = ceil_zval; // exit back into the ceiling rather than the floor to avoid a vertical pipe in the center of the room
+					exit_pipe_end_flags = 1; // bend at the bottom only
 				}
-				point exit_floor_pos(exit_pos);
-				exit_floor_pos.z = exit_floor_zval;
-				pipes.emplace_back(exit_floor_pos, exit_pos, r_main, 2, PIPE_EXIT, exit_pipe_end_flags); // bend at the top only
+				else {
+					if (exit_pos[!dim] != exit_conn[!dim]) { // exit point not along the main pipe; create a right angle bend
+						// this doesn't look quite right when the exit point is on the same side of the main pipe as the connector pipe, but this is relatively rare
+						pipes.emplace_back(exit_conn, exit_pos, r_main, !dim, PIPE_MEC, 3); // main exit connector, bends at both ends
+						exit_pipe_end_flags = 0; // the above pipe will provide the bend, so it's not needed at the top of the exit pipe
+					}
+					exit_fc_pos.z = exit_floor_zval; // exit down into the floor
+				}
+				pipes.emplace_back(exit_fc_pos, exit_pos, r_main, 2, PIPE_EXIT, exit_pipe_end_flags);
 				if (conn_pipe_fittings_end > 0) {fittings.erase(fittings.begin()+conn_pipe_fittings_end-1);} // remove the conn pipe fitting as it's not needed
 				no_main_pipe = 1;
 				break; // done
@@ -789,6 +794,7 @@ void building_t::add_ext_basement_hallway_pipes_recur(unsigned room_id, bool hal
 		conn_pipe.p2[!hall_dim] = room_bounds.d[!hall_dim][conn_dir]; // far end of connecting hall
 		conn_pipe.dim      = !hall_dim;
 		conn_pipe.conn_dir = !conn_dir;
+		if (conn_room.has_tunnel_conn()) {} // extend pipe through tunnel? code appears to be unreachable
 		pipes.push_back(conn_pipe);
 		// add fitting at the junction
 		float const fitting_len(FITTING_LEN*conn_pipe.radius);

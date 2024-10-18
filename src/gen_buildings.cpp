@@ -1661,6 +1661,7 @@ void building_t::get_all_drawn_exterior_verts(building_draw_t &bdraw) { // exter
 						// calculate bcube of points along bottom edge of roof section; required for intersecting/clipped roofs where bottom edge is shorter than top edge
 						if (tq.pts[n].z < tq_bcube.zc()) {bot_edge_bcube.assign_or_union_with_pt(cur);}
 					} // for n
+					bot_edge_bcube.expand_in_dim(top_dim, -0.001*extend); // small inward bias to prevent Z-fighting with interior
 					assert(!bot_edge_bcube.is_all_zeros()); // must have at least one point
 					cube_t const new_bcube(tq.get_bcube());
 
@@ -2122,7 +2123,7 @@ void building_t::get_walkway_interior_verts(building_draw_t &bdraw, building_wal
 }
 
 template<typename T> void building_t::add_door_verts(cube_t const &D, T &drawer, door_rotation_t &drot, uint8_t door_type, bool dim,
-	bool dir, float open_amt, bool opens_out, bool exterior, bool on_stairs, bool hinge_side, bool is_bldg_conn, bool draw_top_edge) const
+	bool dir, float open_amt, bool opens_out, bool exterior, bool on_stairs, bool hinge_side, bool open_min_amt, bool draw_top_edge) const
 {
 	bool const is_rooftop_door(door_type == tquad_with_ix_t::TYPE_RDOOR);
 	int type(tquad_with_ix_t::TYPE_IDOOR); // use interior door type, even for exterior door, because we're drawing it in 3D inside the building
@@ -2144,7 +2145,7 @@ template<typename T> void building_t::add_door_verts(cube_t const &D, T &drawer,
 		if (opened && on_stairs) {dc.z2() = dc.z1();}
 		bool const int_other_side(exterior ? 0 : hinge_side), swap_sides(exterior ? (side == 0) : hinge_side); // swap sides for right half of exterior door
 		// 0,1: bottom, 2,3: top; we pass in the same drot for both sides because the value is only filled in and used for interior doors, which have only one side
-		tquad_with_ix_t const door(set_door_from_cube(dc, dim, dir, type, 0.0, exterior, open_amt, opens_out, opens_up, swap_sides, is_bldg_conn, drot));
+		tquad_with_ix_t const door(set_door_from_cube(dc, dim, dir, type, 0.0, exterior, open_amt, opens_out, opens_up, swap_sides, open_min_amt, drot));
 		vector3d const normal(door.get_norm());
 		tquad_with_ix_t door_edges[4] = {door, door, door, door}; // most doors will only use 2 of these
 
@@ -2185,7 +2186,7 @@ template<typename T> void building_t::add_door_verts(cube_t const &D, T &drawer,
 
 // explicit template specialization
 template void building_t::add_door_verts(cube_t const &D, building_room_geom_t &drawer, door_rotation_t &drot, uint8_t door_type, bool dim,
-	bool dir, float open_amt, bool opens_out, bool exterior, bool on_stairs, bool hinge_side, bool is_bldg_conn, bool draw_top_edge) const;
+	bool dir, float open_amt, bool opens_out, bool exterior, bool on_stairs, bool hinge_side, bool open_min_amt, bool draw_top_edge) const;
 
 // Note: this is actually the geometry of walls that have windows, not the windows themselves
 void building_t::get_all_drawn_window_verts(building_draw_t &bdraw, bool lights_pass, float offset_scale,
@@ -3139,11 +3140,12 @@ public:
 			}
 		} // if flatten_mesh
 		{ // open a scope
+			has_office_chair_model(); // must call this to load models here, since it's called inside building_t::gen_geometry() and is not thread safe
 			timer_t timer2("Gen Building Geometry", !is_tile); // 120ms/700ms => 160ms/900ms
 			bool const gen_interiors(global_building_params.gen_building_interiors);
 			bool const use_mt(!is_tile || gen_interiors); // only single threaded for tiles with no interiors, which is a fast case anyway
-			// house extended basement logic isn't thread safe because two houses being generated on different threads could have overlapping basement rooms;
-			// however, office buildings don't have extended basements, so it should be okay to process them in parallel to houses; this is just a bit slower
+
+			// split into houses and office buildings run on 2 threads
 #pragma omp parallel for schedule(static) num_threads(2) if (use_mt)
 			for (int is_house=0; is_house < 2; ++is_house) {
 				for (unsigned i = 0; i < buildings.size(); ++i) {
@@ -3726,7 +3728,7 @@ public:
 						building_cont_player    = &b; // there can be only one
 						if (!interior_wind_draw.empty() && !ref_pass_interior) {per_bcs_exclude[bcs_ix] = b.ext_side_qv_range;} // only if there are drawn windows
 						if (reflection_pass) continue; // don't execute the code below
-						if (display_mode & 0x20) {b.debug_people_in_building(s);} // debug visualization
+						if (display_mode & 0x20) {b.debug_people_in_building(s, camera_bs);} // debug visualization
 						float const basement_z_adj(2.0*BASEMENT_ENTRANCE_SCALE*b.get_floor_thickness()); // adjust to prevent problems when camera is close to the plane
 						this_frame_camera_in_building = 1;
 						this_frame_player_in_basement =   b.check_player_in_basement(camera_bs - basement_z_adj*plus_z); // set once
@@ -4204,7 +4206,10 @@ public:
 		unsigned const num_iverts(building_draw_interior.num_verts() + building_draw_int_ext_walls.num_verts());
 		unsigned const num_itris( building_draw_interior.num_tris () + building_draw_int_ext_walls.num_tris ());
 		gpu_mem_usage += (num_everts + num_iverts)*sizeof(vert_norm_comp_tc_color);
-		if (!is_tile) {cout << "Building V: " << num_everts << ", T: " << num_etris << ", interior V: " << num_iverts << ", T: " << num_itris << ", mem: " << gpu_mem_usage << endl;}
+		
+		if (!is_tile && num_everts > 0) {
+			cout << "Building V: " << num_everts << ", T: " << num_etris << ", interior V: " << num_iverts << ", T: " << num_itris << ", mem: " << gpu_mem_usage << endl;
+		}
 	}
 	void create_vbos(bool is_tile=0) {
 		if (vbos_created) return; // already created
@@ -4325,8 +4330,7 @@ public:
 				for (auto b = ge.bc_ixs.begin(); b != ge.bc_ixs.end(); ++b) {
 					building_t const &building(get_building(b->ix));
 					if (&building == exclude1 || &building == exclude2) continue;
-					// Note: could check individual ext basement rooms, but that's not thread safe
-					if (inc_basement && building.cube_int_ext_basement(bcube)) return 1; // extended basement intersection
+					if (inc_basement && building.cube_intersects_extb_room(bcube)) return 1; // extended basement intersection
 					if (!bcube.intersects_xy(*b)) continue; // no intersection
 						
 					if (!xy_only) {

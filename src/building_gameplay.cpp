@@ -21,7 +21,7 @@ carried_item_t player_held_object;
 bldg_obj_type_t bldg_obj_types[NUM_ROBJ_TYPES];
 vector<sphere_t> cur_sounds; // radius = sound volume
 
-extern bool camera_in_building, player_is_hiding, player_in_unlit_room, disable_blood;
+extern bool camera_in_building, player_is_hiding, player_in_unlit_room, player_in_tunnel, disable_blood;
 extern int window_width, window_height, display_framerate, display_mode, game_mode, building_action_key, frame_counter, player_in_basement, player_in_water;
 extern int animate2, camera_surf_collide;
 extern float fticks, CAMERA_RADIUS;
@@ -1145,6 +1145,7 @@ bool building_room_geom_t::player_pickup_object(building_t &building, point cons
 			range  = dist;
 			rat_ix = (r - rats.begin());
 		} // for r
+		// what about sewer_rats?
 	}
 	//if (bldg_obj_types[TYPE_SPIDER].pickup) {} // check spiders (future work)
 	//if (bldg_obj_types[TYPE_SNAKE ].pickup) {} // check snakes  (future work)
@@ -1766,7 +1767,7 @@ bool building_room_geom_t::add_room_object(room_object_t const &obj, building_t 
 		room_object_t &added_obj(get_room_object_by_index(obj_id));
 		added_obj = obj; // overwrite with new object
 		if (set_obj_id) {added_obj.obj_id = (uint16_t)(obj.has_dstate() ? allocate_dynamic_state() : obj_id);}
-		if (velocity != zero_vector) {get_dstate(added_obj).velocity = velocity;}
+		if (velocity != zero_vector) {assert(added_obj.has_dstate()); get_dstate(added_obj).velocity = velocity;}
 	}
 	update_draw_state_for_room_object(obj, building, 0);
 	return 1;
@@ -1899,7 +1900,7 @@ bool building_t::move_nearest_object(point const &at_pos, vector3d const &in_dir
 				if (is_cube_close_to_door(moved_obj, 0.0, inc_open, *i, check_dirs))              {i->blocked = 1;} // newly blocked  , either dir
 				else if (i->blocked && is_cube_close_to_door(obj, 0.0, inc_open, *i, check_dirs)) {i->blocked = 0;} // newly unblocked, either dir
 				else {continue;}
-				if (!i->for_closet) {interior->door_state_updated = 1;} // trigger AI update if this is a door between rooms
+				if (!i->get_for_closet()) {interior->door_state_updated = 1;} // trigger AI update if this is a door between rooms
 			} // for i
 			// update this object
 			obj = moved_obj; // keep this placement
@@ -2506,6 +2507,7 @@ void building_t::register_player_death(point const &camera_bs) { // due to zombi
 void building_t::add_blood_decal(point const &pos, float radius, colorRGBA const &color) {
 	bool const is_blood(color == WHITE); // else insect guts; here WHITE represents real red blood, while any other color is something custom
 	if (disable_blood && is_blood) return; // disable_blood only applies to red blood, not bug guts
+	if (point_in_water_area(pos))  return; // no blood decal under the water
 	assert(has_room_geom());
 	float zval(pos.z);
 	if (!get_zval_of_floor(pos, radius, zval)) return; // no suitable floor found
@@ -2691,7 +2693,7 @@ point building_t::choose_creepy_sound_pos(point const &player_pos, rand_gen_t &r
 	return sound_pos;
 }
 void building_t::update_creepy_sounds(point const &player_pos) const {
-	if (player_in_basement == 3) {creepy_sound_manager.next_frame(*this, player_pos);} // update if player in extended basement
+	if (player_in_basement == 3 && !player_in_tunnel) {creepy_sound_manager.next_frame(*this, player_pos);} // update if player in extended basement
 }
 
 void play_hum_sound(point const &pos, float gain, float pitch) { // pos is in building space; nominal hum is 100Hz
