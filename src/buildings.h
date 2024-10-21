@@ -831,9 +831,9 @@ public:
 		add_sphere_to_verts(c.get_cube_center(), 0.5*c.get_size(), color, low_detail, skip_hemi_dir, tr, matrix, ts_add, tt_add);
 	}
 	void add_vert_torus_to_verts (point const &center, float r_inner, float r_outer, colorRGBA const &color,
-		float tscale=1.0, bool low_detail=0, bool half=0, float s_offset=0.0);
+		float tscale=1.0, bool low_detail=0, int half_or_quarter=0, float s_offset=0.0, unsigned ndiv=0);
 	void add_ortho_torus_to_verts(point const &center, float r_inner, float r_outer, unsigned dim, colorRGBA const &color,
-		float tscale=1.0, bool low_detail=0, bool half=0, float s_offset=0.0);
+		float tscale=1.0, bool low_detail=0, int half_or_quarter=0, float s_offset=0.0);
 	void add_contained_vert_torus_to_verts(cube_t const &c, colorRGBA const &color, float tscale=1.0, bool low_detail=0);
 	void add_triangle_to_verts(point const v[3], colorRGBA const &color, bool two_sided, float tscale=1.0);
 	void add_quad_to_verts(point const v[4], colorRGBA const &color, float tscale=1.0);
@@ -1160,6 +1160,7 @@ struct building_room_geom_t {
 	void add_ext_ladder(room_object_t const &c);
 	void add_int_ladder(room_object_t const &c);
 	void add_machine_pipe_in_region(room_object_t const &c, cube_t const &region, float rmax, unsigned dim, rand_gen_t &rgen);
+	void add_spring(point const &p1, float len, float radius, float r_wire, float length, float coil_gap, unsigned dim, colorRGBA const &color);
 	void add_machine(room_object_t const &c, float floor_ceil_gap);
 	void add_keyboard(room_object_t const &c);
 	void add_obj_with_top_texture  (room_object_t const &c, std::string const &texture_name, colorRGBA const &sides_color, bool is_small=0);
@@ -1398,9 +1399,10 @@ struct tunnel_seg_t {
 	bool dim=0, room_conn=0, room_dir=0, has_gate=0, closed_ends[2]={};
 	int conn_ix[2]={-1,-1}; // index of adjacent connected tunnel in each dir; -1 is none
 	unsigned conn_room_ix=0, tseg_ix=0;
+	int8_t add_bend_dir[2] = { -1, -1 }; // one per end; -1 is no bend
 	float radius=0.0, gate_pos=0.0, water_level=0.0, water_flow=0.0;
 	point p[2];
-	cube_t bcube, bcube_ext; // bcube_ext includes the area connecting to the door when room_conn=1
+	cube_t bcube, bcube_ext, bcube_draw; // bcube_ext includes the area connecting to the door when room_conn=1 and overlap area at bends
 
 	tunnel_seg_t(point const &p1, point const &p2, float radius_);
 	float get_length() const {return (p[1][dim] - p[0][dim]);}
@@ -2644,6 +2646,7 @@ template<typename T> void add_to_and_clear(T &src, T &dest) {
 	vector_add_to(src, dest);
 	src.clear();
 }
+template<typename T> void add_inverted_triangles(T &verts, vector<unsigned> &indices, unsigned verts_start, unsigned ixs_start);
 
 colorRGBA const DARK_BRASS_C(0.4, 0.35, 0.15, 1.0);
 
