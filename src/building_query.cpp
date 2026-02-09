@@ -3382,7 +3382,7 @@ bool building_t::is_cube_visible_through_extb_door(point const &viewer, cube_t c
 	door_t const &extb_door(interior->get_ext_basement_door());
 	if (!extb_door.can_see_through()) return 0; // closed door
 	cube_t door_bc(extb_door.get_true_bcube());
-	door_bc.expand_by_xy(get_wall_thickness()); // standing in the doorway counts
+	door_bc.expand_by_xy(2.0*get_wall_thickness()); // standing in the doorway counts; add extra padding
 	return (door_bc.contains_pt(viewer) || is_cube_visible_through_door(viewer, c, extb_door));
 }
 
