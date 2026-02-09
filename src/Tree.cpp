@@ -2584,7 +2584,7 @@ void tree_fire_t::next_frame(tree &t) {
 		if ((counter&3) != 0) continue; // update every 4 frames as an optimization
 		bool const trunk(cylin.level == 0); // trunk fire spreads more quickly
 		float const radius(elem.burn_amt*fire_radius*rgen.rand_uniform(0.8, 1.3)), burn_radius(radius + elem.branch_bradius);
-		vector3d const dir(rgen.signed_rand_vector_spherical().get_norm() + 0.2*wind + vector3d(0, 0, 0.5)); // add minor wind influence; spread is biased upward
+		vector3d const dir(rgen.signed_rand_vector_spherical_norm() + 0.2*wind + vector3d(0, 0, 0.5)); // add minor wind influence; spread is biased upward
 		point const pos(elem.pos + radius*dir);
 
 		if (elem.sleep_time > 0) {--elem.sleep_time;} // sleeping

@@ -780,16 +780,7 @@ class building_indir_light_mgr_t {
 		return v_ref;
 	}
 	void calc_reflect_ray(point &pos, point const &cpos, vector3d &dir, vector3d const &cnorm, vector3d const &v_ref, rand_gen_t &rgen, float tolerance) const {
-		vector3d rand_dir;
-		float mag_sq(0.0);
-
-		while (1) { // spherical distribution
-			rand_dir = rgen.signed_rand_vector();
-			mag_sq   = rand_dir.mag_sq();
-			if (mag_sq < 1.0) break;
-		}
-		// optimization: multiply v_ref by mag rather than dividing rand_dir by mag, since we normalize the sum anyway
-		dir = (sqrt(mag_sq)*v_ref + rand_dir).get_norm(); // diffuse reflection: new dir is mix 50% specular with 50% random
+		dir = (v_ref + rgen.signed_rand_vector_spherical_norm()).get_norm();
 		if (dot_product(dir, cnorm) < 0.0) {dir.negate();} // make sure it points away from the surface (is this needed?)
 		pos = cpos + tolerance*dir; // move slightly away from the surface
 	}
@@ -922,7 +913,7 @@ class building_indir_light_mgr_t {
 				ray_lcolor = pri_lcolor;
 			}
 			else { // omidirectional or sky ambient from windows
-				pri_dir = rgen.signed_rand_vector_spherical().get_norm(); // should this be cosine weighted for windows? and clipped to the beamwidth for ceiling lights?
+				pri_dir = rgen.signed_rand_vector_spherical_norm(); // should this be cosine weighted for windows? and clipped to the beamwidth for ceiling lights?
 				if (is_window && ((pri_dir[dim] > 0.0) ^ dir)) {pri_dir[dim] *= -1.0;} // reflect light if needed about window plane to ensure it enters the room
 				//if (!is_window && dir < 2 && (pri_dir[dim] > 0) != bool(dir)) {pri_dir[dim] *= -1.0;} // point in general light dir/hemisphere; doesn't seem to improve quality
 				if (hanging && dot_product(pri_dir, light_dir) < 0.0) {pri_dir.negate();}

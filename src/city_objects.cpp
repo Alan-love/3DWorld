@@ -452,7 +452,7 @@ void hedge_draw_t::create(cube_t const &bc) {
 		for (unsigned n = 0; n < num_this_face; ++n) {
 			pos[d1] = rgen.rand_uniform(bcube.d[d1][0], bcube.d[d1][1]);
 			pos[d2] = rgen.rand_uniform(bcube.d[d2][0], bcube.d[d2][1]);
-			vector3d const normal(rgen.signed_rand_vector_spherical().get_norm());
+			vector3d const normal(rgen.signed_rand_vector_spherical_norm());
 			float const angle(TWO_PI*rgen.rand_float());
 			vector3d tangent;
 			rotate_vector3d(cross_product(normal, plus_x), normal, angle, tangent);

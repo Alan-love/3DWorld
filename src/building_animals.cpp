@@ -626,7 +626,7 @@ template<bool xy_only> class dir_gen_t {
 	void gen_dirs() {
 		rand_gen_t rgen;
 		dirs.resize(1009); // make it a prime number
-		for (auto &dir : dirs) {dir = (xy_only ? rgen.signed_rand_vector_spherical_xy() : rgen.signed_rand_vector_spherical()).get_norm();}
+		for (auto &dir : dirs) {dir = (xy_only ? rgen.signed_rand_vector_spherical_xy_norm() : rgen.signed_rand_vector_spherical_norm());}
 	}
 public:
 	dir_gen_t() : dir_ix(0) {}

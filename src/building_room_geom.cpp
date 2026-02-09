@@ -5355,7 +5355,7 @@ void building_room_geom_t::add_server(room_object_t const &c) {
 void get_pool_ball_rot_matrix(room_object_t const &c, xform_matrix &rot_matrix) {
 	rand_gen_t rgen(c.create_rgen());
 	rot_matrix  = get_rotation_matrix(plus_x, TWO_PI*rgen.rand_float()); // random rotation about the numbered face
-	rot_matrix *= get_rotation_matrix(rgen.signed_rand_vector_spherical().get_norm(), TWO_PI*rgen.rand_float()); // random rotation about random axis
+	rot_matrix *= get_rotation_matrix(rgen.signed_rand_vector_spherical_norm(), TWO_PI*rgen.rand_float()); // random rotation about random axis
 }
 tex_range_t get_pool_ball_tex_range(room_object_t const &c) {
 	// the texture atlas is 3 across by 6 high: {1,2,3}, {4,5,6}, {7,8,9}, {10,11,23}, {13,14,15}, {cue, stripe, crown}

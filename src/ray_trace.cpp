@@ -766,9 +766,8 @@ void trace_ray_block_sky(rt_data *data) {
 		vector<vector3d> dirs(NRAYS);
 
 		for (unsigned p = 0; p < block_npts; ++p) {
-			do {
-				pts[p] = rgen.signed_rand_vector_spherical(1.0).get_norm()*scene_radius; // start the ray here
-			} while (pts[p].z < zbottom); // force above zbottom
+			do {pts[p] = rgen.signed_rand_vector_spherical_norm()*scene_radius;} // start the ray here
+			while (pts[p].z < zbottom); // force above zbottom
 		}
 		sort(pts.begin(), pts.end());
 		if (data->verbose) {cout << "Sky light source progress (of " << block_npts << "): 0";}
@@ -808,7 +807,7 @@ void trace_ray_block_sky(rt_data *data) {
 			if (kill_raytrace) break;
 			if (data->verbose && ((p%1000) == 0)) {increment_printed_number(p/1000);}
 			point const pt(rgen.gen_rand_cube_point(i->bounds));
-			vector3d dir(rgen.signed_rand_vector_spherical().get_norm()); // need high quality distribution
+			vector3d dir(rgen.signed_rand_vector_spherical_norm()); // need high quality distribution
 			dir.z = -fabs(dir.z); // make sure z is negative since this is supposed to be light from the sky
 			point const end_pt(pt + dir*line_length);
 			cast_light_ray(data->lmgr, pt, end_pt, cube_weight, cube_weight, i->color, line_length, -1, LIGHTING_SKY, 0, rgen, &data->accum_map);
@@ -941,7 +940,7 @@ void ray_trace_local_light_source(lmap_manager_t *lmgr, light_source const &ls, 
 
 				for (unsigned n = 0; n < side_rays; ++n) {
 					if (kill_raytrace) break;
-					vector3d dir(rgen.signed_rand_vector_spherical(1.0).get_norm());
+					vector3d dir(rgen.signed_rand_vector_spherical_norm());
 					if (dot_product(dir, normal) < 0.0) {dir.negate();}
 					start_pt[d1] = rgen.rand_uniform(cube.d[d1][0], cube.d[d1][1]);
 					start_pt[d2] = rgen.rand_uniform(cube.d[d2][0], cube.d[d2][1]);
@@ -963,7 +962,7 @@ void ray_trace_local_light_source(lmap_manager_t *lmgr, light_source const &ls, 
 		float weight(0.0);
 
 		for (unsigned tries = 0; tries < 10; ++tries) { // make up to 10 attempts
-			dir    = rgen.signed_rand_vector_spherical(1.0).get_norm();
+			dir    = rgen.signed_rand_vector_spherical_norm();
 			weight = ray_wt*ls.get_dir_intensity(-dir);
 			if (weight > 0.0) break; // success
 		}
@@ -985,7 +984,7 @@ void ray_trace_local_light_source(lmap_manager_t *lmgr, light_source const &ls, 
 				// move r_inner away from the light source
 				// necessary for sources contained in more than one cobj (like the lamps in mapx)
 				// move in a different dir to simulate emission along the surface and avoid single point radial grid artifacts
-				vector3d const move_dir(rgen.signed_rand_vector_spherical(1.0).get_norm());
+				vector3d const move_dir(rgen.signed_rand_vector_spherical_norm());
 				bool const invert(dot_product(dir, move_dir) < 0);
 				start_pt += move_dir*(invert ? -r_inner : r_inner);
 			}

@@ -39,27 +39,22 @@ void cloud_manager_t::create_clouds() { // 3D cloud puffs
 	unsigned const NPARTS  = 1000;
 
 	for (unsigned c = 0; c < NCLOUDS; ++c) {
-		point const center(4.0*xsz*signed_rand_float(), 4.0*ysz*signed_rand_float(),
-						   (ztop + CLOUD_CEILING + Z_SCENE_SIZE*rand_uniform(0.25, 0.75)));
-		point const bounds(xsz*rand_uniform(1.0, 2.0), ysz*rand_uniform(1.0, 2.0),
-						   Z_SCENE_SIZE*rand_uniform(0.4, 0.8));
+		point const center(4.0*xsz*signed_rand_float(), 4.0*ysz*signed_rand_float(), (ztop + CLOUD_CEILING + Z_SCENE_SIZE*rand_uniform(0.25, 0.75)));
+		point const bounds(xsz*rand_uniform(1.0, 2.0), ysz*rand_uniform(1.0, 2.0), Z_SCENE_SIZE*rand_uniform(0.4, 0.8));
 		unsigned const nparts(rand()%(NPARTS/2) + NPARTS/2);
 		size_t const ix(size());
 		resize(ix + nparts);
 
 		for (unsigned p = 0; p < nparts; ++p) {
-			point pos(signed_rand_vector_spherical(1.0));
-
-			for (unsigned i = 0; i < 3; ++i) {
-				pos[i] *= bounds[i];
-			}
-			if (pos.z < 0.0) pos.z *= 0.5; // compressed on the bottom
+			point pos(signed_rand_vector_spherical());
+			for (unsigned i = 0; i < 3; ++i) {pos[i] *= bounds[i];}
+			if (pos.z < 0.0) {pos.z *= 0.5;} // compressed on the bottom
 			pos += center;
 			float const radius(0.045f*(xsz + ysz)*rand_uniform(0.5, 1.0));
 			float const density(rand_uniform(0.05, 0.12));
 			(*this)[ix + p].gen(pos, WHITE, zero_vector, radius, density, 0.0, 0.0, -((int)c+2), 0, 0, 1, 1); // no lighting
 		}
-	}
+	} // for c
 }
 
 
