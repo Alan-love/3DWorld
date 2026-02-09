@@ -779,9 +779,8 @@ class building_indir_light_mgr_t {
 	light_job_t cur_job;
 	ConcurrentQueue<light_job_t> light_queue, lights_done;
 
-	void init_lmgr(bool clear_lighting) {
-		if (clear_lighting) {lmgr.reset_all();}
-		lmgr.alloc(MESH_X_SIZE, MESH_Y_SIZE, MESH_SIZE[2]); // Note: MESH_SIZE[2], not MESH_Z_SIZE; want clipped size that lmap uses rather than user-specified size
+	void init_lmgr() {
+		lmgr.alloc(MESH_X_SIZE, MESH_Y_SIZE, MESH_SIZE[2]);
 	}
 	void init_ray_directions() {
 		rand_gen_t rgen;
@@ -990,7 +989,7 @@ class building_indir_light_mgr_t {
 		kill_thread = 0;
 	}
 	void update_volume_light_texture() { // full update, 6.6ms for z=128
-		init_lmgr(0); // init on first call; clear_lighting=0
+		init_lmgr(); // init on first call
 		//highres_timer_t timer("Lighting Tex Create"); // 706ms in mall with 4 threads and 368 lights
 		lmgr.update_indir_light_texture(cur_tid, is_running); // incremental update if running
 		lighting_updated = 0;
@@ -1124,14 +1123,14 @@ public:
 			add_light_jobs(b, target);
 
 			if (light_queue.empty()) { // no lights to update
-				//if (timer_val) {register_timing_value("lighting update", (GET_TIME_MS() - timer_val));}
+				if (timer_val) {register_timing_value("lighting update", (GET_TIME_MS() - timer_val));}
 				timer_val = 0; // prevent printout from re-triggering until more lights are processed
 				// update cube map reflections on lighting change; should be done per-light, but may be too slow with the added per-frame lighting work
 				register_reflection_update();
 				return; // no work to do; done
 			}
 			if (!timer_val) {timer_val = GET_TIME_MS();} // start a new block of lights
-			init_lmgr(0); // clear_lighting=0
+			init_lmgr();
 			assert(!needs_to_join); // must have joined previous thread
 			is_running = 1;
 			rt_thread  = std::thread(&building_indir_light_mgr_t::run_light_batch, this, b);
@@ -1140,7 +1139,7 @@ public:
 			mark_light_done(cur_job);
 			cur_job = get_next_light(b, target);
 			if (!cur_job.is_valid()) return; // no lights to update
-			init_lmgr(0); // clear_lighting=0
+			init_lmgr();
 			lighting_updated = 1;
 			highres_timer_t timer("Ray Cast Building Light"); // 2354 in mall with 368 lights
 			cast_light_rays(b);
