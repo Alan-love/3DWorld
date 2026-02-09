@@ -126,10 +126,11 @@ public:
 		cobj_tree_simple_type_t<colored_cube_t>::clear();
 		roof_tquads.clear();
 	}
-	void ray_cast(point const &p1, point const &p2, point &cpos, vector3d &cnorm, colorRGBA &ccolor, float &t) const {
-		if (nodes.empty()) return;
+	bool ray_cast(point const &p1, point const &p2, point &cpos, vector3d &cnorm, colorRGBA &ccolor) const {
+		if (nodes.empty()) return 0;
 		node_ix_mgr nixm(nodes, p1, p2);
 		unsigned const num_nodes((unsigned)nodes.size());
+		bool hit(0);
 
 		for (unsigned nix = 0; nix < num_nodes;) {
 			tree_node const &n(nodes[nix]);
@@ -138,13 +139,16 @@ public:
 			for (unsigned i = n.start; i < n.end; ++i) { // check leaves
 				auto const &obj(objects[i]);
 				if (!nixm.get_line_clip_func(p1, nixm.dinv, obj.d)) continue; // early reject test
+				float t(1.0);
 				if (!ray_cast_cube(p1, p2, obj, cnorm, t)) continue;
 				cpos   = p1 + (p2 - p1)*t;
 				ccolor = obj.color;
+				hit    = 1;
 				nixm.dinv = vector3d(cpos - p1);
 				nixm.dinv.invert();
 			}
 		} // for nix
+		return hit;
 	}
 };
 
@@ -236,8 +240,6 @@ bool building_t::ray_cast_interior(point const &pos, vector3d const &dir, ray_ca
 		else {ccolor = args.bcolors.wall_color;} // non-basement wall
 	}
 	else { // check for exterior rays (uncommon case)
-		bool hit(0);
-
 		if (!is_cube()) {
 			int const part_ix(get_part_ix_containing_pt(p2));
 			if (part_ix >= 0 && line_int_polygon_sides(p1, p2, parts[part_ix], get_part_ext_verts(part_ix), t)) {hit = 1;}
@@ -252,12 +254,9 @@ bool building_t::ray_cast_interior(point const &pos, vector3d const &dir, ray_ca
 			return 1;
 		}
 	}
-	args.bvh.ray_cast(p1, p2, cpos, cnorm, ccolor, t);
-
-	if (t == 1.0) { // no intersection with bvh
-		if (!hit) return 0;
-		if (rgen && p2.z > ground_floor_z1 && has_int_windows() && rgen->rand_bool()) return 0; // 50% chance of exiting through a window
-	}
+	if (args.bvh.ray_cast(p1, p2, cpos, cnorm, ccolor)) return 1;
+	if (!hit) return 0;
+	if (rgen && p2.z > ground_floor_z1 && !args.in_attic && has_int_windows() && rgen->rand_bool()) return 0; // 50% chance of exiting through a window
 	return 1;
 }
 
