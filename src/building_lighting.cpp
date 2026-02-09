@@ -1017,6 +1017,11 @@ class building_indir_light_mgr_t {
 		for (auto const &light : lights_to_sort) {light_ids.push_back(light.second);}
 		lights_to_sort.clear();
 	}
+	unsigned get_target_floor(building_t const &b, point const &target) const {
+		int const target_room(b.get_room_containing_pt(target)); // generally always should be >= 0
+		bool const is_single_floor(target_room >= 0 && b.get_room(target_room).is_single_floor);
+		return (is_single_floor ? 0 : b.get_floor_for_zval(target.z));
+	}
 public:
 	cube_t get_light_bounds() const {return light_bounds;}
 
@@ -1058,7 +1063,7 @@ public:
 		}
 		else {
 			if (update_windows) {get_windows(b);}
-			unsigned const new_floor(b.get_floor_for_zval(target.z));
+			unsigned const new_floor(get_target_floor(b, target));
 			bool const new_in_ext_basement(b.point_in_extended_basement_not_basement(target));
 			cube_t const valid_area(get_valid_area(b, target, new_floor));
 			floor_change  = (cur_floor >= 0 && cur_floor != (int)new_floor);
@@ -1252,7 +1257,7 @@ public:
 	}
 	void build_bvh(building_t const &b, point const &target) {
 		//highres_timer_t timer("Build BVH");
-		cur_floor  = b.get_floor_for_zval(target.z);
+		cur_floor  = get_target_floor(b, target);
 		valid_area = get_valid_area(b, target, cur_floor);
 		in_ext_basement = b.point_in_extended_basement_not_basement(target);
 
