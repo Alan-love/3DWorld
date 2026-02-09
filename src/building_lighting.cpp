@@ -755,6 +755,7 @@ class building_indir_light_mgr_t {
 	vector<pair<float, unsigned>> lights_to_sort;
 	deque<unsigned> remove_queue;
 	set<unsigned> lights_complete, lights_seen, lights_pend;
+	vector<vector3d> ray_directions;
 	vect_cube_with_ix_t windows;
 	cube_bvh_t bvh;
 	lmap_manager_local_t lmgr;
@@ -773,14 +774,24 @@ class building_indir_light_mgr_t {
 		if (clear_lighting) {lmgr.reset_all();}
 		lmgr.alloc(MESH_X_SIZE, MESH_Y_SIZE, MESH_SIZE[2]); // Note: MESH_SIZE[2], not MESH_Z_SIZE; want clipped size that lmap uses rather than user-specified size
 	}
+	void init_ray_directions() {
+		rand_gen_t rgen;
+		ray_directions.resize(4096);
+		for (vector3d &dir : ray_directions) {dir = rgen.signed_rand_vector_spherical_norm();}
+	}
+	vector3d const &get_ray_dir(unsigned &ix) const {
+		assert(!ray_directions.empty());
+		if (ix >= ray_directions.size()) {ix = 0;}
+		return ray_directions[ix++];
+	}
 	vector3d get_reflect_dir(vector3d const &dir, vector3d const &cnorm) {
 		vector3d v_ref;
 		calc_reflection_angle(dir, v_ref, cnorm);
 		v_ref.normalize();
 		return v_ref;
 	}
-	void calc_reflect_ray(point &pos, point const &cpos, vector3d &dir, vector3d const &cnorm, vector3d const &v_ref, rand_gen_t &rgen, float tolerance) const {
-		dir = (v_ref + rgen.signed_rand_vector_spherical_norm()).get_norm();
+	void calc_reflect_ray(point &pos, point const &cpos, vector3d &dir, vector3d const &cnorm, vector3d const &v_ref, unsigned &dir_ix, float tolerance) const {
+		dir = (v_ref + get_ray_dir(dir_ix)).get_norm();
 		if (dot_product(dir, cnorm) < 0.0) {dir.negate();} // make sure it points away from the surface (is this needed?)
 		pos = cpos + tolerance*dir; // move slightly away from the surface
 	}
@@ -904,6 +915,7 @@ class building_indir_light_mgr_t {
 			if (kill_thread) continue;
 			rand_gen_t rgen;
 			rgen.set_state(n+1, cur_job.lix); // should be deterministic, though add_path_to_lmcs() is not (due to thread races)
+			unsigned dir_ix(rgen.rand() % ray_directions.size());
 			vector3d pri_dir;
 			colorRGBA ray_lcolor(lcolor), ccolor(WHITE);
 			bool const is_skylight_dir(is_skylight && (n&1)); // alternate between sky ambient and sun/moon directional
@@ -913,7 +925,7 @@ class building_indir_light_mgr_t {
 				ray_lcolor = pri_lcolor;
 			}
 			else { // omidirectional or sky ambient from windows
-				pri_dir = rgen.signed_rand_vector_spherical_norm(); // should this be cosine weighted for windows? and clipped to the beamwidth for ceiling lights?
+				pri_dir = get_ray_dir(dir_ix); // should this be cosine weighted for windows? and clipped to the beamwidth for ceiling lights?
 				if (is_window && ((pri_dir[dim] > 0.0) ^ dir)) {pri_dir[dim] *= -1.0;} // reflect light if needed about window plane to ensure it enters the room
 				//if (!is_window && dir < 2 && (pri_dir[dim] > 0) != bool(dir)) {pri_dir[dim] *= -1.0;} // point in general light dir/hemisphere; doesn't seem to improve quality
 				if (hanging && dot_product(pri_dir, light_dir) < 0.0) {pri_dir.negate();}
@@ -946,7 +958,7 @@ class building_indir_light_mgr_t {
 				point pos(origin);
 				vector3d dir(pri_dir);
 				colorRGBA cur_color(init_color);
-				calc_reflect_ray(pos, init_cpos, dir, init_cnorm, v_ref, rgen, tolerance);
+				calc_reflect_ray(pos, init_cpos, dir, init_cnorm, v_ref, dir_ix, tolerance);
 
 				for (unsigned bounce = 1; bounce < MAX_RAY_BOUNCES; ++bounce) { // allow up to MAX_RAY_BOUNCES bounces
 					cpos = pos; // init value
@@ -956,7 +968,7 @@ class building_indir_light_mgr_t {
 					if (!hit || bounce+1 == MAX_RAY_BOUNCES) break; // done on hit or last iteration
 					cur_color = cur_color.modulate_with(ccolor);
 					if (cur_color.get_luminance() < lum_thresh) break; // done
-					calc_reflect_ray(pos, cpos, dir, cnorm, get_reflect_dir(dir, cnorm), rgen, tolerance);
+					calc_reflect_ray(pos, cpos, dir, cnorm, get_reflect_dir(dir, cnorm), dir_ix, tolerance);
 				} // for bounce
 			} // for splits
 		} // for n
@@ -1069,6 +1081,7 @@ public:
 		}
 		if (remove_queue.empty()) {num_to_remove = 0;} // done with removal pass
 		else {max_eq(num_to_remove, (unsigned)remove_queue.size());}
+		if (ray_directions.empty()) {init_ray_directions();}
 		calc_cur_ambient_diffuse(); // needed for correct outdoor color
 		colorRGBA const cur_outdoor_color(get_outdoor_light_color());
 
@@ -1120,7 +1133,7 @@ public:
 			if (!cur_job.is_valid()) return; // no lights to update
 			init_lmgr(0); // clear_lighting=0
 			lighting_updated = 1;
-			highres_timer_t timer("Ray Cast Building Light"); // 2408 in mall with 368 lights
+			highres_timer_t timer("Ray Cast Building Light"); // 2354 in mall with 368 lights
 			cast_light_rays(b);
 		}
 	}
