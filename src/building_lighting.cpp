@@ -748,7 +748,7 @@ public:
 class building_indir_light_mgr_t {
 	bool is_running=0, kill_thread=0, lighting_updated=0, needs_to_join=0, need_bvh_rebuild=0, update_windows=0, in_ext_basement=0;
 	int cur_bix=-1, cur_floor=-1, timer_val=0;
-	unsigned cur_tid=0;
+	unsigned cur_tid=0, num_to_remove=0;
 	colorRGBA outdoor_color;
 	cube_t valid_area, light_bounds;
 	vector<unsigned> light_ids;
@@ -1036,6 +1036,7 @@ public:
 	}
 	void clear() {
 		lighting_updated = need_bvh_rebuild = update_windows = in_ext_basement = 0;
+		num_to_remove    = 0;
 		cur_bix   = cur_floor = -1;
 		timer_val = 0;
 		invalidate_lighting();
@@ -1075,6 +1076,8 @@ public:
 			build_bvh(b, target);
 			floor_change = 0;
 		}
+		if (remove_queue.empty()) {num_to_remove = 0;} // done with removal pass
+		else {max_eq(num_to_remove, (unsigned)remove_queue.size());}
 		calc_cur_ambient_diffuse(); // needed for correct outdoor color
 		colorRGBA const cur_outdoor_color(get_outdoor_light_color());
 
@@ -1086,9 +1089,10 @@ public:
 			outdoor_color = cur_outdoor_color;
 		}
 		if (display_framerate && (is_running || lighting_updated)) { // show progress to the user
-			std::ostringstream oss;
-			oss << "Lights: " << lights_complete.size() << " / " << (max(light_ids.size(), lights_seen.size()) + remove_queue.size());
-			lighting_update_text = oss.str();
+			bool const is_remove_pass(num_to_remove > 0);
+			unsigned const num_done(is_remove_pass ? (num_to_remove - remove_queue.size()) : lights_complete.size());
+			unsigned const num_tot(is_remove_pass ? num_to_remove : max(light_ids.size(), lights_seen.size()) + remove_queue.size());
+			lighting_update_text = "Lights: " + std::to_string(num_done) + " / " + std::to_string(num_tot);
 		}
 		if (lighting_updated) {update_volume_light_texture();} // update lighting texture based on incremental progress
 		while (!lights_done.empty()) {mark_light_done(lights_done.wait_and_pop());} // shouldn't have to wait
