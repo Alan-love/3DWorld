@@ -1028,7 +1028,6 @@ bool sphere_cube_int_update_pos(point &pos, float radius, cube_t const &cube, po
 
 #define TEST_CLIP_T(reg, va, vb, vd, vc) \
 	if (region3 & (reg)) { \
-		/*assert((vd) != 0.0); this assertion may be removed as an optimization or if it fails due to FP error */ \
 		float const t(((va) - (vb))/(vd)); \
 		if ((vc) > 0.0) {if (t > tmin) tmin = t;} else {if (t < tmax) tmax = t;} \
 		if (tmin >= tmax) return 0; \
@@ -1036,7 +1035,6 @@ bool sphere_cube_int_update_pos(point &pos, float radius, cube_t const &cube, po
 
 // performance critical
 bool get_line_clip(point const &v1, point const &v2, float const d[3][2], float &tmin, float &tmax) {
-
 	int const region1(get_region(v1, d)), region2(get_region(v2, d));
 	if (region1 & region2) return 0; // line outside
 	int const region3(region1 | region2);
@@ -1054,7 +1052,6 @@ bool get_line_clip(point const &v1, point const &v2, float const d[3][2], float 
 }
 
 bool get_line_clip_xy(point const &v1, point const &v2, float const d[3][2], float &tmin, float &tmax) {
-
 	int const region1(get_region_xy(v1, d)), region2(get_region_xy(v2, d));
 	if (region1 & region2) return 0; // line outside
 	int const region3(region1 | region2);
@@ -1071,7 +1068,6 @@ bool get_line_clip_xy(point const &v1, point const &v2, float const d[3][2], flo
 
 // performance critical: return 1 if line intersects the cube
 bool do_line_clip(point &v1, point &v2, float const d[3][2]) {
-
 	int const region1(get_region(v1, d)), region2(get_region(v2, d));
 	if (region1 & region2) return 0; // line outside
 	int const region3(region1 | region2);
