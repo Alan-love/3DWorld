@@ -1104,7 +1104,9 @@ public:
 			if (light_queue.empty()) { // no lights to update
 				//if (timer_val) {register_timing_value("lighting update", (GET_TIME_MS() - timer_val));}
 				timer_val = 0; // prevent printout from re-triggering until more lights are processed
-				return;
+				// update cube map reflections on lighting change; should be done per-light, but may be too slow with the added per-frame lighting work
+				register_reflection_update();
+				return; // no work to do; done
 			}
 			if (!timer_val) {timer_val = GET_TIME_MS();} // start a new block of lights
 			init_lmgr(0); // clear_lighting=0
