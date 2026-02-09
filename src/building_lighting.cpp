@@ -665,7 +665,7 @@ unsigned const IS_WINDOW_BIT = (1<<24); // if this bit is set, the light is from
 class lmap_manager_local_t {
 	vector<colorRGB> data;
 	vector<unsigned char> tex_data;
-	unsigned xsize=0, ysize=0, zsize=0;
+	unsigned xsize=0, ysize=0, zsize=0, update_block_ix=0;
 	vector3d ray_scale, ray_offset;
 	float step_sz_inv=0.0;
 public:
@@ -695,17 +695,27 @@ public:
 			if ((x >= 0 && x < (int)xsize && y >= 0 && y < (int)ysize && z >= 0 && z < (int)zsize)) {data[(y*xsize + x)*zsize + z] += cw;}
 		}
 	}
-	void update_indir_light_texture(unsigned &tid) { // Note: takes sqrt(), similar to gamma correction
+	void update_indir_light_texture(unsigned &tid, bool incremental) {
 		tex_data.resize(4*data.size(), 0);
 		assert(!data.empty()); // must call alloc() first
 		float const light_scale(light_int_scale[LIGHTING_LOCAL]);
-
-#pragma omp parallel for schedule(static, 128) num_threads(min(NUM_THREADS, 4U))
-		for (int i = 0; i < (int)data.size(); ++i) {
+		//unsigned const nthreads(USE_BKG_THREAD ? max(1Um ((unsigned)omp_get_max_threads() - NUM_THREADS)) : NUM_THREADS);
+		int start_ix(0), end_ix(data.size());
+		
+		if (!incremental) {update_block_ix = 0;} // should end here
+		else { // incremental update
+			unsigned const num_blocks(8), block_sz(data.size()/num_blocks); // should divide evenly
+			start_ix = update_block_ix*block_sz;
+			end_ix   = start_ix + block_sz;
+			++update_block_ix;
+			if (update_block_ix == num_blocks) {update_block_ix = 0;}
+		}
+#pragma omp parallel for schedule(static, 128) num_threads(min(4U, NUM_THREADS)) if (!incremental)
+		for (int i = start_ix; i < end_ix; ++i) {
 			unsigned const off2(4*i);
 			colorRGB const &c(data[i]);
 			if (c == BLACK) {UNROLL_3X(tex_data[off2+i_] = 0;) continue;}
-			for (unsigned j = 0; j < 3; ++j) {tex_data[off2+j] = (unsigned char)(255*sqrt(CLIP_TO_01(c[j]*light_scale)));}
+			for (unsigned j = 0; j < 3; ++j) {tex_data[off2+j] = (unsigned char)(255*sqrt(CLIP_TO_01(c[j]*light_scale)));} // similar to gamma correction
 		}
 		if (tid == 0) {tid = create_3d_texture(zsize, xsize, ysize, 4, tex_data, GL_LINEAR, GL_CLAMP_TO_EDGE);}
 		else {update_3d_texture(tid, 0, 0, 0, zsize, xsize, ysize, 4, tex_data.data());} // stored {Z,X,Y}
@@ -982,7 +992,7 @@ class building_indir_light_mgr_t {
 	void update_volume_light_texture() { // full update, 6.6ms for z=128
 		init_lmgr(0); // init on first call; clear_lighting=0
 		//highres_timer_t timer("Lighting Tex Create"); // 706ms in mall with 4 threads and 368 lights
-		lmgr.update_indir_light_texture(cur_tid);
+		lmgr.update_indir_light_texture(cur_tid, is_running); // incremental update if running
 		lighting_updated = 0;
 	}
 	void maybe_join_thread() {
