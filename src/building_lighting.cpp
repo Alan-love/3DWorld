@@ -702,15 +702,19 @@ public:
 		assert(!data.empty()); // must call alloc() first
 		float const light_scale(light_int_scale[LIGHTING_LOCAL]);
 		int start_ix(0), end_ix(data.size());
+		unsigned start_y(0), end_y(ysize);
 		if (tid == 0 || realloc_tid) {incremental = 0;}
 		
 		if (!incremental) {update_block_ix = 0;} // should end here
 		else { // incremental update
-			unsigned const num_blocks(8), block_sz(data.size()/num_blocks); // should divide evenly
-			start_ix = update_block_ix*block_sz;
-			end_ix   = start_ix + block_sz;
-			++update_block_ix;
-			if (update_block_ix == num_blocks) {update_block_ix = 0;}
+			unsigned const num_blocks(min(8U, ysize)), cells_per_yval(xsize*zsize);
+			unsigned const yvals_per_block((ysize + num_blocks - 1)/num_blocks); // ceil
+			start_y  = update_block_ix*yvals_per_block;
+			end_y    = min(ysize, (start_y + yvals_per_block)); // clamp to max in case ysize doesn't divide evenly by num_blocks
+			start_ix = cells_per_yval*start_y;
+			end_ix   = cells_per_yval*end_y;
+			assert(end_ix <= data.size());
+			if (++update_block_ix == num_blocks) {update_block_ix = 0;}
 		}
 #pragma omp parallel for schedule(static, 128) num_threads(min(4U, NUM_THREADS)) if (!incremental)
 		for (int i = start_ix; i < end_ix; ++i) {
@@ -721,10 +725,10 @@ public:
 		}
 		if (realloc_tid) {free_texture(tid); realloc_tid = 0;}
 		if (tid == 0) {tid = create_3d_texture(zsize, xsize, ysize, 4, tex_data, GL_LINEAR, GL_CLAMP_TO_EDGE);}
-		else {update_3d_texture(tid, 0, 0, 0, zsize, xsize, ysize, 4, tex_data.data());} // stored {Z,X,Y} TODO: update a range
+		else {update_3d_texture(tid, 0, 0, start_y, zsize, xsize, (end_y - start_y), 4, (tex_data.data() + 4*start_ix));} // stored {Z,X,Y}
 		check_gl_error(235);
 	}
-};
+}; // end lmap_manager_local_t
 
 template <typename T> class ConcurrentQueue {
 	std::queue<T> Q;
@@ -1002,8 +1006,9 @@ class building_indir_light_mgr_t {
 	void update_volume_light_texture() { // full update, 6.6ms for z=128
 		init_lmgr(); // init on first call
 		//highres_timer_t timer("Lighting Tex Create"); // 706ms in mall with 4 threads and 368 lights
-		lmgr.update_indir_light_texture(cur_tid, is_running); // incremental update if running
-		lighting_updated = 0;
+		bool const incremental(is_running);
+		lmgr.update_indir_light_texture(cur_tid, incremental);
+		if (!incremental) {lighting_updated = 0;} // keep updating until done running
 	}
 	void maybe_join_thread() {
 		if (needs_to_join) {rt_thread.join(); needs_to_join = 0;}
@@ -1065,7 +1070,6 @@ public:
 		light_ids.clear();
 		lights_to_sort.clear();
 		windows.clear();
-		if (!light_bounds.is_all_zeros()) {update_volume_light_texture();} // reset lighting from prev building, or reset to dark when entering first building
 		bvh.clear();
 	}
 	void end_rt_job() {
@@ -1083,6 +1087,7 @@ public:
 			assert(!is_running);
 			build_bvh(b, target);
 			get_windows(b);
+			lighting_updated = 1; // update lighting in case there are no lights on
 		}
 		else {
 			if (update_windows) {get_windows(b);}
@@ -1134,7 +1139,7 @@ public:
 			add_light_jobs(b, target);
 
 			if (light_queue.empty()) { // no lights to update
-				if (timer_val) {register_timing_value("lighting update", (GET_TIME_MS() - timer_val));}
+				// (timer_val) {register_timing_value("lighting update", (GET_TIME_MS() - timer_val));}
 				timer_val = 0; // prevent printout from re-triggering until more lights are processed
 				// update cube map reflections on lighting change; should be done per-light, but may be too slow with the added per-frame lighting work
 				register_reflection_update();
@@ -1318,7 +1323,7 @@ public:
 	void invalidate_bvh    () {need_bvh_rebuild = 1;} // Note: can't directly clear bvh because a thread may be using it
 	void invalidate_windows() {update_windows   = 1;}
 	cube_bvh_t const &get_bvh() const {return bvh;}
-};
+}; // end building_indir_light_mgr_t
 
 building_indir_light_mgr_t building_indir_light_mgr;
 
