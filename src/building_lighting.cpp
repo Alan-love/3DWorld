@@ -668,8 +668,10 @@ class lmap_manager_local_t {
 	unsigned xsize=0, ysize=0, zsize=0, update_block_ix=0;
 	vector3d ray_scale, ray_offset;
 	float step_sz_inv=0.0;
+	bool realloc_tid=0;
 public:
 	void alloc(unsigned xsize_, unsigned ysize_, unsigned zsize_) {
+		realloc_tid |= (xsize_ != xsize || ysize_ != ysize || zsize_ != zsize); // re-allocate texture on size change
 		xsize = xsize_; ysize = ysize_; zsize = zsize_;
 		data.resize(xsize*ysize*zsize, BLACK);
 	}
@@ -696,11 +698,11 @@ public:
 		}
 	}
 	void update_indir_light_texture(unsigned &tid, bool incremental) {
-		tex_data.resize(4*data.size(), 0);
+		tex_data.resize(4*data.size(), 0); // computed as RGB but stored as RGBA with zero/unused alpha
 		assert(!data.empty()); // must call alloc() first
 		float const light_scale(light_int_scale[LIGHTING_LOCAL]);
-		//unsigned const nthreads(USE_BKG_THREAD ? max(1Um ((unsigned)omp_get_max_threads() - NUM_THREADS)) : NUM_THREADS);
 		int start_ix(0), end_ix(data.size());
+		if (tid == 0 || realloc_tid) {incremental = 0;}
 		
 		if (!incremental) {update_block_ix = 0;} // should end here
 		else { // incremental update
@@ -717,8 +719,10 @@ public:
 			if (c == BLACK) {UNROLL_3X(tex_data[off2+i_] = 0;) continue;}
 			for (unsigned j = 0; j < 3; ++j) {tex_data[off2+j] = (unsigned char)(255*sqrt(CLIP_TO_01(c[j]*light_scale)));} // similar to gamma correction
 		}
+		if (realloc_tid) {free_texture(tid); realloc_tid = 0;}
 		if (tid == 0) {tid = create_3d_texture(zsize, xsize, ysize, 4, tex_data, GL_LINEAR, GL_CLAMP_TO_EDGE);}
-		else {update_3d_texture(tid, 0, 0, 0, zsize, xsize, ysize, 4, tex_data.data());} // stored {Z,X,Y}
+		else {update_3d_texture(tid, 0, 0, 0, zsize, xsize, ysize, 4, tex_data.data());} // stored {Z,X,Y} TODO: update a range
+		check_gl_error(235);
 	}
 };
 
@@ -757,7 +761,7 @@ public:
 class building_indir_light_mgr_t {
 	bool is_running=0, kill_thread=0, lighting_updated=0, needs_to_join=0, need_bvh_rebuild=0, update_windows=0, in_ext_basement=0;
 	int cur_bix=-1, cur_floor=-1, timer_val=0;
-	unsigned cur_tid=0, num_to_remove=0;
+	unsigned cur_tid=0, num_to_remove=0, grid_sz[3]={};
 	colorRGBA outdoor_color;
 	cube_t valid_area, light_bounds;
 	vector<unsigned> light_ids;
@@ -780,7 +784,14 @@ class building_indir_light_mgr_t {
 	ConcurrentQueue<light_job_t> light_queue, lights_done;
 
 	void init_lmgr() {
-		lmgr.alloc(MESH_X_SIZE, MESH_Y_SIZE, MESH_SIZE[2]);
+		assert(!light_bounds.is_all_zeros());
+		unsigned const tot_grid(MESH_X_SIZE * MESH_Y_SIZE * MESH_SIZE[2]); // user-specified value
+		vector3d const sz(light_bounds.get_size());
+		float const sz_prod(sz.x * sz.y * sz.z), scale(pow(tot_grid/sz_prod, 1.0/3.0));
+		for (unsigned n = 0; n < 3; ++n) {grid_sz[n] = max(1, round_fp(sz[n]*scale));}
+		unsigned const tot_alloc(grid_sz[0] * grid_sz[1] * grid_sz[2]);
+		lmgr.alloc(grid_sz[0], grid_sz[1], grid_sz[2]);
+		//cout << TXTS(sz) << TXT(grid_sz[0]) << TXT(grid_sz[1]) << TXT(grid_sz[2]) << TXT(tot_grid) << TXT(tot_alloc) << endl;
 	}
 	void init_ray_directions() {
 		rand_gen_t rgen;
@@ -1054,7 +1065,7 @@ public:
 		light_ids.clear();
 		lights_to_sort.clear();
 		windows.clear();
-		update_volume_light_texture(); // reset lighting from prev building, or reset to dark when entering first building
+		if (!light_bounds.is_all_zeros()) {update_volume_light_texture();} // reset lighting from prev building, or reset to dark when entering first building
 		bvh.clear();
 	}
 	void end_rt_job() {
@@ -1280,9 +1291,6 @@ public:
 		if (in_ext_basement) { // extended basement
 			light_bounds = valid_area;
 			set_cube_zvals(light_bounds, b.interior->basement_ext_bcube.z1(), b.interior->basement_ext_bcube.z2()); // cover the entire extended basement range
-			// very high aspect ratio cubes cause banding artifacts in lighting, so increase the height if needed to avoid this;
-			// note that there's significant loss of vertical resolution, though lighting should be a bit faster
-			max_eq(light_bounds.z2(), (light_bounds.z1() + 0.25f*max(light_bounds.dx(), light_bounds.dy())));
 		}
 		else if (INDIR_LIGHT_FLOOR_SPAN == 0) {light_bounds = b.get_interior_bcube(0);} // unlimited floor span/entire building; inc_ext_basement=0
 		else if (INDIR_LIGHT_FLOOR_SPAN == 1) {light_bounds = valid_area;} // single floor only
