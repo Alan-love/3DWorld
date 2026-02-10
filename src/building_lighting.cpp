@@ -870,7 +870,7 @@ class building_indir_light_mgr_t {
 					base_num_rays *= 2; // more rays to reduce noise, since windows are large and few
 					surface_area  *= 0.5; // less indir light
 				}
-				else if (b.is_restaurant() && b.interior->rooms.front().intersects(light_cube)) {base_num_rays /= 4;} // fewer rays in restaurant dining area
+				else if (b.is_restaurant() && b.interior->rooms.front().intersects(light_cube)) {base_num_rays = 2*base_num_rays/3;} // fewer rays in restaurant dining area
 				else if (b.has_attic() && window.z1() >= b.get_attic_part().z2()) {base_num_rays *= 8;} // attic window
 			}
 			// light intensity scales with surface area, since incoming light is a constant per unit area (large windows = more light)
@@ -889,7 +889,7 @@ class building_indir_light_mgr_t {
 			in_attic        = ro.in_attic();
 			in_ext_basement = (light_in_basement && b.point_in_extended_basement_not_basement(light_center));
 			in_jail_cell    = (in_ext_basement && b.interior->has_jail && is_jail_room(b.get_room(ro.room_id).get_room_type(0)));
-			if (in_attic) {base_num_rays *= 4;} // more rays in attic, since light is large and there are only 1-2 of them
+			if (in_attic) {base_num_rays *= 8;} // more rays in attic, since light is large and there are only 1-2 of them
 			if (is_lamp ) {base_num_rays /= 2;} // half the rays for lamps
 			if (is_lamp ) {dir = 2;} // onmidirectional; dim stays at 2/Z
 			else if (ro.flags & RO_FLAG_ADJ_HI) {dim = ro.dim; dir = ro.dir;} // wall light
@@ -907,7 +907,7 @@ class building_indir_light_mgr_t {
 				if (in_ext_basement) {
 					if      (b.interior->has_backrooms) {weight *= 0.2; base_num_rays /= 4;} // darker and fewer rays
 					else if (b.has_mall()             ) {weight *= 0.1; base_num_rays /= 8; half_step_sz = 0;} // darker and fewer rays, since there are so many lights
-					else                                {weight *= 0.5;} // regular extended basement
+					else                                {weight *= 0.4; base_num_rays *= 2;} // regular extended basement; more rays to reduce noise
 				}
 				else { // basement is darker, parking garages are even darker
 					weight *= (b.has_parking_garage ? 0.25 : 0.5);
