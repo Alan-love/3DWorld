@@ -24,9 +24,9 @@ float const ATTIC_LIGHT_RADIUS_SCALE  = 2.0; // larger radius in attic, since sp
 vector<point> enabled_bldg_lights;
 
 extern bool camera_in_building, player_in_walkway, player_in_uge, some_person_has_idle_animation;
-extern int MESH_Z_SIZE, display_mode, display_framerate, camera_surf_collide, animate2, frame_counter, building_action_key, player_in_basement, player_in_elevator, player_in_attic;
+extern int display_mode, display_framerate, camera_surf_collide, animate2, frame_counter, building_action_key, player_in_basement, player_in_elevator, player_in_attic;
 extern unsigned LOCAL_RAYS, MAX_RAY_BOUNCES, NUM_THREADS;
-extern float fticks, DZ_VAL;
+extern float fticks, indir_light_step_sz;
 extern double tfticks;
 extern colorRGB cur_ambient, cur_diffuse;
 extern cube_t reflection_light_cube;
@@ -682,6 +682,7 @@ public:
 		ray_scale   = vector3d(xsize, ysize, zsize)/bounds.get_size();
 		ray_offset  = -bounds.get_llc()*ray_scale;
 		step_sz_inv = (half_step_sz ? 2.0 : 1.0); // 1-2 steps per grid on average
+		indir_light_step_sz = 3.0/(ray_scale.x + ray_scale.y + ray_scale.z); // used in set_indir_lighting_block()
 	}
 	void add_path_to_lmcs(point p1, point p2, float weight, colorRGBA const &color) {
 		p1 = ray_scale*p1 + ray_offset;

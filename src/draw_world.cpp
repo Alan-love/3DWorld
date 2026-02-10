@@ -28,7 +28,7 @@ struct sky_pos_orient {
 
 int def_cube_map_reflect_mipmap_level(-4);
 unsigned depth_tid(0), frame_buffer_RGB_tid(0), skybox_cube_tid(0);
-float sun_radius(0.0), moon_radius(0.0), earth_radius(0.0), brightness(1.0);
+float sun_radius(0.0), moon_radius(0.0), earth_radius(0.0), brightness(1.0), indir_light_step_sz(0.0);
 colorRGB cur_ambient(BLACK), cur_diffuse(BLACK);
 point sun_pos, moon_pos;
 gl_light_params_t gl_light_params[MAX_SHADER_LIGHTS];
@@ -242,7 +242,7 @@ void set_indir_lighting_block(shader_t &s, bool use_smoke, bool use_indir) {
 	s.setup_scene_bounds();
 	if ((use_smoke || use_indir) && smoke_tid) {bind_texture_tu(smoke_tid, 1);}
 	s.add_uniform_int("smoke_and_indir_tex", 1);
-	s.add_uniform_float("half_dxy", HALF_DXY);
+	s.add_uniform_float("half_dxy", ((indir_light_step_sz == 0.0) ? HALF_DXY : indir_light_step_sz)); // use indir_light_step_sz if set (building mode)
 	s.add_uniform_float("indir_vert_offset", indir_vert_offset);
 	s.add_uniform_float("ambient_scale", (use_indir ? 0.0 : 1.0)); // ambient handled by indirect lighting in the shader
 	set_indir_color(s);
