@@ -25,17 +25,15 @@ extern platform_cont platforms;
 coll_tquad::coll_tquad(coll_obj const &c) : tquad_t(c.npoints), normal(c.norm), cid(c.id) {
 	assert(is_cobj_valid(c));
 	for (unsigned i = 0; i < npts; ++i) {pts[i] = c.points[i];}
-	if (npts == 3) pts[3] = pts[2]; // duplicate the last point so that it's valid
+	if (npts == 3) {pts[3] = pts[2];} // duplicate the last point so that it's valid
 }
-coll_tquad::coll_tquad(polygon_t const &p, colorRGBA const &c) : color(c) {
-	npts = p.size();
+coll_tquad::coll_tquad(polygon_t const &p, colorRGBA const &c) : tquad_t(p.size()), color(c) {
 	assert(npts == 3 || npts == 4);
 	for (unsigned i = 0; i < npts; ++i) {pts[i]  = p[i].v;}
 	if (npts == 3) pts[3] = pts[2]; // duplicate the last point so that it's valid
 	update_normal();
 }
-coll_tquad::coll_tquad(triangle const &t, colorRGBA const &c) : color(c) {
-	npts = 3;
+coll_tquad::coll_tquad(triangle const &t, colorRGBA const &c) : tquad_t(3), color(c) {
 	UNROLL_3X(pts[i_] = t.pts[i_];);
 	update_normal();
 }
@@ -140,7 +138,7 @@ template<typename T> void cobj_tree_simple_type_t<T>::build_tree(unsigned nix, u
 	tree_node &n(nodes[nix]);
 	calc_node_bbox(n);
 	unsigned const num(n.size());
-	max_depth = max(max_depth, depth);
+	max_eq(max_depth, depth);
 	if (check_for_leaf(num, skip_dims)) return; // base case
 
 	// determine split dimension and value
@@ -164,7 +162,7 @@ template<typename T> void cobj_tree_simple_type_t<T>::build_tree(unsigned nix, u
 	for (unsigned d = 1; d < 3; ++d) {
 		bin_count[d] = temp_bins[d].size();
 		for (unsigned i = 0; i < bin_count[d]; ++i) {objects[pos++] = temp_bins[d][i];}
-		temp_bins[d].resize(0);
+		temp_bins[d].clear();
 	}
 	assert(pos == n.end);
 
@@ -180,7 +178,7 @@ template<typename T> void cobj_tree_simple_type_t<T>::build_tree(unsigned nix, u
 		unsigned const count(bin_count[bix]);
 		if (count == 0) continue; // empty bin
 		unsigned const kid((unsigned)nodes.size());
-		nodes.push_back(tree_node(cur, cur+count));
+		nodes.emplace_back(cur, cur+count);
 		build_tree(kid, skip_dims, depth+1);
 		nodes[kid].next_node_id = (unsigned)nodes.size();
 		cur += count;
@@ -193,7 +191,7 @@ template<typename T> void cobj_tree_simple_type_t<T>::build_tree(unsigned nix, u
 template<typename T> void cobj_tree_simple_type_t<T>::build_tree_top(bool verbose) {
 
 	nodes.reserve(get_conservative_num_nodes(objects.size()));
-	nodes.push_back(tree_node(0, (unsigned)objects.size()));
+	nodes.emplace_back(0, (unsigned)objects.size());
 	assert(nodes.size() == 1);
 	max_depth = max_leaf_count = num_leaf_nodes = 0;
 	if (!objects.empty()) {build_tree(0, 0, 0);}
@@ -216,7 +214,6 @@ template class cobj_tree_simple_type_t<colored_cube_t>;
 
 
 void cobj_tree_tquads_t::calc_node_bbox(tree_node &n) const {
-
 	assert(n.start < n.end);
 	cube_t &c(n);
 	c = cube_t(X_SCENE_SIZE, -X_SCENE_SIZE, Y_SCENE_SIZE, -Y_SCENE_SIZE, czmax, czmin);
@@ -238,17 +235,6 @@ void cobj_tree_tquads_t::add_cobjs(coll_obj_group const &cobjs, bool verbose) {
 	}
 	build_tree_top(verbose);
 	PRINT_TIME(" Cobj Tree Triangles Create (from Cobjs)");
-}
-
-
-void cobj_tree_tquads_t::add_polygons(vector<polygon_t> const &polygons, bool verbose) { // unused
-
-	RESET_TIME;
-	clear();
-	objects.reserve(polygons.size());
-	for (vector<polygon_t>::const_iterator i = polygons.begin(); i != polygons.end(); ++i) {objects.emplace_back(*i);}
-	build_tree_top(verbose);
-	PRINT_TIME(" Cobj Tree Triangles Create (from Polygons)");
 }
 
 
@@ -339,7 +325,6 @@ bool cobj_bvh_tree::create_cixs() {
 }
 
 void cobj_bvh_tree::calc_node_bbox(tree_node &n) const {
-
 	// Note: can call get_cobj(i).get_platform_max_bcube() to include entire platform range instead of rebuilding the BVH when platforms move
 	assert(n.start < n.end);
 	n.copy_from(get_cobj(n.start));
@@ -348,7 +333,7 @@ void cobj_bvh_tree::calc_node_bbox(tree_node &n) const {
 
 void cobj_bvh_tree::clear() {
 	cobj_tree_base::clear();
-	cixs.resize(0);
+	cixs.clear();
 }
 
 void cobj_bvh_tree::add_cobjs(bool verbose) {
@@ -587,7 +572,7 @@ void cobj_bvh_tree::build_tree_top_level_omp() { // single octtree level
 
 	// create child nodes and call recursively
 	unsigned cur(n.start), cur_nix(1);
-	unsigned curs[8], cur_nixs[8];
+	unsigned curs[8]={}, cur_nixs[8]={};
 	
 	for (int bix = 0; bix < 8; ++bix) {
 		unsigned const count(top_temp_bins[bix].size());
@@ -624,7 +609,7 @@ void cobj_bvh_tree::build_tree(unsigned nix, unsigned skip_dims, unsigned depth,
 	tree_node &n(nodes[nix]);
 	calc_node_bbox(n);
 	unsigned const num(n.size());
-	max_depth = max(max_depth, depth);
+	max_eq(max_depth, depth);
 	if (check_for_leaf(num, skip_dims)) return; // base case
 	
 	// determine split dimension and value
@@ -653,7 +638,7 @@ void cobj_bvh_tree::build_tree(unsigned nix, unsigned skip_dims, unsigned depth,
 	for (unsigned d = 1; d < 3; ++d) {
 		bin_count[d] = ptd.temp_bins[d].size();
 		for (unsigned i = 0; i < bin_count[d]; ++i) {cixs[pos++] = ptd.temp_bins[d][i];}
-		ptd.temp_bins[d].resize(0);
+		ptd.temp_bins[d].clear();
 	}
 	assert(pos == n.end);
 
@@ -789,7 +774,6 @@ bool check_point_contained_tree(point const &p, int &cindex, bool dynamic) { // 
 	if (!dynamic && cobj_tree_static_moving.check_point_contained(p, cindex)) return 1;
 	return 0;
 }
-
 
 bool have_occluders() {
 	return !cobj_tree_occlude.is_empty();

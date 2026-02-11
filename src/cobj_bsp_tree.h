@@ -22,7 +22,7 @@ protected:
 
 	inline void register_leaf(unsigned num) {
 		++num_leaf_nodes;
-		max_leaf_count = max(max_leaf_count, num);
+		max_eq(max_leaf_count, num);
 	}
 	bool check_for_leaf(unsigned num, unsigned skip_dims);
 	unsigned get_conservative_num_nodes(unsigned num) const {return (3*num/2 + 8);}
@@ -67,7 +67,6 @@ class cobj_tree_tquads_t : public cobj_tree_simple_type_t<coll_tquad> {
 public:
 	vector<coll_tquad> &get_tquads_ref() {return objects;}
 	void add_cobjs(coll_obj_group const &cobjs, bool verbose);
-	void add_polygons(vector<polygon_t> const &polygons, bool verbose);
 	bool check_coll_line(point const &p1, point const &p2, point &cpos, vector3d &cnorm, colorRGBA *color, int *cindex, int ignore_cobj, bool exact) const;
 
 	bool check_coll_line(point const &p1, point const &p2, point &cpos, vector3d &cnorm, int &cindex, int ignore_cobj, bool exact) const {
