@@ -761,7 +761,7 @@ public:
 };
 
 class building_indir_light_mgr_t {
-	bool is_running=0, kill_thread=0, lighting_updated=0, needs_to_join=0, need_bvh_rebuild=0, update_windows=0, in_ext_basement=0;
+	bool is_running=0, kill_thread=0, lighting_updated=0, needs_to_join=0, need_bvh_rebuild=0, update_windows=0, target_in_extb=0;
 	int cur_bix=-1, cur_floor=-1, timer_val=0;
 	unsigned cur_tid=0, num_to_remove=0, grid_sz[3]={};
 	colorRGBA outdoor_color;
@@ -1060,7 +1060,7 @@ public:
 		lmgr.reset_all(); // clear lighting values back to 0
 	}
 	void clear() {
-		lighting_updated = need_bvh_rebuild = update_windows = in_ext_basement = 0;
+		lighting_updated = need_bvh_rebuild = update_windows = target_in_extb = 0;
 		num_to_remove    = 0;
 		cur_bix   = cur_floor = -1;
 		timer_val = 0;
@@ -1090,10 +1090,10 @@ public:
 		else {
 			if (update_windows) {get_windows(b);}
 			unsigned const new_floor(get_target_floor(b, target));
-			bool const new_in_ext_basement(b.point_in_extended_basement_not_basement(target));
+			bool const new_target_in_extb(b.point_in_extended_basement_not_basement(target));
 			cube_t const valid_area(get_valid_area(b, target, new_floor));
 			floor_change  = (cur_floor >= 0 && cur_floor != (int)new_floor);
-			floor_change |= (new_in_ext_basement != in_ext_basement); // treat extended basement threshold cross as a floor change
+			floor_change |= (new_target_in_extb != target_in_extb); // treat extended basement threshold cross as a floor change
 			need_rebuild  = (floor_change && !light_bounds.contains_cube(valid_area));
 		}
 		if (need_rebuild) { // handle floor change
@@ -1137,7 +1137,7 @@ public:
 			add_light_jobs(b, target);
 
 			if (light_queue.empty()) { // no lights to update
-				// (timer_val) {register_timing_value("lighting update", (GET_TIME_MS() - timer_val));}
+				//if (timer_val) {register_timing_value("lighting update", (GET_TIME_MS() - timer_val));}
 				timer_val = 0; // prevent printout from re-triggering until more lights are processed
 				// update cube map reflections on lighting change; should be done per-light, but may be too slow with the added per-frame lighting work
 				register_reflection_update();
@@ -1203,7 +1203,7 @@ public:
 		}
 		// find a new light to add
 		if (player_in_elevator >= 2) return light_job_t(); // pause updates for player in closed elevator since lighting is not visible
-		b.get_lights_with_priorities(target, valid_area, lights_to_sort);
+		b.get_lights_with_priorities(target, valid_area, target_in_extb, lights_to_sort);
 		add_window_lights(b, target);
 		sort_lights_by_priority();
 		light_job_t job; // is_neg=0
@@ -1289,9 +1289,9 @@ public:
 		//highres_timer_t timer("Build BVH");
 		cur_floor  = get_target_floor(b, target);
 		valid_area = get_valid_area(b, target, cur_floor);
-		in_ext_basement = b.point_in_extended_basement_not_basement(target);
+		target_in_extb = b.point_in_extended_basement_not_basement(target);
 
-		if (in_ext_basement) { // extended basement
+		if (target_in_extb) { // extended basement
 			light_bounds = valid_area;
 			set_cube_zvals(light_bounds, b.interior->basement_ext_bcube.z1(), b.interior->basement_ext_bcube.z2()); // cover the entire extended basement range
 		}
@@ -1335,25 +1335,26 @@ void building_t::create_building_volume_light_texture(unsigned bix, point const 
 }
 
 // Note: target is building space camera
-void building_t::get_lights_with_priorities(point const &target, cube_t const &valid_area, vector<pair<float, unsigned>> &lights_to_sort) const {
+void building_t::get_lights_with_priorities(point const &target, cube_t const &valid_area, bool extb_only, vector<pair<float, unsigned>> &lights_to_sort) const {
 	if (!has_room_geom()) return; // error?
 	//if (is_rotated()) {} // do we need to handle this case?
 	vect_room_object_t const &objs(interior->room_geom->objs);
-	float const window_vspacing(get_window_vspace()), diag_dist_sq(bcube.dx()*bcube.dx() + bcube.dy()*bcube.dy()), other_floor_penalty(0.25*diag_dist_sq);
+	float const window_vspacing(get_window_vspace()), dx(bcube.dx()), dy(bcube.dy()), diag_dist_sq(dx*dx + dy*dy), other_floor_penalty(0.25*diag_dist_sq);
 	auto objs_end(interior->room_geom->get_placed_objs_end()); // skip buttons/stairs/elevators
 	int const target_room(get_room_containing_pt(target)); // generally always should be >= 0
 
 	for (auto i = objs.begin(); i != objs_end; ++i) {
-		if (!i->is_light_type() || !i->is_light_on() || i->is_broken2()) continue; // not a light, or light not on, or fully broken
+		if (!i->is_light_type() || !i->is_light_on() || i->is_broken2())   continue; // not a light, or light not on, or fully broken
 		bool const light_in_basement(i->z1() < ground_floor_z1);
 		if (!check_indir_enabled(light_in_basement, i->in_attic()))        continue;
 		if (!valid_area.contains_cube_xy(*i) || i->z2() < valid_area.z1()) continue; // outside XY or below valid area
 		room_t const &light_room(get_room(i->room_id));
 		// check for and enable lights in tall rooms; this doesn't update valid_area though, so the top of the room won't be lit
 		if (light_room.is_single_floor && light_room.z1() < valid_area.z2()) {} // light in tall room intersecting valid_area - keep it
-		else if (i->z1() > valid_area.z2()) continue; // above valid area
-		if (i->in_elevator() && get_elevator(i->obj_id).may_be_moving()) continue; // possibly moving elevator or elevator doors, don't update light yet
+		else if (i->z1() > valid_area.z2())                                continue; // above valid area
+		if (i->in_elevator() && get_elevator(i->obj_id).may_be_moving())   continue; // possibly moving elevator or elevator doors, don't update light yet
 		point const center(i->get_cube_center());
+		if (extb_only && !point_in_extended_basement_not_basement(center)) continue; // basement light inside extended basement bcube
 		float dist_sq(p2p_dist_sq(center, target));
 		dist_sq *= 0.005f*window_vspacing/i->get_area_xy(); // account for the size of the light, larger lights smaller/higher priority
 
@@ -1369,7 +1370,8 @@ void building_t::get_lights_with_priorities(point const &target, cube_t const &v
 bool get_wall_quad_window_area(vect_vnctcc_t const &wall_quad_verts, unsigned i, cube_t &c, float &tx1, float &tx2, float &tz1, float &tz2) {
 	auto const &v0(wall_quad_verts[i]);
 	c = cube_t(v0.v);
-	tx1 = tx2 = v0.t[0]; tz1 = tz2 = v0.t[1]; // tex coord ranges (xy, z); should generally be whole integers
+	tx1 = tx2 = v0.t[0]; // tex coord ranges (xy, z); should generally be whole integers
+	tz1 = tz2 = v0.t[1];
 
 	for (unsigned j = 1; j < 4; ++j) {
 		auto const &vj(wall_quad_verts[i + j]);
