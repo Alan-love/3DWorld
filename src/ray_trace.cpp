@@ -9,6 +9,7 @@
 #include <atomic>
 #include <thread>
 #include <omp.h>
+//#include "profiler.h"
 
 
 bool const COLOR_FROM_COBJ_TEX = 0; // 0 = fast/average color, 1 = true color
@@ -223,7 +224,6 @@ unsigned add_path_to_lmcs(lmap_manager_t *lmgr, cube_t *bcube, point p1, point c
 	if (first_pt) {weight *= first_ray_weight[ltype];} // lower weight - handled by direct illumination
 	if (fabs(weight) < TOLERANCE) return 0;
 	weight *= ray_step_size_mult;
-	colorRGBA const cw(color*weight);
 	unsigned const nsteps(1 + unsigned(p2p_dist(p1, p2)/get_step_size())); // round up (dist can be 0)
 	vector3d const step((p2 - p1)/nsteps); // at least two points
 	if (!first_pt) {p1 += step;} // move past the first step so we don't double count
@@ -231,6 +231,7 @@ unsigned add_path_to_lmcs(lmap_manager_t *lmgr, cube_t *bcube, point p1, point c
 	// better time vs. quality tradeoff using a proper line drawing algorithm that chooses step size by distance to closest grid boundary and multiplies weight by segment length?
 	if (dynamic) { // it's a local lighting volume
 		light_volume_local &lvol(get_local_light_volume(ltype));
+		colorRGBA const cw(color*weight);
 
 		for (unsigned s = 0; s < nsteps; ++s) {
 			lvol.add_color(p1, cw);
@@ -238,18 +239,9 @@ unsigned add_path_to_lmcs(lmap_manager_t *lmgr, cube_t *bcube, point p1, point c
 		}
 	}
 	else { // use the lmgr
-		assert(lmgr != nullptr && lmgr->is_allocated());
+		assert(lmgr != nullptr);
+		lmgr->add_light_path(p1, step, nsteps, color, weight, ltype);
 
-		for (unsigned s = 0; s < nsteps; ++s) {
-			lmcell *lmc(lmgr->get_lmcell_round_down(p1));
-		
-			if (lmc != NULL) { // could use a mutex here, but it seems too slow
-				float *color(lmc->get_offset(ltype));
-				ADD_LIGHT_CONTRIB(cw, color);
-				if (ltype != LIGHTING_LOCAL) {color[3] += weight;}
-			}
-			p1 += step;
-		}
 		if (bcube) {
 			bcube->assign_or_union_with_pt(p1);
 			bcube->union_with_pt(p2);
@@ -711,6 +703,7 @@ void trace_ray_block_global_cube(lmap_manager_t *lmgr, cube_t const &bnds, point
 void trace_ray_block_global_light(rt_data *data, point const &pos, colorRGBA const &color, float weight) {
 
 	if (pos.z < 0.0 || weight == 0.0 || color.alpha == 0.0) return; // below the horizon or zero weight, skip it
+	//highres_timer_t timer("Cube Light Global");
 	assert(data);
 	rand_gen_t rgen;
 	data->pre_run(rgen);

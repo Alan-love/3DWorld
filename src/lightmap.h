@@ -66,8 +66,8 @@ public:
 	lmcell const *get_column(int x, int y) const {return vlmap[y][x];} // Note: no bounds checking
 	lmcell *get_column(int x, int y) {return vlmap[y][x];} // Note: no bounds checking
 	lmcell &get_lmcell(int x, int y, int z) {return vlmap[y][x][z];} // Note: no bounds checking
-	lmcell *get_lmcell_round_down(point const &p);
 	lmcell *get_lmcell(point const &p);
+	void add_light_path(point p, vector3d const &step, unsigned nsteps, colorRGBA const &color, float weight, int ltype);
 	void reset_all(lmcell const &init_lmcell=lmcell());
 	template<typename T> void alloc(unsigned nbins, unsigned xsize, unsigned ysize, unsigned zsize, T **nonempty_bins, lmcell const &init_lmcell);
 	void init_from(lmap_manager_t const &src);

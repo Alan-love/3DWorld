@@ -205,13 +205,25 @@ void lmcell::set_outside_colors() {
 bool lmap_manager_t::is_valid_cell(int x, int y, int z) const {return (is_inside_lmap(x, y, z) && vlmap[y][x] != NULL);}
 
 // Note: only intended to work in ground mode where sizes are MESH_X_SIZE and MESH_Y_SIZE
-lmcell *lmap_manager_t::get_lmcell_round_down(point const &p) { // round down
-	int const x(get_xpos_round_down(p.x)), y(get_ypos_round_down(p.y)), z(get_zpos(p.z));
-	return (is_valid_cell(x, y, z) ? &vlmap[y][x][z] : NULL);
-}
 lmcell *lmap_manager_t::get_lmcell(point const &p) { // round to center
 	int const x(get_xpos(p.x)), y(get_ypos(p.y)), z(get_zpos(p.z));
 	return (is_valid_cell(x, y, z) ? &vlmap[y][x][z] : NULL);
+}
+
+void lmap_manager_t::add_light_path(point p, vector3d const &step, unsigned nsteps, colorRGBA const &color, float weight, int ltype) {
+	assert(is_allocated());
+	colorRGBA const cw(color*weight);
+
+	for (unsigned s = 0; s < nsteps; ++s) {
+		int const x(get_xpos_round_down(p.x)), y(get_ypos_round_down(p.y)), z(get_zpos(p.z));
+		
+		if (is_valid_cell(x, y, z)) { // could use a mutex here, but it seems too slow
+			float *color(vlmap[y][x][z].get_offset(ltype));
+			ADD_LIGHT_CONTRIB(cw, color);
+			if (ltype != LIGHTING_LOCAL) {color[3] += weight;}
+		}
+		p += step;
+	} // for s
 }
 
 void lmap_manager_t::reset_all(lmcell const &init_lmcell) {
