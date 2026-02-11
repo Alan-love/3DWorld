@@ -2903,7 +2903,7 @@ int building_t::check_line_coll_expand(point const &p1, point const &p2, float r
 	// check exterior walls
 	if (point_in_attic(p1) && point_in_attic(p2)) {} // both points in attic, no need to check exterior walls
 	else if (real_num_parts > 1) { // only need to do this for multi-part buildings because the caller is assumed to check the building bcube
-		// ray_cast_exterior_walls() doesn't really work here; instead we create a test cube and step it for every radius interval, and check if it ever exits the building
+		// follow_ray_through_cubes_recur() doesn't work here; instead create a test cube and step it for every radius interval, and check if it ever exits the building
 		unsigned const num_steps(min(100U, unsigned(ceil(p2p_dist(p1, p2)/radius))));
 
 		if (num_steps > 1) {
@@ -3111,7 +3111,7 @@ bool building_t::check_line_of_sight_large_objs(point const &p1, point const &p2
 	if (line_int_cubes(p1, p2, interior->elevators, line_bcube)) return 0; // check elevators only because stairs and escalators aren't solid visual blockers
 
 	// check exterior walls if there are multiple non-basement parts; skip for extended basement because this logic doesn't work and only interior walls are needed;
-	// this is simpler than ray_cast_exterior_walls()
+	// this is simpler than follow_ray_through_cubes_recur()
 	if (real_num_parts > (1 + has_basement()) && !point_in_extended_basement(p1) && !point_in_extended_basement(p2)) {
 		if (point_in_attic(p1) && point_in_attic(p2)) return 1; // always visible in attic
 		float tot_len(0.0);

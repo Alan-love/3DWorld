@@ -170,9 +170,6 @@ bool follow_ray_through_cubes_recur(point const &p1, point const &p2, point cons
 	} // for c
 	return 0;
 }
-bool building_t::ray_cast_exterior_walls(point const &p1, point const &p2, vector3d &cnorm, float &t) const {
-	return follow_ray_through_cubes_recur(p1, p2, p1, parts, get_real_parts_end_inc_sec(), parts.end(), 0, cnorm, t);
-}
 
 colorRGBA building_interior_t::get_attic_ceiling_color() const {
 	switch (attic_type) {
@@ -228,14 +225,14 @@ bool building_t::ray_cast_interior(point const &pos, vector3d const &dir, ray_ca
 			if (!line_poly_intersect(p1, p2, tq.pts, tq.npts, normal, t_tq) || t_tq >= t) continue;
 			t = t_tq; cnorm = normal; hit = 1; ccolor = args.bcolors.attic_color;
 		}
-		if (hit) {p2  = p1 + (p2 - p1)*t; t = 1.0;} // clip p2 to t (minor optimization)
+		if (hit) {cpos = p2 = p1 + (p2 - p1)*t;} // clip p2 to t (minor optimization)
 	}
 	else if (args.in_ext_basement) {} // no exterior walls to check
 	else if (line_contained_in_cube(p1, p2, parts, get_real_parts_end_inc_sec())) {} // both points in same part; no exterior wall hit
 	// check parts (exterior walls); should chimneys and porch roofs be included?
-	else if (ray_cast_exterior_walls(p1, p2, cnorm, t)) { // interior ray (common case) - find furthest exit point
-		p2  = p1 + (p2 - p1)*t; t = 1.0; // clip p2 to t (minor optimization)
-		hit = 1;
+	else if (follow_ray_through_cubes_recur(p1, p2, p1, parts, get_real_parts_end_inc_sec(), parts.end(), 0, cnorm, t)) { // interior ray (common case) - find furthest exit point
+		cpos = p2 = p1 + (p2 - p1)*t; // clip p2 to t (minor optimization)
+		hit  = 1;
 		if (p2.z < ground_floor_z1) {ccolor = args.bcolors.basement_wall_color;} // basement wall
 		else {ccolor = args.bcolors.wall_color;} // non-basement wall
 	}

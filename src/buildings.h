@@ -2425,7 +2425,6 @@ struct building_t : public building_geom_t {
 	bool player_can_see_in_mall_skylight(vector3d const &xlate) const;
 	bool player_can_see_inside_mall(vector3d const &xlate) const;
 	void set_building_colors(building_colors_t &bcolors) const;
-	bool ray_cast_exterior_walls(point const &p1, point const &p2, vector3d &cnorm, float &t) const;
 	bool ray_cast_interior(point const &pos, vector3d const &dir, ray_cast_args_t const &args, point &cpos, vector3d &cnorm, colorRGBA &ccolor, rand_gen_t *rgen=nullptr) const;
 	void create_building_volume_light_texture(unsigned bix, point const &target, unsigned &tid) const;
 	cube_t calc_parts_bcube() const;
