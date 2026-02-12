@@ -551,19 +551,14 @@ bool indir_lighting_updated() {return (global_lighting_update && (lmap_manager.w
 
 
 void kill_current_raytrace_threads() {
-
-	if (thread_manager.is_active()) { // can't have two running at once, so kill the existing one
-		// cancel thread?
-		kill_raytrace = 1;
-		thread_manager.join_and_clear();
-		assert(!thread_manager.is_active());
-		kill_raytrace = 0;
-	}
+	if (!thread_manager.is_active()) return;
+	kill_raytrace = 1; // can't have two running at once, so kill the existing one
+	thread_manager.join_and_clear();
+	assert(!thread_manager.is_active());
+	kill_raytrace = 0;
 }
 
-
 void update_lmap_from_temp_copy() {
-
 	if (!thread_temp_lmap.was_updated) return; // no updates
 	float const blend_weight = 1.0; // TODO: slow blend over time to reduce popping
 	lmap_manager.copy_data(thread_temp_lmap, blend_weight);
@@ -571,9 +566,7 @@ void update_lmap_from_temp_copy() {
 	lmap_manager.was_updated     = 1;
 }
 
-
 void check_for_lighting_finished() { // to be called about once per frame
-
 	if (!thread_manager.is_active()) return; // inactive
 	if (thread_manager.any_threads_running()) return; // still running
 	thread_manager.join_and_clear(); // clear() or join_and_clear()?

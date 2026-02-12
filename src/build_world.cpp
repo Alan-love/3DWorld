@@ -948,21 +948,16 @@ void coll_obj::check_if_cube() {
 
 
 void copy_polygon_to_cobj(polygon_t const &poly, coll_obj &cobj) {
-
 	cobj.npoints = (short)poly.size();
 	for (int j = 0; j < cobj.npoints; ++j) {cobj.points[j] = poly[j].v;}
 }
 
-
 void copy_tquad_to_cobj(coll_tquad const &tquad, coll_obj &cobj) {
-
 	cobj.npoints = tquad.npts;
 	for (int j = 0; j < cobj.npoints; ++j) {cobj.points[j] = tquad.pts[j];}
 }
 
-
 void maybe_reserve_fixed_cobjs(size_t size) {
-
 	unsigned const ncobjs(fixed_cobjs.size());
 	if (size > 2*ncobjs) {fixed_cobjs.reserve(ncobjs + (FIXED_COBJS_SWAP ? 1.1 : 1.0)*size);} // reserve to the correct size
 }
@@ -976,11 +971,10 @@ void add_polygons_to_cobj_vector(vector<coll_tquad> const &ppts, coll_obj const 
 	if (add_as_rotated_cube) {poly.cp.flags |= COBJ_WAS_CUBE;}
 	maybe_reserve_fixed_cobjs(ppts.size());
 	
-	for (vector<coll_tquad>::const_iterator i = ppts.begin(); i != ppts.end(); ++i) {
-		unsigned const npts(i->npts);
-		assert(npts == 3 || npts == 4);
-		if (!i->is_valid()) continue; // invalid zero area polygon - skip
-		copy_tquad_to_cobj(*i, poly);
+	for (coll_tquad const &t : ppts) {
+		assert(t.npts == 3 || t.npts == 4);
+		if (!t.is_valid()) continue; // invalid zero area polygon - skip
+		copy_tquad_to_cobj(t, poly);
 		vector3d const norm(get_poly_norm(poly.points));
 
 		if (norm == zero_vector) {
@@ -992,14 +986,14 @@ void add_polygons_to_cobj_vector(vector<coll_tquad> const &ppts, coll_obj const 
 			}
 			continue;
 		}
-		if (i->color.c[3] > 0 && (i->color.c[0] < 255 || i->color.c[1] < 255 || i->color.c[2] < 255)) {
+		if (t.color.c[3] > 0 && (t.color.c[0] < 255 || t.color.c[1] < 255 || t.color.c[2] < 255)) {
 			// we have a valid override color that's not transparent or white, so set the color to this and reset the texture id
-			poly.cp.color = i->color.get_c4();
+			poly.cp.color = t.color.get_c4();
 			poly.cp.tid   = poly.cp.normal_map = -1;
 		}
 		if (group_ids) {poly.group_id = group_ids[get_max_dim(norm)];}
 		poly.add_to_vector(fixed_cobjs, COLL_POLYGON); // 3 or 4 point convex polygons only
-	}
+	} // for t
 }
 
 

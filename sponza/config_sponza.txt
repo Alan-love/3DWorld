@@ -15,6 +15,7 @@ disable_scenery 1
 read_landscape 0
 read_heightmap 0
 ground_effects_level 1
+vsync_enabled 1
 #toggle_mesh_enabled # disable mesh draw by default
 
 grass_density 0

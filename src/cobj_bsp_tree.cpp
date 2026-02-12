@@ -29,7 +29,7 @@ coll_tquad::coll_tquad(coll_obj const &c) : tquad_t(c.npoints), normal(c.norm), 
 }
 coll_tquad::coll_tquad(polygon_t const &p, colorRGBA const &c) : tquad_t(p.size()), color(c) {
 	assert(npts == 3 || npts == 4);
-	for (unsigned i = 0; i < npts; ++i) {pts[i]  = p[i].v;}
+	for (unsigned i = 0; i < npts; ++i) {pts[i] = p[i].v;}
 	if (npts == 3) pts[3] = pts[2]; // duplicate the last point so that it's valid
 	update_normal();
 }
