@@ -376,7 +376,7 @@ bool cobj_bvh_tree::check_coll_line(point const &p1, point const &p2, point &cpo
 {
 	if (nodes.empty()) return 0;
 	bool ret(0);
-	float t(0.0), tmin(0.0), tmax(1.0), max_alpha(0.0);
+	float t(0.0), tmax(1.0), max_alpha(0.0);
 	node_ix_mgr nixm(nodes, p1, p2);
 	unsigned const num_nodes((unsigned)nodes.size());
 
@@ -387,16 +387,16 @@ bool cobj_bvh_tree::check_coll_line(point const &p1, point const &p2, point &cpo
 		for (unsigned i = n.start; i < n.end; ++i) { // check leaves
 			// Note: we test cobj against the original (unclipped) p1 and p2 so that t is correct
 			// Note: we probably don't need to return cnorm and cpos in inexact mode, but it shouldn't be too expensive to do so
-			if ((int)cixs[i] == ignore_cobj) continue;
+			if (ignore_cobj >= 0 && (int)cixs[i] == ignore_cobj) continue;
 			coll_obj const &c(get_cobj(i));
-			if (!obj_ok(c))                  continue;
+			if (!obj_ok(c))                                                   continue;
 			if (skip_non_drawn  && !c.cp.might_be_drawn())                    continue;
 			if (skip_movable    && c.is_movable())                            continue;
 			if (test_alpha == 1 && c.is_semi_trans())                         continue; // semi-transparent, can see through
 			if (test_alpha == 2 && c.cp.color.alpha <= max_alpha)             continue; // lower alpha than an earlier object
 			if (test_alpha == 3 && c.cp.color.alpha < MIN_SHADOW_ALPHA)       continue; // less than min alpha
 			if (skip_init_colls && c.contains_pt(p1) && c.contains_point(p1)) continue;
-			if (!c.line_int_exact(p1, p2, t, cnorm, tmin, tmax))              continue;
+			if (!c.line_int_exact(p1, p2, t, cnorm, 0.0, tmax))               continue; // tmin=0.0
 			cindex = cixs[i];
 			cpos   = p1 + (p2 - p1)*t;
 			//if (c.type == COLL_POLYGON && dot_product((p2 - p1), c.norm) < 0.0) {} // back-facing polygon test
