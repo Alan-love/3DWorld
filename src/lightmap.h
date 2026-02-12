@@ -26,7 +26,7 @@ protected:
 };
 
 
-unsigned const lmcell_ltype_off[NUM_LIGHTING_TYPES] = {0, 4, 8, 0}; // sky, global, local, sky cobj accum, dynamic
+unsigned const lmcell_ltype_off[NUM_LIGHTING_TYPES] = {0, 4, 8, 0, 0}; // sky, global, local, sky cobj accum, dynamic (unused)
 
 struct lmcell { // size = 52
 
