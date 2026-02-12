@@ -1611,11 +1611,14 @@ void model3d::get_polygons(vector<coll_tquad> &polygons, bool quads_only, bool a
 		polygons.reserve(num_copies*(quads_only ? stats.quads : (stats.tris + 1.5*stats.quads)));
 	}
 	get_polygon_args_t args(polygons, quads_only, lod_level);
-	unbound_geom.get_polygons(args);
+	unbound_geom.get_polygons(args); // uncolored
 
 	for (material_t const &m : materials) {
+		unsigned const polys_start(polygons.size());
 		m.geom.get_polygons    (args);
 		m.geom_tan.get_polygons(args);
+		colorRGBA const mat_color(m.get_avg_color(tmgr));
+		for (auto p = polygons.begin()+polys_start; p != polygons.end(); ++p) {p->color = mat_color;}
 	}
 	if (apply_transforms && !transforms.empty()) { // handle transforms
 		// first clone the polygons for each transform; first transform is done already
