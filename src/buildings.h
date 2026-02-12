@@ -77,6 +77,7 @@ unsigned const NUM_HARDHAT_COLORS = 9;
 unsigned const NUM_HANDLE_COLORS  = 4;
 unsigned const NUM_SOAP_COLORS    = 5;
 unsigned const NUM_SPICE_COLORS   = 7;
+unsigned const NUM_FOOD_TUB_COLORS= 3;
 unsigned const NUM_SIGN_BKG_COLORS= 9; // Note: 0 is auto
 unsigned const NUM_MALL_CHAIR_COLORS  = 5;
 unsigned const NUM_SP_EMISSIVE_COLORS = 2;
@@ -104,6 +105,7 @@ colorRGBA const hardhat_colors[NUM_HARDHAT_COLORS] = {YELLOW, YELLOW, YELLOW, YE
 colorRGBA const handle_colors [NUM_HANDLE_COLORS ] = {DK_RED, colorRGBA(0.1, 0.2, 0.4), colorRGBA(0.05, 0.3, 0.05), BKGRAY};
 colorRGBA const soap_colors   [NUM_SOAP_COLORS   ] = {WHITE, cream, vlt_yellow, colorRGBA(1.0, 0.8, 0.6), colorRGBA(0.7, 1.0, 0.7)};
 colorRGBA const spice_colors  [NUM_SPICE_COLORS  ] = {WHITE, BLACK, LT_BROWN, BROWN, DK_BROWN, DK_GREEN, OLIVE};
+colorRGBA const food_tub_colors[NUM_FOOD_TUB_COLORS] = {WHITE, cream, colorRGBA(0.8, 0.7, 0.5)}; // tan
 colorRGBA const sign_bkg_colors[NUM_SIGN_BKG_COLORS] = {WHITE, CYAN, MAGENTA, YELLOW, LT_RED, LT_BLUE, LT_GREEN, LT_BROWN, BLACK};
 colorRGBA const mall_chair_colors[NUM_MALL_CHAIR_COLORS] = {WHITE, LT_GRAY, GRAY, ORANGE, LT_BROWN};
 colorRGBA const LAMP_COLOR(1.0, 0.8, 0.6); // soft white
@@ -530,7 +532,7 @@ enum { // room object types
 	TYPE_CATWALK, TYPE_VANITY, TYPE_CHEM_TANK, TYPE_HVAC_UNIT, TYPE_WARN_LIGHT, TYPE_GAUGE, TYPE_PALLET, TYPE_SHELF_WALL, TYPE_VENDING, TYPE_MED_CAB,
 	TYPE_LOCKER, TYPE_TESTTUBE, TYPE_HARDHAT, TYPE_TOPHAT, TYPE_COMP_MOUSE, TYPE_PARK_GATE, TYPE_CONV_BELT, TYPE_JAIL_BARS, TYPE_STICK_NOTE, TYPE_GYM_WEIGHT,
 	TYPE_FOOD_TRAY, TYPE_BAR_SOAP, TYPE_COAT_RACK, TYPE_O_SHOWER, TYPE_CARD_DECK, TYPE_CIGARETTE, TYPE_BULLETS, TYPE_CEIL_TILE, TYPE_WALL_GAP, TYPE_MUSHROOM,
-	TYPE_SHELL_CASE, TYPE_PAN_SHELF, TYPE_JAR, TYPE_VENT_HOOD,
+	TYPE_SHELL_CASE, TYPE_PAN_SHELF, TYPE_JAR, TYPE_FOOD_TUB, TYPE_VENT_HOOD,
 	/* these next ones are all 3D models - see logic in room_object_t::is_obj_model_type() */
 	TYPE_TOILET, TYPE_SINK, TYPE_TUB, TYPE_FRIDGE, TYPE_STOVE, TYPE_TV, TYPE_MONITOR, TYPE_COUCH, TYPE_OFF_CHAIR, TYPE_URINAL,
 	TYPE_LAMP, TYPE_WASHER, TYPE_DRYER, TYPE_KEY, TYPE_HANGER, TYPE_CLOTHES, TYPE_FESCAPE, TYPE_WALL_LAMP, TYPE_CUP, TYPE_TOASTER,
@@ -1474,6 +1476,7 @@ struct building_room_geom_t {
 	void add_button(room_object_t const &c, bool inc_geom, bool inc_text);
 	void add_crate(room_object_t const &c);
 	void add_box(room_object_t const &c);
+	void add_food_tub(room_object_t const &c);
 	void add_paint_can(room_object_t const &c);
 	void add_shelves(room_object_t const &c, float tscale);
 	void add_rack(room_object_t const &c, bool add_rack, bool add_objs, bool obj_text_pass=0);

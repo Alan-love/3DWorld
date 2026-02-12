@@ -1242,6 +1242,23 @@ void building_room_geom_t::add_box(room_object_t const &c) { // is_small=1
 	}
 }
 
+void building_room_geom_t::add_food_tub(room_object_t const &c) {
+	colorRGBA const color(apply_light_color(c));
+	rgeom_mat_t &mat(get_untextured_material(1, 0, 1)); // inc_shadows=1, dynamic=0, small=1
+	cube_t body(c), lid(c);
+	body.z2() = lid.z1() = c.z2() - 0.05*c.dz();
+
+	if (c.shape == SHAPE_CYLIN) {
+		mat.add_vcylin_to_verts(body, color, 1, 0, 0, 0, 0.7, 0.95); // untextured, truncated cone
+		mat.add_vcylin_to_verts(lid , color, 1, 1);
+	}
+	else if (c.shape == SHAPE_ROUNDED_CUBE) { // rounded sloped cube; likely square
+		float const corner_radius(0.33*c.get_width());
+		mat.add_round_rect_to_verts(body, corner_radius, color, 0, 1, 0, 0, 0.7, 0.95);
+		mat.add_round_rect_to_verts(lid , corner_radius, color, 1, 1);
+	}
+}
+
 float get_obj_rand_tscale_add(room_object_t const &c) {
 	return fract(21111*c.x1() + 29222*c.y1() + 25333*c.z1()); // somewhat random
 }

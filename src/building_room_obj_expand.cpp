@@ -206,13 +206,14 @@ void add_rows_of_vcylinders(room_object_t const &c, cube_t const &region, float 
 	bool const is_drink(type == TYPE_BOTTLE || type == TYPE_DRINK_CAN);
 	unsigned rand_id(is_drink ? rgen.rand() : 0);
 	if (is_drink) {flags |= RO_FLAG_NO_CONS;} // not consumable
+	room_obj_shape const shape((type == TYPE_FOOD_TUB && rgen.rand_bool()) ? SHAPE_ROUNDED_CUBE : SHAPE_CYLIN); // some tubs are rounded cubes
 
 	for (unsigned row = 0; row < num_rows; ++row) {
 		cube_t row_obj(objc);
 
 		for (unsigned col = 0; col < num_cols; ++col) {
 			if (rgen.rand_float() < 0.75) { // 75% chance
-				room_object_t obj(row_obj, type, c.room_id, (c.dim ^ inv_dim), dir, flags, c.light_amt, SHAPE_CYLIN);
+				room_object_t obj(row_obj, type, c.room_id, (c.dim ^ inv_dim), dir, flags, c.light_amt, shape);
 				if      (type == TYPE_BOTTLE    ) {
 					unsigned const max_type(no_alcohol ? BOTTLE_TYPE_COKE : BOTTLE_TYPE_WINE); // excludes poison and medicine; should we include medicine?
 					obj.set_as_bottle(rand_id, max_type, 1); // no_empty=1
@@ -230,7 +231,8 @@ void add_rows_of_vcylinders(room_object_t const &c, cube_t const &region, float 
 				else if (type == TYPE_LAMP      ) {obj.color = lamp_colors[rgen.rand()%NUM_LAMP_COLORS];}
 				else if (type == TYPE_BUCKET    ) {obj.color = LT_GRAY;}
 				else if (type == TYPE_PAN       ) {obj.color = DK_GRAY;}
-				else if (type == TYPE_JAR       ) {obj.color = spice_colors[rgen.rand()%NUM_SPICE_COLORS]; obj.item_flags = rgen.rand();} // random spice level and color
+				else if (type == TYPE_JAR       ) {obj.color = spice_colors   [rgen.rand()%NUM_SPICE_COLORS   ]; obj.item_flags = rgen.rand();} // random spice level and color
+				else if (type == TYPE_FOOD_TUB  ) {obj.color = food_tub_colors[rgen.rand()%NUM_FOOD_TUB_COLORS]; obj.item_flags = rgen.rand();} // random type and color
 				objects.push_back(obj);
 				if (type == TYPE_VASE) {objects.back().z2() -= 0.1*rgen.rand_float()*height;} // add a bit of height variation
 			}
@@ -510,12 +512,12 @@ void building_room_geom_t::add_closet_objects(room_object_t const &c, vect_room_
 				// populate shelf with food items
 				float const shelf_depth(shelf.get_sz_dim(sdim));
 				set_cube_zvals(shelf, shelf.z2(), shelf.z2()+height_val); // space above shelf
+				room_object_t c2(c);
+				c2.dim = sdim; c2.dir = sdir; // required for correct item orient on side shelves
 
 				if (!is_freezer) { // pantry
 					bool const back(s == 0), top(n == num_shelf_levels);
 					float const rand_val(rgen.rand_float()), rv1(back ? 0.7 : 0.4), rv2(back ? 1.0 : 0.6), rv3(back ? 1.0 : 0.8);
-					room_object_t c2(c);
-					c2.dim = sdim; c2.dir = sdir; // required for correct item orient on side shelves
 
 					if      (rand_val < rv1) {add_rows_of_food_boxes     (rgen, c2, shelf, 0.7*height_val, shelf_depth, c2.dir, objects);} // food boxes; more likely
 					else if (rand_val < rv2) {add_rows_of_bottles_or_cans(rgen, c2, shelf, 0.5*height_val, shelf_depth, 0,      objects);} // bottles or cans
@@ -537,11 +539,16 @@ void building_room_geom_t::add_closet_objects(room_object_t const &c, vect_room_
 				}
 				else { // freezer
 					shelf.d[sdim][sdir] -= (sdir ? 1.0 : -1.0)*shelf_hthick; // shrink outer edge slightly to avoid vertical bars
+					float const rval(rgen.rand_float());
 
-					if (!shelf.intersects(ac) && rgen.rand_float() < 0.4) { // add pizza boxes, but not in front of the AC
+					if (rval < 0.3 && !shelf.intersects(ac)) { // add pizza boxes 30%; not in front of the AC
 						add_pizza_box_stack(shelf, sdim, sdir, (flags | RO_FLAG_HANGING), c.room_id, c.light_amt, objects, rgen);
 					}
-					else { // add random closed boxes
+					else if (rval < 0.55 && !shelf.intersects(ac)) { // add food tubs 25%; not in front of the AC
+						float const oheight(rgen.rand_uniform(0.5, 0.7)*height_val), radius(rgen.rand_uniform(0.6, 1.0)*min(0.4*shelf_depth, 0.75*oheight));
+						add_rows_of_vcylinders(c2, shelf, radius, oheight, 0.1, TYPE_FOOD_TUB, 1, flags, objects, rgen); // 1 column
+					}
+					else { // add random closed boxes 45%
 						unsigned const num_boxes(2 + (rgen.rand() % 4)); // 2-5
 						unsigned const box_flags(flags | RO_FLAG_USED | RO_FLAG_HANGING); // used=can't open, and bottom is visible
 						float const box_sz(0.4*shelf_depth), hscale(min(shelf.dz(), shelf_depth)), hmin(0.3*hscale), hmax(0.7*hscale);

@@ -232,6 +232,7 @@ void setup_bldg_obj_types() {
 	bldg_obj_types[TYPE_SHELL_CASE] = bldg_obj_type_t(0, 0, 0, 1, 0, 0, 2, 0.0,   0.01,  "shell casing");
 	bldg_obj_types[TYPE_PAN_SHELF ] = bldg_obj_type_t(0, 0, 0, 0, 1, 0, 2, 0.0,   0.0,   "pantry shelf");
 	bldg_obj_types[TYPE_JAR       ] = bldg_obj_type_t(0, 0, 0, 1, 0, 0, 2, 5.0,   0.25,  "jar of spice");
+	bldg_obj_types[TYPE_FOOD_TUB  ] = bldg_obj_type_t(0, 0, 0, 1, 0, 0, 2, 25.0,  8.0,   "tub of food");
 	bldg_obj_types[TYPE_VENT_HOOD ] = bldg_obj_type_t(0, 0, 1, 0, 1, 0, 1, 500,  200.00, "ventilation hood"); // rat_coll set since it's spider collidable
 	// player_coll, ai_coll, rat_coll, pickup, attached, is_model, lg_sm, value, weight, name [capacity]
 	// 3D models
@@ -515,6 +516,11 @@ bldg_obj_type_t get_taken_obj_type(room_object_t const &obj) {
 			string const contents[num_contents] = {"frozen potatoes", "frozen chicken", "frozen beef", "frozen pork", "ice cream", "frozen fries", "frozen vegetables", "lasagna"};
 			type.name = "box of " + contents[obj.obj_id % num_contents];
 		}
+	}
+	else if (otype == TYPE_FOOD_TUB) { // custom food tub contents
+		unsigned const num_contents = 5;
+		string const contents[num_contents] = {"ice cream", "lard", "mashed potatoes", "mystery meat", "frozen yogurt"};
+		type.name = "tub of " + contents[obj.item_flags % num_contents];
 	}
 	if (wv_factor != 1.0) { // scale weight and value by this factor, rounded to the nearest pound and dollar
 		type.weight = int(wv_factor*type.weight);
