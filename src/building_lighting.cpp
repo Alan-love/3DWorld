@@ -666,6 +666,16 @@ class lmap_manager_local_t {
 	vector3d ray_scale, ray_offset;
 	float step_sz_inv=0.0;
 	bool realloc_tid=0;
+
+	void update_elem(unsigned i) {
+		float const light_scale(light_int_scale[LIGHTING_LOCAL]);
+		unsigned const off2(4*i);
+		colorRGB const &c(data[i]);
+		if (c == BLACK) {UNROLL_3X(tex_data[off2+i_] = 0;)}
+		else {
+			for (unsigned j = 0; j < 3; ++j) {tex_data[off2+j] = (unsigned char)(255*sqrt(CLIP_TO_01(c[j]*light_scale)));} // similar to gamma correction
+		}
+	}
 public:
 	void alloc(unsigned xsize_, unsigned ysize_, unsigned zsize_, cube_t const &bounds) {
 		realloc_tid |= (xsize_ != xsize || ysize_ != ysize || zsize_ != zsize); // re-allocate texture on size change
@@ -696,34 +706,30 @@ public:
 		}
 	}
 	void update_indir_light_texture(unsigned &tid, bool incremental) {
-		tex_data.resize(4*data.size(), 0); // computed as RGB but stored as RGBA with zero/unused alpha
+		unsigned const num_grids(data.size());
+		tex_data.resize(4*num_grids, 0); // computed as RGB but stored as RGBA with zero/unused alpha
 		assert(!data.empty()); // must call alloc() first
-		float const light_scale(light_int_scale[LIGHTING_LOCAL]);
-		int start_ix(0), end_ix(data.size());
-		unsigned start_y(0), end_y(ysize);
 		if (tid == 0 || realloc_tid) {incremental = 0;}
 		
-		if (!incremental) {update_block_ix = 0;} // should end here
+		if (!incremental) { // full update; should end here
+#pragma omp parallel for schedule(static, 128) num_threads(min(4U, NUM_THREADS))
+			for (int i = 0; i < num_grids; ++i) {update_elem(i);}
+			if (realloc_tid) {free_texture(tid); realloc_tid = 0;}
+			if (tid == 0) {tid = create_3d_texture(zsize, xsize, ysize, 4, tex_data, GL_LINEAR, GL_CLAMP_TO_EDGE);}
+			else {update_3d_texture(tid, 0, 0, 0, zsize, xsize, ysize, 4, tex_data.data());} // stored {Z,X,Y}
+			update_block_ix = 0;
+		}
 		else { // incremental update
 			unsigned const num_blocks(min(8U, ysize)), cells_per_yval(xsize*zsize);
 			unsigned const yvals_per_block((ysize + num_blocks - 1)/num_blocks); // ceil
-			start_y  = update_block_ix*yvals_per_block;
-			end_y    = min(ysize, (start_y + yvals_per_block)); // clamp to max in case ysize doesn't divide evenly by num_blocks
-			start_ix = cells_per_yval*start_y;
-			end_ix   = cells_per_yval*end_y;
-			assert(end_ix <= data.size());
+			unsigned const start_y(update_block_ix*yvals_per_block);
+			unsigned const end_y(min(ysize, (start_y + yvals_per_block))); // clamp to max in case ysize doesn't divide evenly by num_blocks
+			int const start_ix(cells_per_yval*start_y), end_ix(cells_per_yval*end_y);
+			assert(end_ix <= num_grids);
+			for (int i = start_ix; i < end_ix; ++i) {update_elem(i);}
+			update_3d_texture(tid, 0, 0, start_y, zsize, xsize, (end_y - start_y), 4, (tex_data.data() + 4*start_ix));
 			if (++update_block_ix == num_blocks) {update_block_ix = 0;}
 		}
-#pragma omp parallel for schedule(static, 128) num_threads(min(4U, NUM_THREADS)) if (!incremental)
-		for (int i = start_ix; i < end_ix; ++i) {
-			unsigned const off2(4*i);
-			colorRGB const &c(data[i]);
-			if (c == BLACK) {UNROLL_3X(tex_data[off2+i_] = 0;) continue;}
-			for (unsigned j = 0; j < 3; ++j) {tex_data[off2+j] = (unsigned char)(255*sqrt(CLIP_TO_01(c[j]*light_scale)));} // similar to gamma correction
-		}
-		if (realloc_tid) {free_texture(tid); realloc_tid = 0;}
-		if (tid == 0) {tid = create_3d_texture(zsize, xsize, ysize, 4, tex_data, GL_LINEAR, GL_CLAMP_TO_EDGE);}
-		else {update_3d_texture(tid, 0, 0, start_y, zsize, xsize, (end_y - start_y), 4, (tex_data.data() + 4*start_ix));} // stored {Z,X,Y}
 		check_gl_error(235);
 	}
 }; // end lmap_manager_local_t
@@ -1002,7 +1008,7 @@ class building_indir_light_mgr_t {
 	}
 	void update_volume_light_texture() {
 		init_lmgr(); // init on first call
-		//highres_timer_t timer("Lighting Tex Create"); // ~1.8ms
+		//highres_timer_t timer("Lighting Tex Create"); // ~1.6ms
 		bool const incremental(is_running);
 		lmgr.update_indir_light_texture(cur_tid, incremental);
 		if (!incremental) {lighting_updated = 0;} // keep updating until done running
