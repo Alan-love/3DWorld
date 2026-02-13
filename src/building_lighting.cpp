@@ -667,19 +667,19 @@ class lmap_manager_local_t {
 	float step_sz_inv=0.0;
 	bool realloc_tid=0;
 public:
-	void alloc(unsigned xsize_, unsigned ysize_, unsigned zsize_) {
+	void alloc(unsigned xsize_, unsigned ysize_, unsigned zsize_, cube_t const &bounds) {
 		realloc_tid |= (xsize_ != xsize || ysize_ != ysize || zsize_ != zsize); // re-allocate texture on size change
-		xsize = xsize_; ysize = ysize_; zsize = zsize_;
+		xsize      = xsize_; ysize = ysize_; zsize = zsize_;
+		ray_scale  = vector3d(xsize, ysize, zsize)/bounds.get_size();
+		ray_offset = -bounds.get_llc()*ray_scale;
+		indir_light_step_sz = 3.0/(ray_scale.x + ray_scale.y + ray_scale.z); // used in set_indir_lighting_block()
 		data.resize(xsize*ysize*zsize, BLACK);
 	}
 	void reset_all() {
 		for (colorRGB &c : data) {c = BLACK;}
 	}
-	void set_light_bounds(cube_t const &bounds, bool half_step_sz) {
-		ray_scale   = vector3d(xsize, ysize, zsize)/bounds.get_size();
-		ray_offset  = -bounds.get_llc()*ray_scale;
+	void set_step_sz(bool half_step_sz) {
 		step_sz_inv = (half_step_sz ? 2.0 : 1.0); // 1-2 steps per grid on average
-		indir_light_step_sz = 3.0/(ray_scale.x + ray_scale.y + ray_scale.z); // used in set_indir_lighting_block()
 	}
 	void add_path_to_lmcs(point p1, point p2, float weight, colorRGBA const &color) {
 		p1 = ray_scale*p1 + ray_offset;
@@ -792,8 +792,7 @@ class building_indir_light_mgr_t {
 		float const sz_prod(sz.x * sz.y * sz.z), scale(pow(tot_grid/sz_prod, 1.0/3.0));
 		for (unsigned n = 0; n < 3; ++n) {grid_sz[n] = max(1, round_fp(sz[n]*scale));}
 		unsigned const tot_alloc(grid_sz[0] * grid_sz[1] * grid_sz[2]);
-		lmgr.alloc(grid_sz[0], grid_sz[1], grid_sz[2]);
-		//cout << TXTS(sz) << TXT(grid_sz[0]) << TXT(grid_sz[1]) << TXT(grid_sz[2]) << TXT(tot_grid) << TXT(tot_alloc) << endl;
+		lmgr.alloc(grid_sz[0], grid_sz[1], grid_sz[2], light_bounds);
 	}
 	void init_ray_directions() {
 		rand_gen_t rgen;
@@ -928,7 +927,7 @@ class building_indir_light_mgr_t {
 		building_colors_t bcolors;
 		b.set_building_colors(bcolors);
 		ray_cast_args_t const args(valid_area, bvh, in_attic, in_ext_basement, bcolors);
-		lmgr.set_light_bounds(light_bounds, half_step_sz);
+		lmgr.set_step_sz(half_step_sz);
 		
 		// Note: dynamic scheduling is faster, and using blocks doesn't help
 #pragma omp parallel for schedule(dynamic) num_threads(num_rt_threads)
@@ -1001,9 +1000,9 @@ class building_indir_light_mgr_t {
 		while (is_running) {sleep_for_ms(1);}
 		kill_thread = 0;
 	}
-	void update_volume_light_texture() { // full update, 6.6ms for z=128
+	void update_volume_light_texture() {
 		init_lmgr(); // init on first call
-		//highres_timer_t timer("Lighting Tex Create"); // 706ms in mall with 4 threads and 368 lights
+		//highres_timer_t timer("Lighting Tex Create"); // ~1.8ms
 		bool const incremental(is_running);
 		lmgr.update_indir_light_texture(cur_tid, incremental);
 		if (!incremental) {lighting_updated = 0;} // keep updating until done running
