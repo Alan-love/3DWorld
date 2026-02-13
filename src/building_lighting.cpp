@@ -1054,6 +1054,7 @@ class building_indir_light_mgr_t {
 	}
 public:
 	cube_t get_light_bounds() const {return light_bounds;}
+	bool get_is_running    () const {return is_running;}
 
 	void invalidate_lighting() {
 		cur_job = light_job_t();
@@ -1332,7 +1333,8 @@ building_indir_light_mgr_t building_indir_light_mgr;
 
 void free_building_indir_texture() {building_indir_light_mgr.free_indir_texture();}
 void end_building_rt_job() {building_indir_light_mgr.end_rt_job();}
-cube_t get_building_indir_light_bounds() {return building_indir_light_mgr.get_light_bounds();}
+cube_t get_building_indir_light_bounds () {return building_indir_light_mgr.get_light_bounds();}
+bool is_building_indir_lighting_running() {return building_indir_light_mgr.get_is_running();}
 
 void building_t::create_building_volume_light_texture(unsigned bix, point const &target, unsigned &tid) const {
 	if (!has_room_geom()) return; // error?

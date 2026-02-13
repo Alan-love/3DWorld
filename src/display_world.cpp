@@ -87,6 +87,7 @@ void draw_player_model(point const &pos, vector3d const &dir, int time);
 void building_gameplay_next_frame(); // from building_interact.cc
 void create_building_reflections_and_textures();
 void follow_city_actor();
+bool is_building_indir_lighting_running();
 
 
 void glClearColor_rgba(const colorRGBA &color) {
@@ -1299,7 +1300,8 @@ void display_inf_terrain() { // infinite terrain mode (Note: uses light params f
 	// threads: 0=draw tiled terrain (2.5ms) + transparent (0.3), 1=update roads and cars (2.3ms), 2=pedestrians (3.8ms) + building AI (0.85ms)
 	// Note: it's questionable to update (move) cars between the opaque and transparent pass because the parts will be out of sync;
 	// however, only the headlight flares are drawn in the transparent pass, and it doesn't seem to be a problem, so we allow it
-	if (have_city_models()) {
+	// run serial flow if lighting is running to avoid competing threads and shared barriers
+	if (have_city_models() && !is_building_indir_lighting_running()) {
 		//timer_t timer("City Update MT"); // 4.65ms
 #pragma omp parallel num_threads(3)
 		if (omp_get_thread_num_3dw() == 0) {draw_tiled_terrain_and_transparent_geom(terrain_zmin, tt_reflection_tid, draw_water, camera_above_clouds);} // drawing must be on thread 0
