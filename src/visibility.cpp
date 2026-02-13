@@ -412,11 +412,10 @@ bool light_visible_from_vertex(int xpos, int ypos, point const &lpos, int fast) 
 
 class mesh_shadow_gen {
 
-	float const *mh;
 	unsigned char *smask;
-	float const *sh_in_x, *sh_in_y;
+	float const *mh, *sh_in_x, *sh_in_y;
 	float *sh_out_x, *sh_out_y;
-	float dist;
+	float dist=0.0;
 	int xsize, ysize;
 	vector3d dir;
 
@@ -429,8 +428,7 @@ class mesh_shadow_gen {
 		double const dir_ratio(dir.z/dir[dim]);
 		bool inited(0);
 		point cur(all_zeros);
-
-#if 1 // Bresenham's line drawing algorithm
+		// Bresenham's line drawing algorithm
 		int x(xa), y(ya);
 		int dx1(0), dy1(0), dx2(0), dy2(0);
 		if (dx < 0) {dx1 = -1; dx2 = -1;} else if (dx > 0) {dx1 = 1; dx2 = 1;}
@@ -479,54 +477,18 @@ class mesh_shadow_gen {
 				y += dy2;
 			}
 		} // for i
-#else
-		int const steps(max(abs(dx), abs(dy)));
-		double const xinc(dx/(double)steps), yinc(dy/(double)steps);
-		double x(xa), y(ya);
-		int xstart(0), ystart(0), xend(xsize-1), yend(ysize-1);
-		if (dir.x <= 0.0) {swap(xstart, xend);}
-		if (dir.y <= 0.0) {swap(ystart, yend);}
-
-		for (int k = 0; ; ++k) { // DDA algorithm
-			int const xp((int)x), yp((int)y);
-			
-			if (xp >= 0 && yp >= 0 && xp < xsize && yp < ysize) {
-				int const xp1(min(xsize-1, xp+1)), yp1(min(ysize-1, yp+1));
-				float const xpi(x - (float)xp), ypi(y - (float)yp);
-				float const mh00(mh[yp*xsize+xp]), mh01(mh[yp*xsize+xp1]), mh10(mh[yp1*xsize+xp]), mh11(mh[yp1*xsize+xp1]);
-				float const mhv((1.0f - xpi)*((1.0f - ypi)*mh00 + ypi*mh10) + xpi*((1.0f - ypi)*mh01 + ypi*mh11));
-				point const pt((-X_SCENE_SIZE + DX_VAL*x), (-Y_SCENE_SIZE + DY_VAL*y), mhv);
-
-				// use starting shadow height value
-				if (sh_in_y != NULL && xp == xstart && sh_in_y[yp] > MESH_MIN_Z) {
-					cur.assign(pt.x, pt.y, sh_in_y[yp]);
-					inited = 1;
-				}
-				else if (sh_in_x != NULL && yp == ystart && sh_in_x[xp] > MESH_MIN_Z) {
-					cur.assign(pt.x, pt.y, sh_in_x[xp]);
-					inited = 1;
-				}
-				float const shadow_z((pt[dim] - cur[dim])*dir_ratio + cur.z);
-
-				if (inited && shadow_z > pt.z) { // shadowed
-					smask[yp*xsize+xp] |= MESH_SHADOW;
-					// set ending shadow height value
-					if (sh_out_y != NULL && xp == xend) {sh_out_y[yp] = shadow_z;}
-					if (sh_out_x != NULL && yp == yend) {sh_out_x[xp] = shadow_z;}
-				}
-				else {cur = pt;} // update point
-				inited = 1;
-			}
-			else if (k > steps) {break;}
-			x += xinc;
-			y += yinc;
-		} // for k
-#endif
 	}
-
+	void run_x() {
+		float const xval(get_xval((dir.x > 0) ? 0 : xsize));
+		for (int y = 0; y < 2*ysize; ++y) {trace_shadow_path(point(xval, (-Y_SCENE_SIZE + 0.5*DY_VAL*y), 0.0));} // half increments
+	}
+	void run_y() {
+		float const yval(get_yval((dir.y > 0) ? 0 : ysize));
+		for (int x = 0; x < 2*xsize; ++x) {trace_shadow_path(point((-X_SCENE_SIZE + 0.5*DX_VAL*x), yval, 0.0));} // half increments
+	}
 public:
 	mesh_shadow_gen(float const *const h, unsigned char *sm, int xsz, int ysz, float const *shix, float const *shiy, float *shox, float *shoy)
-		: mh(h), smask(sm), sh_in_x(shix), sh_in_y(shiy), sh_out_x(shox), sh_out_y(shoy), dist(0.0f), xsize(xsz), ysize(ysz) {
+		: smask(sm), mh(h), sh_in_x(shix), sh_in_y(shiy), sh_out_x(shox), sh_out_y(shoy), xsize(xsz), ysize(ysz) {
 		assert(mh != NULL && smask != NULL);
 	}
 	void run(point const &lpos) { // assumes light source directional/at infinity
@@ -534,22 +496,12 @@ public:
 		assert(smask != NULL);
 		dir  = -lpos.get_norm();
 		dist = 2.0*XY_SUM_SIZE/sqrt(dir.x*dir.x + dir.y*dir.y);
-		#pragma omp parallel sections num_threads(2)
-		{
-			#pragma omp section
-			{
-				float const xval(get_xval((dir.x > 0) ? 0 : xsize));
-				for (int y = 0; y < 2*ysize; ++y) { // half increments
-					trace_shadow_path(point(xval, (-Y_SCENE_SIZE + 0.5*DY_VAL*y), 0.0));
-				}
-			}
-			#pragma omp section
-			{
-				float const yval(get_yval((dir.y > 0) ? 0 : ysize));
-				for (int x = 0; x < 2*xsize; ++x) { // half increments
-					trace_shadow_path(point((-X_SCENE_SIZE + 0.5*DX_VAL*x), yval, 0.0));
-				}
-			}
+#pragma omp parallel sections num_threads(2)
+		{ // run with 2 threads for X vs. Y
+#pragma omp section
+			run_x();
+#pragma omp section
+			run_y();
 		}
 	}
 };
@@ -566,9 +518,7 @@ void calc_mesh_shadows(unsigned l, point const &lpos, float const *const mh, uns
 	mesh_shadow_gen(mh, smask, xsize, ysize, sh_in_x, sh_in_y, sh_out_x, sh_out_y).run(lpos);
 }
 
-
 void calc_visibility(unsigned light_sources) {
-
 	if (world_mode == WMODE_UNIVERSE) return;
 	check_update_global_lighting(light_sources);
 	update_sun_and_moon();
