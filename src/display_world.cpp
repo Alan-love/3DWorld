@@ -94,21 +94,17 @@ void glClearColor_rgba(const colorRGBA &color) {
 	glClearColor(color.R, color.G, color.B, color.A);
 }
 
-
 void calc_moon_atten(colorRGBA &ambient, colorRGBA &diffuse, float mlf) {
-
 	if (mlf < 0.6) {diffuse *= ((mlf < 0.5) ? 0.0 : 10.0*(mlf - 0.5));}
 	ambient *= 0.5;
 	diffuse *= 0.5;
 }
-
 
 void set_standard_viewport() {
 	glViewport(0, 0, window_width, window_height);
 }
 
 void set_player_pdu(vector3d const &rv1, vector3d const &rv2) {
-
 	vector3d cview_dir_n(cview_dir), upv(up_vector);
 	rotate_vector3d_by_vr(rv1, rv2, cview_dir_n); //if (rv1 != rv2)?
 	rotate_vector3d_by_vr(rv1, rv2, upv);
@@ -148,7 +144,6 @@ void do_look_at() {
 	fgLookAt(eye.x, eye.y, eye.z, center.x, center.y, center.z, up_vector.x, up_vector.y, up_vector.z);
 }
 
-
 void apply_camera_offsets(point const &camera) { // for TT mode
 
 	int const dx(int(camera.x*DX_VAL_INV) - xoff);
@@ -162,9 +157,7 @@ void apply_camera_offsets(point const &camera) { // for TT mode
 	}
 }
 
-
 point get_sun_pos() {
-
 	point pos(sun_pos);
 	// Note: moving the sun and moon along with the camera makes the sun seem to be infintely far away and looks more real;
 	// however, it also makes the shadows misalign slightly, especially for large scenes;
@@ -174,15 +167,11 @@ point get_sun_pos() {
 	if (camera_mode != 1 && combined_gu) {pos += get_camera_pos();} // universe is always centered around the camera
 	return pos;
 }
-
-
 point get_moon_pos() {
-
 	point pos(moon_pos);
 	if (camera_mode == 1) {pos += surface_pos;}
 	return pos;
 }
-
 
 colorRGBA get_bkg_color(point const &p1, vector3d const &v12) { // optimize?
 

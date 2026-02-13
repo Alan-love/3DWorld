@@ -580,7 +580,7 @@ float tile_t::get_zval_at(float x, float y, bool in_global_space) const {
 
 void tile_t::calc_mesh_ao_lighting() {
 
-	//highres_timer_t timer("Calc Tile AO Lighting"); // 160ms for 281 calls
+	//highres_timer_t timer("Calc Tile AO Lighting"); // ~0.6ms
 	// caclulate ray step directions
 	tile_xy_pair ao_dirs[NUM_AO_DIRS]; // 0  1  2  3  4  5  6  7
 	unsigned ix(0);
@@ -631,8 +631,7 @@ void tile_t::calc_mesh_ao_lighting() {
 
 				for (unsigned d = 0; d < NUM_AO_DIRS; ++d) {
 					float z0(zvals[y*zvsize + x]);
-					tile_xy_pair step(ao_dirs[d]);
-					tile_xy_pair v(x, y);
+					tile_xy_pair step(ao_dirs[d]), v(x, y);
 
 					for (unsigned s = 0; s < NUM_AO_STEPS; ++s) {
 						v    += step;
