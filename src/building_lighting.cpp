@@ -109,7 +109,7 @@ class cube_bvh_t : public cobj_tree_simple_type_t<colored_cube_t> {
 			right_costs[i - n.start - 1] = right_bbox.get_area()*(n.end - i);
 		}
 		for (unsigned i = n.start+1; i < n.end; ++i) {
-			unsigned const num_left(i - n.start), num_right(n.end - i);
+			unsigned const num_left(i - n.start);
 			float const right_cost(right_costs[num_left - 1]), cost(left_bbox.get_area()*num_left + right_cost);
 			if (min_cost == 0.0 || cost < min_cost) {min_cost = cost; split_ix = i;}
 			else if (right_cost > min_cost) break;
@@ -713,7 +713,7 @@ public:
 		
 		if (!incremental) { // full update; should end here
 #pragma omp parallel for schedule(static, 128) num_threads(min(4U, NUM_THREADS))
-			for (int i = 0; i < num_grids; ++i) {update_elem(i);}
+			for (int i = 0; i < (int)num_grids; ++i) {update_elem(i);}
 			if (realloc_tid) {free_texture(tid); realloc_tid = 0;}
 			if (tid == 0) {tid = create_3d_texture(zsize, xsize, ysize, 4, tex_data, GL_LINEAR, GL_CLAMP_TO_EDGE);}
 			else {update_3d_texture(tid, 0, 0, 0, zsize, xsize, ysize, 4, tex_data.data());} // stored {Z,X,Y}
@@ -725,7 +725,7 @@ public:
 			unsigned const start_y(update_block_ix*yvals_per_block);
 			unsigned const end_y(min(ysize, (start_y + yvals_per_block))); // clamp to max in case ysize doesn't divide evenly by num_blocks
 			int const start_ix(cells_per_yval*start_y), end_ix(cells_per_yval*end_y);
-			assert(end_ix <= num_grids);
+			assert(end_ix <= (int)num_grids);
 			for (int i = start_ix; i < end_ix; ++i) {update_elem(i);}
 			update_3d_texture(tid, 0, 0, start_y, zsize, xsize, (end_y - start_y), 4, (tex_data.data() + 4*start_ix));
 			if (++update_block_ix == num_blocks) {update_block_ix = 0;}
@@ -797,7 +797,6 @@ class building_indir_light_mgr_t {
 		vector3d const sz(light_bounds.get_size());
 		float const sz_prod(sz.x * sz.y * sz.z), scale(pow(tot_grid/sz_prod, 1.0/3.0));
 		for (unsigned n = 0; n < 3; ++n) {grid_sz[n] = max(1, round_fp(sz[n]*scale));}
-		unsigned const tot_alloc(grid_sz[0] * grid_sz[1] * grid_sz[2]);
 		lmgr.alloc(grid_sz[0], grid_sz[1], grid_sz[2], light_bounds);
 	}
 	void init_ray_directions() {
