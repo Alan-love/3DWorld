@@ -1596,7 +1596,7 @@ void model3d::update_bbox(polygon_t const &poly) {
 
 void model3d::get_transformed_bcubes(vector<cube_t> &bcubes) const {
 	if (transforms.empty()) {bcubes.push_back(bcube); return;} // no transforms
-	for (auto xf = transforms.begin(); xf != transforms.end(); ++xf) {bcubes.push_back(xf->get_xformed_cube(bcube));} // Note: const, non-cached call
+	for (model3d_xform_t const &xf : transforms) {bcubes.push_back(xf.get_xformed_cube(bcube));} // Note: const, non-cached call
 }
 
 
@@ -1630,8 +1630,8 @@ void model3d::get_polygons(vector<coll_tquad> &polygons, bool quads_only, bool a
 		assert(polygons.size() == start_pix + transforms.size()*num_polys); // can be removed later
 		unsigned pix(start_pix);
 
-		for (auto xf = transforms.begin(); xf != transforms.end(); ++xf) {
-			for (unsigned p = 0; p < num_polys; ++p) {xf->apply_to_tquad(polygons[pix++]);}
+		for (model3d_xform_t const &xf : transforms) {
+			for (unsigned p = 0; p < num_polys; ++p) {xf.apply_to_tquad(polygons[pix++]);}
 		}
 		assert(pix == polygons.size());
 	}
@@ -2340,8 +2340,8 @@ void model3d::render(shader_t &shader, bool is_shadow_pass, int reflection_pass,
 		}
 	}
 	else { // ground mode, no sorting or distance culling
-		for (auto xf = transforms.begin(); xf != transforms.end(); ++xf) {
-			render_with_xform(shader, *xf, mvm, is_shadow_pass, reflection_pass, is_z_prepass, enable_alpha_mask, bmap_pass_mask, reflect_mode, trans_op_mask);
+		for (model3d_xform_t &xf : transforms) {
+			render_with_xform(shader, xf, mvm, is_shadow_pass, reflection_pass, is_z_prepass, enable_alpha_mask, bmap_pass_mask, reflect_mode, trans_op_mask);
 		}
 	}
 	// cptw dtor called here
@@ -2456,7 +2456,7 @@ void model3d::setup_shadow_maps() {
 
 	if (smap_data.empty()) { // allocate new shadow maps
 		if (transforms.empty()) {smap_data[rotation_t()];} // no transforms case, insert def rotation in map
-		for (auto xf = transforms.begin(); xf != transforms.end(); ++xf) {smap_data[*xf];}
+		for (model3d_xform_t const &xf : transforms) {smap_data[xf];}
 	}
 	for (auto m = smap_data.begin(); m != smap_data.end(); ++m) {
 		if (m->second.empty()) {
@@ -2472,8 +2472,8 @@ cube_t model3d::calc_bcube_including_transforms() { // non-const because bcube_x
 	if (transforms.empty()) return bcube; // no transforms case
 	if (bcube_all_xf != all_zeros_cube) return bcube_all_xf; // already calculated
 	
-	for (auto xf = transforms.begin(); xf != transforms.end(); ++xf) {
-		cube_t const &bc(xf->get_xformed_bcube(bcube));
+	for (model3d_xform_t &xf : transforms) {
+		cube_t const &bc(xf.get_xformed_bcube(bcube));
 		if (bcube_all_xf == all_zeros_cube) {bcube_all_xf = bc;} else {bcube_all_xf.union_with_cube(bc);}
 	}
 	return bcube_all_xf;
@@ -2506,19 +2506,19 @@ bool model3d::check_coll_line(point const &p1, point const &p2, point &cpos, vec
 	bool coll(0);
 	point cur(p2);
 
-	for (auto xf = transforms.begin(); xf != transforms.end(); ++xf) {
-		if (!check_line_clip(p1, p2, xf->get_xformed_bcube(bcube).d)) continue;
+	for (model3d_xform_t &xf : transforms) {
+		if (!check_line_clip(p1, p2, xf.get_xformed_bcube(bcube).d)) continue;
 		point p1x(p1), p2x(cur);
-		xf->inv_xform_pos(p1x);
-		xf->inv_xform_pos(p2x);
+		xf.inv_xform_pos(p1x);
+		xf.inv_xform_pos(p2x);
 
 		if (check_coll_line_cur_xf(p1x, p2x, cpos, cnorm, color, exact)) { // Note: only modifies cnorm and color if a collision is found
-			xf->xform_pos(cpos);
-			xf->xform_pos_rm(cnorm);
+			xf.xform_pos(cpos);
+			xf.xform_pos_rm(cnorm);
 			coll = 1;
 			cur  = cpos; // closer intersection point - shorten the segment
 		}
-	}
+	} // for xf
 	return coll;
 }
 
@@ -2794,11 +2794,11 @@ void model3d::write_to_cobj_file(ostream &out) const {
 	out << "r 1.0 " << unbound_mat.shine << " " << unbound_mat.spec_color.raw_str() << endl;
 	out << "O " << filename << " " << group_cobjs_level << " " << recalc_normals << " " << 0 << endl; // write_file=0
 
-	for (auto i = transforms.begin(); i != transforms.end(); ++i) {
-		out << "l " << 0.5 << " " << i->material.color.raw_str() << " " << texture_str(i->material.tid) << endl; // Note: elastic is hard-coded as 0.5
-		out << "r 1.0 " << i->material.shine << " " << i->material.spec_color.raw_str() << endl;
-		out << "Z " << i->group_cobjs_level << " " << i->tv.x << " " << i->tv.y << " " << i->tv.z << " " << i->scale << " "
-			<< i->axis.x << " " << i->axis.y << " " << i->axis.z << " " << i->angle << " " << i->voxel_spacing << endl;
+	for (model3d_xform_t const &xf : transforms) {
+		out << "l " << 0.5 << " " << xf.material.color.raw_str() << " " << texture_str(xf.material.tid) << endl; // Note: elastic is hard-coded as 0.5
+		out << "r 1.0 " << xf.material.shine << " " << xf.material.spec_color.raw_str() << endl;
+		out << "Z " << xf.group_cobjs_level << " " << xf.tv.x << " " << xf.tv.y << " " << xf.tv.z << " " << xf.scale << " "
+			<< xf.axis.x << " " << xf.axis.y << " " << xf.axis.z << " " << xf.angle << " " << xf.voxel_spacing << endl;
 	}
 }
 
