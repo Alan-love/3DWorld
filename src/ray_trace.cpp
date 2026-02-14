@@ -489,15 +489,15 @@ void cast_light_ray(lmap_manager_t *lmgr, point p1, point p2, float weight, floa
 
 
 struct rt_data {
-	unsigned ix, num, job_id, checksum;
+	unsigned ix, num, job_id, checksum=0;
 	int rseed, ltype;
-	bool is_thread, verbose, randomized, is_running;
+	bool is_thread, verbose, randomized, is_running=0;
 	cube_t update_bcube;
 	lmap_manager_t *lmgr;
 	cobj_ray_accum_map_t accum_map;
 
 	rt_data(unsigned i=0, unsigned n=0, int s=1, bool t=0, bool v=0, bool r=0, int lt=0, unsigned jid=0)
-		: ix(i), num(n), job_id(jid), checksum(0), rseed(s), ltype(lt), is_thread(t), verbose(v), randomized(r), is_running(0), lmgr(nullptr) {update_bcube.set_to_zeros();}
+		: ix(i), num(n), job_id(jid), rseed(s), ltype(lt), is_thread(t), verbose(v), randomized(r), lmgr(nullptr) {update_bcube.set_to_zeros();}
 
 	void pre_run(rand_gen_t &rgen) {
 		assert(lmgr);

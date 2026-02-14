@@ -98,6 +98,7 @@ public:
 class cobj_bvh_tree : public cobj_tree_base {
 	coll_obj_group const *cobjs;
 	vector<unsigned> cixs;
+	vector<float> right_costs;
 	bool is_static, is_dynamic, occluders_only, cubes_only, inc_voxel_cobjs;
 
 	struct per_thread_data {
@@ -117,6 +118,7 @@ class cobj_bvh_tree : public cobj_tree_base {
 	void calc_node_bbox(tree_node &n) const;
 	void build_tree_top_level_omp();
 	void build_tree(unsigned nix, unsigned skip_dims, unsigned depth, per_thread_data &ptd);
+	void refine_split_pos(tree_node const &n, unsigned skip_dims, unsigned &dim, float &sval);
 
 	bool obj_ok(coll_obj const &c) const {
 		return (((is_static && c.status == COLL_STATIC) || (is_dynamic && c.status == COLL_DYNAMIC) || (!is_static && !is_dynamic)) &&
@@ -145,5 +147,11 @@ struct colored_cube_t : public cube_t {
 	colorRGBA color;
 	colored_cube_t() {}
 	colored_cube_t(cube_t const &cube, colorRGBA const &color_) : cube_t(cube), color(color_) {}
+};
+
+struct cube_by_lower_dim {
+	unsigned d;
+	cube_by_lower_dim(unsigned dim) : d(dim) {}
+	bool operator()(cube_t const &a, cube_t const &b) const {return (a.d[d][0] < b.d[d][0]);}
 };
 

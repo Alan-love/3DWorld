@@ -85,11 +85,6 @@ bool ray_cast_cube(point const &p1, point const &p2, cube_t const &c, vector3d &
 class cube_bvh_t : public cobj_tree_simple_type_t<colored_cube_t> {
 	vector<float> right_costs;
 
-	struct cube_by_lower_dim {
-		unsigned d;
-		cube_by_lower_dim(unsigned dim) : d(dim) {}
-		bool operator()(cube_t const &a, cube_t const &b) const {return (a.d[d][0] < b.d[d][0]);}
-	};
 	virtual void calc_node_bbox(tree_node &n) const {
 		assert(n.start < n.end);
 		for (unsigned i = n.start; i < n.end; ++i) {n.assign_or_union_with_cube(objects[i]);} // bcube union
