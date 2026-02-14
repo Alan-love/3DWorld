@@ -602,34 +602,6 @@ void cobj_bvh_tree::build_tree_top_level_omp() { // single octtree level
 	n.start = n.end = 0; // branch node has no leaves
 }
 
-struct cobj_by_lower_dim : public cube_by_lower_dim {
-	coll_obj_group const &cobjs;
-	cobj_by_lower_dim(coll_obj_group const *cobjs_, unsigned dim) : cube_by_lower_dim(dim), cobjs(*cobjs_) {}
-	bool operator()(unsigned const &a, unsigned const &b) const {return cube_by_lower_dim::operator()(cobjs[a], cobjs[b]);}
-};
-void cobj_bvh_tree::refine_split_pos(tree_node const &n, unsigned skip_dims, unsigned &dim, float &sval) { // SAH split
-	if (n.size() < 3) return; // no choice for split point; shouldn't get here
-	float min_cost(0.0);
-	unsigned split_ix(0);
-	sort(cixs.begin()+n.start, cixs.begin()+n.end, cobj_by_lower_dim(cobjs, dim));
-	// evaluate all potential split points using SAH; start by computing the suffix sum
-	cube_t left_bbox(get_cobj(n.start)), right_bbox(get_cobj(n.end-1)); // seed with first/last object
-	right_costs.resize(n.size()-1);
-
-	for (unsigned i = n.end-1; i > n.start; --i) { // iterate backwards
-		right_bbox.union_with_cube(get_cobj(i));
-		right_costs[i - n.start - 1] = right_bbox.get_area()*(n.end - i);
-	}
-	for (unsigned i = n.start+1; i < n.end; ++i) {
-		unsigned const num_left(i - n.start);
-		float const right_cost(right_costs[num_left - 1]), cost(left_bbox.get_area()*num_left + right_cost);
-		if (min_cost == 0.0 || cost < min_cost) {min_cost = cost; split_ix = i;}
-		else if (right_cost > min_cost) break;
-		left_bbox.union_with_cube(get_cobj(i)); // add object to left bbox once we've passed it; left_bbox always increases
-	}
-	sval = get_cobj(split_ix).d[dim][0]; // split at left edge of first object in right bin
-}
-
 // BVH (left, right, mid) kids
 void cobj_bvh_tree::build_tree(unsigned nix, unsigned skip_dims, unsigned depth, per_thread_data &ptd) {
 	
@@ -642,8 +614,7 @@ void cobj_bvh_tree::build_tree(unsigned nix, unsigned skip_dims, unsigned depth,
 	
 	// determine split dimension and value
 	float max_sz(0), sval(0);
-	unsigned dim(n.get_split_dim(max_sz, sval, skip_dims));
-	//refine_split_pos(n, skip_dims, dim, sval);
+	unsigned const dim(n.get_split_dim(max_sz, sval, skip_dims));
 	float const sval_lo(sval+OVERLAP_AMT*max_sz), sval_hi(sval-OVERLAP_AMT*max_sz);
 	unsigned pos(n.start), bin_count[3]={};
 

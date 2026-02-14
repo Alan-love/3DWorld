@@ -118,7 +118,6 @@ class cobj_bvh_tree : public cobj_tree_base {
 	void calc_node_bbox(tree_node &n) const;
 	void build_tree_top_level_omp();
 	void build_tree(unsigned nix, unsigned skip_dims, unsigned depth, per_thread_data &ptd);
-	void refine_split_pos(tree_node const &n, unsigned skip_dims, unsigned &dim, float &sval);
 
 	bool obj_ok(coll_obj const &c) const {
 		return (((is_static && c.status == COLL_STATIC) || (is_dynamic && c.status == COLL_DYNAMIC) || (!is_static && !is_dynamic)) &&

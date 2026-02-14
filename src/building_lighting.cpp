@@ -89,8 +89,7 @@ class cube_bvh_t : public cobj_tree_simple_type_t<colored_cube_t> {
 		assert(n.start < n.end);
 		for (unsigned i = n.start; i < n.end; ++i) {n.assign_or_union_with_cube(objects[i]);} // bcube union
 	}
-	virtual void refine_split_pos(tree_node const &n, unsigned skip_dims, unsigned &dim, float &sval) override { // SAH split
-		//return; // only ~4% faster
+	virtual void refine_split_pos(tree_node const &n, unsigned skip_dims, unsigned &dim, float &sval) override { // SAH split; ~4% faster
 		if (n.size() < 3) return; // no choice for split point; shouldn't get here
 		float min_cost(0.0);
 		unsigned split_ix(0);
