@@ -515,7 +515,7 @@ struct city_bldg_t : public obj_with_roof_pavement_lights_t, public reservable_t
 	bool has_back_wall=0, sloped_roof=0;
 	cube_t bldg, exit_driveway, bays[num_lanes], lights[num_lanes], light_clip_cubes[num_lanes];
 	mutable bool cached_smaps[num_lanes]={}; // for lights
-	vect_cube_t walls;
+	vect_cube_t walls, tires;
 
 	city_bldg_t(cube_t const &c, bool dim_, bool dir_, bool edir, unsigned pix, unsigned bix, uint8_t btype_, rand_gen_t &rgen);
 	bool has_exit() const {return !exit_driveway.is_all_zeros();}

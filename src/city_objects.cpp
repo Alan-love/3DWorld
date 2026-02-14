@@ -2786,6 +2786,29 @@ city_bldg_t::city_bldg_t(cube_t const &c, bool dim_, bool dir_, bool edir, unsig
 		else {light_clip_cubes[n].expand_in_dim(dim, depth);} // no back wall, extend out both openings
 	} // for n
 	if (city_params.num_cars == 0) {lights_enabled = (rgen.rand() & ((1<<num_lanes)-1));} // 50% chance of each light being enabled when there are no cars
+
+	if (btype == CITY_BLDG_SERVICE) { // add a stack of tires
+		float const tradius(0.3*city_params.get_nom_car_size().z), theight(0.67*tradius), wall_pos(bldg.d[!dim][edir]);
+		cube_t place_area(bldg); // copy width and zvals of building
+		// keep it pretty close to avoid blocking peds; should have enough clearance to road
+		place_area.d[!dim][!edir] = wall_pos;
+		place_area.d[!dim][ edir] = wall_pos + (edir ? 1.0 : -1.0)*2.5*tradius;
+		unsigned const num_tires(1);
+
+		for (unsigned n = 0; n < num_tires; ++n) {
+			cube_t tire;
+			gen_xy_pos_for_round_obj(tire, place_area, tradius, theight, 1.05*tradius, rgen, 1); // place_at_z1=1
+			unsigned const stack_sz(1);
+
+			for (unsigned s = 0; s < stack_sz; ++s) {
+				tires.push_back(tire);
+				if (s+1 == stack_sz) break;
+				tire.translate_dim(2, height); // shift the next stack up
+				tire += rgen.signed_rand_vector_spherical_xy(0.1*tradius); // minor misalignment
+				if (tire.intersects_xy(bldg)) break; // too close to building
+			}
+		} // for n
+	}
 }
 void city_bldg_t::draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist_scale, bool shadow_only) const {
 	// Note: most geometry is drawn immediately rather than in multiple passes since there are several materials and likely only one or two visible car washes
@@ -2838,16 +2861,26 @@ void city_bldg_t::draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist_
 	}
 	dstate.draw_cube(qbds.qbd, roof, roof_color, 0, 0.75*tscale, 3, 0, 0, dim, 1.0, 1.0, 1.0, sloped_roof); // skip_bottom=0, skip_top=sloped_roof, Z only, swap_tc_xy=dim
 	qbds.qbd.draw_and_clear();
-	if (!shadow_only) {bind_default_flat_normal_map();}
-	float const dmax(dist_scale*dstate.draw_tile_dist);
-	if (!shadow_only && !bcube.closest_dist_less_than(dstate.camera_bs, 0.4*dmax)) return; // no pavements or lights (pavement has Z-fighting problems anyway)
-	if (!shadow_only) {draw_road_pavement(dstate, qbds);} // draw pavement surface
-
-	if (btype == CITY_BLDG_SERVICE) { // draw a stack of tires
-		// TODO
+	
+	if (!shadow_only) { // draw pavement and lights; not shadow casters
+		bind_default_flat_normal_map();
+		float const dmax(dist_scale*dstate.draw_tile_dist);
+		if (!bcube.closest_dist_less_than(dstate.camera_bs, 0.4*dmax)) return; // no pavements, lights, or tires (pavement has Z-fighting problems anyway)
+		draw_road_pavement(dstate, qbds); // draw pavement surface
+		if (!bcube.closest_dist_less_than(dstate.camera_bs, 0.2*dmax)) return; // no lights or tires
+		draw_lights(dstate, qbds, lights, num_lanes); // draw lights
 	}
-	if (!shadow_only && !bcube.closest_dist_less_than(dstate.camera_bs, 0.2*dmax)) return; // no lights
-	if (!shadow_only) {draw_lights(dstate, qbds, lights, num_lanes);} // draw lights
+	if (!tires.empty()) { // draw tires
+		unsigned const ndiv(32); // TODO
+		dstate.s.set_cur_color(BKGRAY);
+		select_no_texture();
+
+		for (cube_t const &tire : tires) {
+			float const tradius(0.25*(tire.dx() + tire.dy())); // should be square
+			// TODO: add the hole
+			draw_fast_cylinder(cube_bot_center(tire), cube_top_center(tire), tradius, tradius, ndiv, 0, 1); // untextured, draw ends
+		}
+	}
 }
 bool city_bldg_t::proc_sphere_coll(point &pos_, point const &p_last, float radius_, point const &xlate, vector3d *cnorm) const {
 	if (sloped_roof && bcube.contains_pt_xy(pos_ - xlate)) { // handle sloped roof coll; approximate
@@ -2871,6 +2904,11 @@ bool city_bldg_t::proc_sphere_coll(point &pos_, point const &p_last, float radiu
 	else if (proc_roof_sphere_coll(pos_, p_last, radius_, xlate, cnorm)) return 1;
 	bool ret(0);
 	for (cube_t const &w : walls) {ret |= sphere_cube_int_update_pos(pos_, radius_, (w + xlate), p_last, 0, cnorm);}
+
+	for (cube_t const &tire : tires) {
+		float const tradius(0.25*(tire.dx() + tire.dy())); // should be square
+		ret |= sphere_vert_cylin_intersect(pos_, radius_, cylinder_3dw(cube_bot_center(tire), cube_top_center(tire), tradius, tradius), cnorm);
+	}
 	return ret;
 }
 void city_bldg_t::add_night_time_lights(vector3d const &xlate, cube_t &lights_bcube) const {
