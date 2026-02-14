@@ -331,11 +331,20 @@ void add_row_of_balls(room_object_t const &c, cube_t const &region, float spacin
 }
 
 void add_rows_of_food_boxes(rand_gen_t &rgen, room_object_t const &parent, cube_t const &shelf, float height_val, float depth, bool dir, vect_room_object_t &objects) {
-	float const fheight(height_val*rgen.rand_uniform(0.7, 0.9)), fdepth(min(depth, fheight)*rgen.rand_uniform(0.15, 0.25));
-	float const fwidth(min(depth, fheight)*rgen.rand_uniform(0.6, 0.9));
+	float const fheight(height_val  *rgen.rand_uniform(0.70, 0.90));
+	float fdepth(min(depth, fheight)*rgen.rand_uniform(0.15, 0.25));
+	float fwidth(min(depth, fheight)*rgen.rand_uniform(0.60, 0.90));
+	bool const is_pantry(parent.is_pantry()), face_side(fwidth < shelf.get_sz_dim(parent.dim) && rgen.rand_bool());
+	if (face_side) {swap(fdepth, fwidth);}
 	unsigned const flags(RO_FLAG_NOCOLL | RO_FLAG_INTERIOR | RO_FLAG_WAS_EXP);
-	unsigned const max_cols(parent.is_pantry() ? 3 : 1); // allow up to 3 deep for pantry
+	unsigned const max_cols((is_pantry && !face_side) ? 3 : 1); // allow up to 3 deep for pantry
+	unsigned const objs_start(objects.size());
 	add_row_of_cubes(parent, shelf, fwidth, fdepth, fheight, 0.2, TYPE_FOOD_BOX, flags, objects, rgen, dir, 0, 1, max_cols); // inv_dim=0, height=1
+
+	for (auto c = objects.begin()+objs_start; c != objects.end(); ++c) {
+		if (face_side) {c->dim ^= 1;}
+		if (is_pantry) {} // mix up the orientations and put some boxes on their sides?
+	}
 }
 void add_rows_of_bottles_or_cans(rand_gen_t &rgen, room_object_t const &parent, cube_t const &shelf, float height_val, float depth, bool no_alcohol, vect_room_object_t &objects) {
 	unsigned const flags(RO_FLAG_NOCOLL | RO_FLAG_INTERIOR | RO_FLAG_WAS_EXP);
