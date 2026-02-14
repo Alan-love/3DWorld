@@ -818,7 +818,9 @@ class building_indir_light_mgr_t {
 		// Note: modifies lmgr, but otherwise thread safe
 		assert(cur_job.is_valid());
 		bool const reserve_draw_thread(USE_BKG_THREAD && (int)NUM_THREADS >= omp_get_max_threads()); // reserve a thread for drawing if needed
-		unsigned const num_rt_threads(max(1U, (NUM_THREADS - reserve_draw_thread)));
+		unsigned num_rt_threads(max(1U, (NUM_THREADS - reserve_draw_thread)));
+		// if there are many threads, reserve an extra thread for omp parallel bloocks using two threads on the master (calc_mesh_shadows, tile_t::create_texture(), etc.)
+		if (USE_BKG_THREAD && num_rt_threads > 8) {--num_rt_threads;}
 		unsigned base_num_rays(LOCAL_RAYS), dim(2), dir(0); // default dim is z; dir=2 is omnidirectional
 		float const tolerance(1.0E-5*valid_area.get_max_dim_sz());
 		bool const is_window(cur_job.lix & IS_WINDOW_BIT);
