@@ -605,8 +605,9 @@ void tile_t::calc_mesh_ao_lighting() {
 	}
 	float const dz(0.5*HALF_DXY);
 	ao_lighting.resize(stride*stride);
+	unsigned const nthreads((!use_ao_zvals && (!using_hmap || add_detail)) ? 4 : 2); // use more threads when height_gen.eval_index() is called
 
-#pragma omp parallel num_threads(4)
+#pragma omp parallel num_threads(nthreads)
 	{
 		if (!use_ao_zvals) {
 #pragma omp for schedule(static,1)
@@ -621,7 +622,7 @@ void tile_t::calc_mesh_ao_lighting() {
 					}
 					else {zv = height_gen.eval_index(x, y);} // Note: not using hoff/hscale here since they are undefined outside the tile bounds
 				}
-			}
+			} // for y
 		}
 		// calculate ao_lighting values by casting rays through the mesh zvals
 #pragma omp for schedule(static,1)
@@ -2723,18 +2724,17 @@ void tile_draw_t::pre_draw() { // view-dependent updates/GPU uploads
 	//if (!to_gen_trees.empty()) {PRINT_TIME("Gen Trees2");}
 	assert(!height_gens.empty());
 	
-	for (vector<tile_t *>::iterator i = to_update.begin(); i != to_update.end(); ++i) {
-		(*i)->pre_draw(height_gens[0]);
+	for (tile_t *t : to_update) {
+		t->pre_draw(height_gens[0]);
 
-		if ((*i)->can_have_trees()) {
-			(*i)->update_pine_tree_state(1, 0);
-			(*i)->update_decid_trees();
+		if (t->can_have_trees()) {
+			t->update_pine_tree_state(1, 0);
+			t->update_decid_trees();
 		}
-		(*i)->update_scenery();
-	} // for i
-	for (vector<tile_t *>::iterator i = to_update_shadows.begin(); i != to_update_shadows.end(); ++i) { // after everything has been setup
-		(*i)->setup_shadow_maps(smap_manager, 0); // cleanup_only=0
-	}
+		t->update_scenery();
+	} // for t
+	// after everything has been setup
+	for (tile_t *t : to_update_shadows) {t->setup_shadow_maps(smap_manager, 0);} // cleanup_only=0
 }
 
 
