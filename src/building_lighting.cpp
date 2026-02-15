@@ -386,8 +386,10 @@ void building_t::gather_interior_cubes(vect_colored_cube_t &cc, cube_t const &ex
 			type == TYPE_VIS_PHONE || type == TYPE_JUMPSUIT || type == TYPE_O_SHOWER || type == TYPE_CARD_DECK || type == TYPE_CIGARETTE || type == TYPE_BULLETS ||
 			type == TYPE_MUSHROOM || type == TYPE_POOL_CUE || type == TYPE_CEIL_TILE || type == TYPE_SHELL_CASE || type == TYPE_SHOP_CART || type == TYPE_JAR ||
 			type == TYPE_RADIATOR || type == TYPE_RAD_FAN || type == TYPE_FIRE_EXT || type == TYPE_FOLD_SHIRT || type == TYPE_CASHREG || type == TYPE_FOOD_FISH ||
-			type == TYPE_MILK || type == TYPE_TRASH || type == TYPE_PLATE || type == TYPE_SPRINKLER || type == TYPE_TOASTER || type == TYPE_FOOD_TUB) continue;
-		if (type == TYPE_FISHTANK && c->z1() < ground_floor_z1) continue; // skip mall fishtanks
+			type == TYPE_MILK || type == TYPE_TRASH || type == TYPE_PLATE || type == TYPE_SPRINKLER || type == TYPE_TOASTER || type == TYPE_FOOD_TUB ||
+			type == TYPE_KEYBOARD || type == TYPE_LAPTOP || type == TYPE_BUCKET) continue;
+		if (type == TYPE_FISHTANK && c->z1() < ground_floor_z1)      continue; // skip  mall fishtanks
+		if (type == TYPE_TCAN && !(c->in_mall() || c->in_hallway())) continue; // skip small trashcans
 		if (type >= TYPE_RAT) continue; // skip animals (for example, roaches in sinks)
 		bool const is_stairs(type == TYPE_STAIR || type == TYPE_STAIR_WALL);
 		if (c->z1() > (is_stairs ? stairs_z2 : z2) || c->z2() < (is_stairs ? stairs_z1 : z1)) continue;
