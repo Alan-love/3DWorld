@@ -102,8 +102,9 @@ bool city_obj_placer_t::maybe_place_gas_station(road_plot_t const &plot, unsigne
 	}
 	uint8_t const btype(rgen.rand_bool() ? CITY_BLDG_CARWASH : CITY_BLDG_SERVICE);
 	city_bldg_t const building(cw, dim, dir, ent_dir, plot_ix, bldgs.size(), btype, rgen);
+	cube_t const place_bc(building.bcube_with_extras);
 
-	if (!has_bcube_int_xy(building.bcube, bcubes, pad_dist)) { // not too close to a building
+	if (!has_bcube_int_xy(place_bc, bcubes, pad_dist)) { // not too close to a building
 		bldg_groups.add_obj(building, bldgs);
 		gstations.back().pavement.d[dim][!dir] = bldg_start; // shift gas station pavement to edge of building
 		// add car building sign on the side facing the road
@@ -145,7 +146,7 @@ bool city_obj_placer_t::maybe_place_gas_station(road_plot_t const &plot, unsigne
 				bldgs.back().enable_light(n);
 			}
 		}
-		add_cube_to_colliders_and_blockers(cw, colliders, bcubes);
+		add_cube_to_colliders_and_blockers(place_bc, colliders, bcubes);
 	}
 	bcubes.push_back(gs_exp); // add after placing building
 	return 1;

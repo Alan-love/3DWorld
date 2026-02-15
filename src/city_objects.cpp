@@ -2745,7 +2745,7 @@ city_bldg_t::city_bldg_t(cube_t const &c, bool dim_, bool dir_, bool edir, unsig
 	float const bay_spacing((width - wall_thick)/num_lanes), dsign(dir ? 1.0 : -1.0);
 	has_back_wall = (btype == CITY_BLDG_SERVICE);
 	sloped_roof   = (btype == CITY_BLDG_CARWASH || btype == CITY_BLDG_SERVICE); // both
-	bldg = bcube;
+	bldg = bcube_with_extras = bcube;
 	if (sloped_roof) {bcube.z2() += 0.55*bldg.dz();} // expand to include the roof peak height
 	cube_t side_wall(bldg);
 	roof = pavement = bldg;
@@ -2787,25 +2787,32 @@ city_bldg_t::city_bldg_t(cube_t const &c, bool dim_, bool dir_, bool edir, unsig
 	} // for n
 	if (city_params.num_cars == 0) {lights_enabled = (rgen.rand() & ((1<<num_lanes)-1));} // 50% chance of each light being enabled when there are no cars
 
-	if (btype == CITY_BLDG_SERVICE) { // add a stack of tires
-		float const tradius(0.3*city_params.get_nom_car_size().z), theight(0.67*tradius), wall_pos(bldg.d[!dim][edir]);
+	if (btype == CITY_BLDG_SERVICE) { // add a stack of tires; extends outside the bcube
+		float const tradius(0.24*city_params.get_nom_car_size().z), theight(0.55*tradius), wall_pos(bldg.d[!dim][edir]);
 		cube_t place_area(bldg); // copy width and zvals of building
 		// keep it pretty close to avoid blocking peds; should have enough clearance to road
 		place_area.d[!dim][!edir] = wall_pos;
 		place_area.d[!dim][ edir] = wall_pos + (edir ? 1.0 : -1.0)*2.5*tradius;
-		unsigned const num_tires(1);
+		unsigned const num_tire_stacks(2 + (rgen.rand() & 3)); // 2-5
 
-		for (unsigned n = 0; n < num_tires; ++n) {
-			cube_t tire;
+		for (unsigned n = 0; n < num_tire_stacks; ++n) {
+			cube_t tire, stack_bc;
 			gen_xy_pos_for_round_obj(tire, place_area, tradius, theight, 1.05*tradius, rgen, 1); // place_at_z1=1
-			unsigned const stack_sz(1);
+			unsigned const stack_height(1 + (rgen.rand() & 3)); // 1-4
 
-			for (unsigned s = 0; s < stack_sz; ++s) {
+			for (unsigned s = 0; s < stack_height; ++s) {
+				if (has_bcube_int(tire, tire_stacks)) break; // intersects another tire stack
 				tires.push_back(tire);
-				if (s+1 == stack_sz) break;
-				tire.translate_dim(2, height); // shift the next stack up
-				tire += rgen.signed_rand_vector_spherical_xy(0.1*tradius); // minor misalignment
-				if (tire.intersects_xy(bldg)) break; // too close to building
+				stack_bc.assign_or_union_with_cube(tire);
+				if (s+1 == stack_height) break;
+				tire.translate_dim(2, theight); // shift the next stack up
+				vector3d const offset(rgen.signed_rand_vector_spherical_xy(0.12*tradius)); // minor misalignment
+				tire += offset;
+				if (tire.intersects_xy(bldg)) {tire -= 2.0*offset;} // too close to building; shift the other direction
+			} // for s
+			if (!stack_bc.is_all_zeros()) {
+				tire_stacks.push_back(stack_bc);
+				bcube_with_extras.union_with_cube(stack_bc);
 			}
 		} // for n
 	}
@@ -2871,15 +2878,20 @@ void city_bldg_t::draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist_
 		draw_lights(dstate, qbds, lights, num_lanes); // draw lights
 	}
 	if (!tires.empty()) { // draw tires
-		unsigned const ndiv(32); // TODO
-		dstate.s.set_cur_color(BKGRAY);
-		select_no_texture();
+		unsigned ndiv(0);
+		dstate.s.set_cur_color(DK_GRAY);
+		select_texture(SHINGLE_TEX); // makes a good tire tread texture
 
 		for (cube_t const &tire : tires) {
-			float const tradius(0.25*(tire.dx() + tire.dy())); // should be square
-			// TODO: add the hole
-			draw_fast_cylinder(cube_bot_center(tire), cube_top_center(tire), tradius, tradius, ndiv, 0, 1); // untextured, draw ends
-		}
+			bool const on_ground(tire.z1() == bldg.z1());
+			float const tradius(0.25*(tire.dx() + tire.dy())), hradius(0.45*tradius); // should be square
+			point const bot(cube_bot_center(tire)), top(cube_top_center(tire));
+			if (on_ground) {ndiv = (shadow_only ? 16 : max(4U, min(32U, unsigned(0.4f*dist_scale*dstate.get_lod_factor(top)))));} // calculate ndiv for each stack
+			draw_fast_cylinder(bot, top, tradius, tradius, ndiv, 1, 0, 0, nullptr, 0.5, 0.0, nullptr, 0, 12.0); // outer, sides only
+			draw_fast_cylinder(bot, top, hradius, hradius, ndiv, 0, 0, 0, nullptr, 0.0, 0.0, nullptr, 0,  0.0); // inner, sides only
+			draw_circle_normal(hradius, tradius, ndiv, 0, top, 0.0, 0.0); // invert_normals=0; single texel
+			if (!on_ground) {draw_circle_normal(hradius, tradius, ndiv, 0, bot, 0.0, 0.0);} // draw bottom surface of stacked tires
+		} // for tire
 	}
 }
 bool city_bldg_t::proc_sphere_coll(point &pos_, point const &p_last, float radius_, point const &xlate, vector3d *cnorm) const {
@@ -2905,9 +2917,9 @@ bool city_bldg_t::proc_sphere_coll(point &pos_, point const &p_last, float radiu
 	bool ret(0);
 	for (cube_t const &w : walls) {ret |= sphere_cube_int_update_pos(pos_, radius_, (w + xlate), p_last, 0, cnorm);}
 
-	for (cube_t const &tire : tires) {
-		float const tradius(0.25*(tire.dx() + tire.dy())); // should be square
-		ret |= sphere_vert_cylin_intersect(pos_, radius_, cylinder_3dw(cube_bot_center(tire), cube_top_center(tire), tradius, tradius), cnorm);
+	for (cube_t const &ts : tire_stacks) {
+		float const tradius(0.25*(ts.dx() + ts.dy())); // should be close to square
+		ret |= sphere_vert_cylin_intersect(pos_, radius_, cylinder_3dw(cube_bot_center(ts), cube_top_center(ts), tradius, tradius), cnorm);
 	}
 	return ret;
 }
