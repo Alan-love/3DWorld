@@ -287,15 +287,15 @@ void draw_circle_normal(float r_inner, float r_outer, int ndiv, int invert_norma
 	bool const disk(r_inner > 0.0);
 	vector3d const n(invert_normals ? -plus_z : plus_z);
 	float const css((invert_normals ? 1.0 : -1.0)*TWO_PI/(float)ndiv), sin_ds(sin(css)), cos_ds(cos(css));
-	float const inner_tscale(r_inner/r_outer);
+	float const inner_tscale(r_inner/r_outer), half_tss(0.5*tscale_s), half_tst(0.5*tscale_t);
 	float sin_s(0.0), cos_s(1.0);
 	static vector<vert_norm_tc> verts;
 	if (!disk) {verts.emplace_back(pos, n, 0.5*tscale_s, 0.5*tscale_t);} // center
 
 	for (unsigned S = 0; S <= (unsigned)ndiv; ++S) {
 		float const s(sin_s), c(cos_s);
-		if (disk) {verts.emplace_back((pos + point(r_inner*s, r_inner*c, 0.0)), n, 0.5f*(1.0f + inner_tscale*s), (0.5f*(1.0f + inner_tscale*c)));}
-		float const ts(0.5*(1.0 + s)*tscale_s), tt(0.5*(1.0 + c)*tscale_t);
+		if (disk) {verts.emplace_back((pos + point(r_inner*s, r_inner*c, 0.0)), n, (1.0f + inner_tscale*s)*half_tss, (1.0f + inner_tscale*c)*half_tst);}
+		float const ts((1.0 + s)*half_tss), tt((1.0 + c)*half_tst);
 		verts.emplace_back((pos + point(r_outer*s, r_outer*c, 0.0)), n, ts, tt);
 		sin_s = s*cos_ds + c*sin_ds;
 		cos_s = c*cos_ds - s*sin_ds;
