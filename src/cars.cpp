@@ -375,8 +375,9 @@ void car_t::pull_into_driveway(driveway_t const &driveway, rand_gen_t &rgen) {
 			park_space_cent = vector2d();
 
 			if (dest_cwash >= 0) {
-				need_wash = 0;
-				dirt_amt  = 0.0;
+				need_wash  = 0;
+				is_washing = 1;
+				min_eq(dirt_amt, 1.0f); // start wash at 1.0
 			}
 			if (dest_gstation >= 0) {
 				need_gas = 0; // we now have our gas
@@ -1385,7 +1386,8 @@ void car_manager_t::next_frame(ped_manager_t const &ped_manager, float car_speed
 	entering_city.clear();
 	car_blocks.clear();
 	float const fticks_stable(get_clamped_fticks()), speed(CAR_SPEED_SCALE*car_speed*fticks_stable);
-	float const dirt_add_rate(fticks_stable/(1200.0*TICKS_PER_SECOND)); // fully dirty on average every 20 min
+	float const dirt_add_rate   (fticks_stable/(1200.0*TICKS_PER_SECOND)); // fully dirty on average every 20 min
+	float const dirt_remove_rate(fticks_stable/(  10.0*TICKS_PER_SECOND)); // 10s
 	bool saw_parked(0);
 	unsigned tot_cars(0), dirty_cars(0);
 
@@ -1400,6 +1402,10 @@ void car_manager_t::next_frame(ped_manager_t const &ped_manager, float car_speed
 		}
 		else {
 			car_blocks.back().bcube.union_with_cube(i->bcube);
+		}
+		if (i->is_washing) {
+			i->dirt_amt -= dirt_remove_rate;
+			if (i->dirt_amt <= 0.0) {i->dirt_amt = 0.0; i->is_washing = 0;}
 		}
 		if (i->is_parked()) {
 			if (!saw_parked) {car_blocks.back().first_parked = cix; saw_parked = 1;}
