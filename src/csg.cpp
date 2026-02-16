@@ -182,7 +182,7 @@ unsigned cube_t::get_split_dim(float &max_sz, float &sval, unsigned skip_dims) c
 			std::cerr << "Invalid cube in get_split_dim(): " << str() << endl;
 			assert(0);
 		}
-		if (dim_sz > max_sz) {
+		if (max_sz == 0.0 || dim_sz > max_sz) { // check even if dim_sz==0 because we would rather return a zero dim split than a dim disabled by split_dims
 			max_sz = dim_sz;
 			dim    = i;
 		}
