@@ -27,6 +27,7 @@ void get_walkways_for_city(cube_t const &city_bcube, vect_bldg_walkway_t &walkwa
 void add_building_driveways_for_plot(cube_t const &plot, vect_cube_t &driveways);
 bool connect_buildings_to_skyway(cube_t &m_bcube, bool m_dim, cube_t const &city_bcube, vector<skyway_conn_t> &ww_conns);
 void get_city_building_walkways(cube_t const &city_bcube, vector<building_walkway_t *> &bwws);
+bool place_city_building_at(cube_t const &bcube, bool dim, bool dir, unsigned plot_ix, unsigned city_ix, rand_gen_t &rgen);
 float get_inner_sidewalk_width();
 cube_t get_plot_coll_region(cube_t const &plot_bcube);
 void play_hum_sound(point const &pos, float gain, float pitch);
@@ -86,69 +87,90 @@ bool city_obj_placer_t::maybe_place_gas_station(road_plot_t const &plot, unsigne
 	gs_sign.set_frame(0.015, BLUE);
 	sign_groups.add_obj(gs_sign, signs);
 	colliders.push_back(pole); // only add the pole as a collider since the sign itself is above pedestrian heads
-	// add a nearby car wash, service station, etc. if there's space
-	float const cw_len(4*2.2*nom_car_size.y), cw_depth(1.6*nom_car_size.x), cw_height(0.225*city_params.road_width); // just large enough to fit the box truck
-	// add extra entrance lane width for car wash or service station for more clearance from gas station lanes; can't move much due to streetlights
-	float const bldg_start(gstation.pavement.d[dim][!dir] - 0.5*dscale*nom_car_size.y); // away from road
-	cube_t cw(gstation.pavement);
-	cw.z2() = plot.z1() + cw_height; // set roof height
-	cw.d[dim][ dir] = bldg_start;
-	cw.d[dim][!dir] = bldg_start - dscale*cw_depth; // set depth
-	float const len_delta(gstation.pavement.get_sz_dim(dim) - cw_len);
+	vect_cube_t new_bcubes;
+	new_bcubes.push_back(gs_exp);
 	
-	if (len_delta > 0.0) { // shrink ends if building is shorter than gas station; should be true
-		cw.d[!dim][ ent_dir] -= (ent_dir ? 1.0 : -1.0)*0.75*len_delta; // shrink more on entrance side to make room for pedestrians
-		cw.d[!dim][!ent_dir] += (ent_dir ? 1.0 : -1.0)*0.25*len_delta;
-	}
-	uint8_t const btype(rgen.rand_bool() ? CITY_BLDG_CARWASH : CITY_BLDG_SERVICE);
-	city_bldg_t const building(cw, dim, dir, ent_dir, plot_ix, bldgs.size(), btype, rgen);
-	cube_t const place_bc(building.bcube_with_extras);
-
-	if (!has_bcube_int_xy(place_bc, bcubes, pad_dist)) { // not too close to a building
-		bldg_groups.add_obj(building, bldgs);
-		gstations.back().pavement.d[dim][!dir] = bldg_start; // shift gas station pavement to edge of building
-		// add car building sign on the side facing the road
-		float const cw_road_side(cw.d[!dim][ent_dir]); // away from road
-		sign_bcube.d[!dim][!ent_dir] = cw_road_side;
-		sign_bcube.d[!dim][ ent_dir] = cw_road_side + (ent_dir ? 1.0 : -1.0)*0.25*sign_depth;
-		set_cube_zvals(sign_bcube, cw.z1()+0.6*cw_height, cw.z1()+0.85*cw_height);
-		set_wall_width(sign_bcube, cw.get_center_dim(dim), 0.3*cw_depth, dim);
-		sign_groups.add_obj(sign_t(sign_bcube, !dim, ent_dir, city_btype_names[building.btype], WHITE, BLACK), signs);
-
-		if (!building.has_back_wall) { // add exit driveway if there's space; cars don't yet use these
-			float const building_far_edge(cw.d[dim][!dir]), signed_car_width(dscale*nom_car_size.y);
-			cube_t driveway(building.pavement); // copy zvals and width
-			driveway.d[!dim][ent_dir] = gstation.pavement.d[!dim][ent_dir]; // extend to the road
-			driveway.d[ dim][ dir] = building_far_edge + 0.01*signed_car_width; // slight overlap
-			driveway.d[ dim][!dir] = building_far_edge - 2.00*signed_car_width; // set width
-
-			if (!has_bcube_int_xy(driveway, bcubes, 0.5*pad_dist)) { // not too close to a building
-				// try to expand width if there's space
-				cube_t driveway_exp(driveway);
-				driveway_exp.d[dim][!dir] -= 0.8*signed_car_width;
-				if (!has_bcube_int_xy(driveway, bcubes, 0.5*pad_dist)) {driveway = driveway_exp;}
-				driveways.emplace_back(driveway, !dim, ent_dir, plot_ix); // exit driveway only; no gsix or stop_loc
-				bldgs.back().exit_driveway = driveway;
-				bcubes.push_back(driveway);
-			}
+	if (1) { // add a nearby car wash, service station, etc. if there's space
+		float const cw_len(4*2.2*nom_car_size.y), cw_depth(1.6*nom_car_size.x), cw_height(0.225*city_params.road_width); // just large enough to fit the box truck
+		// add extra entrance lane width for car wash or service station for more clearance from gas station lanes; can't move much due to streetlights
+		float const bldg_start(gstation.pavement.d[dim][!dir] - 0.5*dscale*nom_car_size.y); // away from road
+		cube_t cw(gstation.pavement);
+		cw.z2() = plot.z1() + cw_height; // set roof height
+		cw.d[dim][ dir] = bldg_start;
+		cw.d[dim][!dir] = bldg_start - dscale*cw_depth; // set depth
+		float const len_delta(gstation.pavement.get_sz_dim(dim) - cw_len);
+	
+		if (len_delta > 0.0) { // shrink ends if building is shorter than gas station; should be true
+			cw.d[!dim][ ent_dir] -= (ent_dir ? 1.0 : -1.0)*0.75*len_delta; // shrink more on entrance side to make room for pedestrians
+			cw.d[!dim][!ent_dir] += (ent_dir ? 1.0 : -1.0)*0.25*len_delta;
 		}
-		if (add_cars && building.btype == CITY_BLDG_SERVICE) { // add some cars to service stations since they don't use dynamic cars
-			car_t car;
-			setup_parked_car(car, city_id, plot_ix);
-			car.dim = dim;
+		uint8_t const btype(rgen.rand_bool() ? CITY_BLDG_CARWASH : CITY_BLDG_SERVICE);
+		city_bldg_t const building(cw, dim, dir, ent_dir, plot_ix, bldgs.size(), btype, rgen);
+		cube_t const place_bc(building.bcube_with_extras);
 
-			for (unsigned n = 0; n < building.num_lanes; ++n) {
-				if (rgen.rand_bool()) continue; // 50% chance of a car
-				car.dir = (building.has_back_wall ? (dir ^ rgen.rand_bool()) : !dir); // 50% chance of pulled in or backed in if back wall, otherwise always pulled in
-				car.set_bcube(cube_bot_center(building.bays[n]), nom_car_size);
-				cars.push_back(car);
-				bldgs.back().reserve_lane(n); // will never be un-reserved
-				bldgs.back().enable_light(n);
+		if (!has_bcube_int_xy(place_bc, bcubes, pad_dist)) { // not too close to a building
+			bldg_groups.add_obj(building, bldgs);
+			gstations.back().pavement.d[dim][!dir] = bldg_start; // shift gas station pavement to edge of building
+			// add car building sign on the side facing the road
+			float const cw_road_side(cw.d[!dim][ent_dir]); // away from road
+			sign_bcube.d[!dim][!ent_dir] = cw_road_side;
+			sign_bcube.d[!dim][ ent_dir] = cw_road_side + (ent_dir ? 1.0 : -1.0)*0.25*sign_depth;
+			set_cube_zvals(sign_bcube, cw.z1()+0.6*cw_height, cw.z1()+0.85*cw_height);
+			set_wall_width(sign_bcube, cw.get_center_dim(dim), 0.3*cw_depth, dim);
+			sign_groups.add_obj(sign_t(sign_bcube, !dim, ent_dir, city_btype_names[building.btype], WHITE, BLACK), signs);
+
+			if (!building.has_back_wall) { // add exit driveway if there's space; cars don't yet use these
+				float const building_far_edge(cw.d[dim][!dir]), signed_car_width(dscale*nom_car_size.y);
+				cube_t driveway(building.pavement); // copy zvals and width
+				driveway.d[!dim][ent_dir] = gstation.pavement.d[!dim][ent_dir]; // extend to the road
+				driveway.d[ dim][ dir] = building_far_edge + 0.01*signed_car_width; // slight overlap
+				driveway.d[ dim][!dir] = building_far_edge - 2.00*signed_car_width; // set width
+
+				if (!has_bcube_int_xy(driveway, bcubes, 0.5*pad_dist)) { // not too close to a building
+					// try to expand width if there's space
+					cube_t driveway_exp(driveway);
+					driveway_exp.d[dim][!dir] -= 0.8*signed_car_width;
+					if (!has_bcube_int_xy(driveway, bcubes, 0.5*pad_dist)) {driveway = driveway_exp;}
+					driveways.emplace_back(driveway, !dim, ent_dir, plot_ix); // exit driveway only; no gsix or stop_loc
+					bldgs.back().exit_driveway = driveway;
+					new_bcubes.push_back(driveway);
+				}
 			}
+			if (add_cars && building.btype == CITY_BLDG_SERVICE) { // add some cars to service stations since they don't use dynamic cars
+				car_t car;
+				setup_parked_car(car, city_id, plot_ix);
+				car.dim = dim;
+
+				for (unsigned n = 0; n < building.num_lanes; ++n) {
+					if (rgen.rand_bool()) continue; // 50% chance of a car
+					car.dir = (building.has_back_wall ? (dir ^ rgen.rand_bool()) : !dir); // 50% chance of pulled in or backed in if back wall, otherwise always pulled in
+					car.set_bcube(cube_bot_center(building.bays[n]), nom_car_size);
+					cars.push_back(car);
+					bldgs.back().reserve_lane(n); // will never be un-reserved
+					bldgs.back().enable_light(n);
+				}
+			}
+			add_cube_to_colliders_and_blockers(place_bc, colliders, new_bcubes);
 		}
-		add_cube_to_colliders_and_blockers(place_bc, colliders, bcubes);
+	} // end car wash
+	if (1) { // maybe add a conveinence store at the back
+		float const cs_len(6.0*nom_car_size.y), cs_depth(2.0*nom_car_size.x), cs_height(0.2*city_params.road_width);
+		float const bldg_start(gstation.pavement.d[!dim][!ent_dir]); // away from road
+		cube_t cs(gstation.pavement);
+		cs.z2() = plot.z1() + cs_height; // set roof height
+		cs.d[!dim][ ent_dir] = bldg_start;
+		cs.d[!dim][!ent_dir] = bldg_start - (ent_dir ? 1.0 : -1.0)*cs_depth; // set depth
+		float const len_delta(gstation.pavement.get_sz_dim(!dim) - cs_len);
+
+		if (len_delta > 0.0) { // shrink ends if building is shorter than gas station; should be true
+			cs.d[dim][ dir] -= dscale*0.75*len_delta; // shrink more on entrance side to make room for pedestrians
+			cs.d[dim][!dir] += dscale*0.25*len_delta;
+		}
+		if (!has_bcube_int_xy(cs, bcubes, pad_dist)) { // not too close to a building
+			if (place_city_building_at(cs, !dim, ent_dir, plot_ix, city_id, rgen)) {new_bcubes.push_back(cs);}
+		}
 	}
-	bcubes.push_back(gs_exp); // add after placing building
+	vector_add_to(new_bcubes, bcubes); // add at the end so that they don't block each other
 	return 1;
 }
 
