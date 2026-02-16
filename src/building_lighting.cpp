@@ -787,12 +787,14 @@ class building_indir_light_mgr_t {
 	light_job_t cur_job;
 	ConcurrentQueue<light_job_t> light_queue, lights_done;
 
-	void init_lmgr() {
+	void init_lmgr(building_t const &b) {
 		assert(!light_bounds.is_all_zeros());
 		unsigned const tot_grid(MESH_X_SIZE * MESH_Y_SIZE * MESH_SIZE[2]); // user-specified value
 		vector3d const sz(light_bounds.get_size());
 		float const sz_prod(sz.x * sz.y * sz.z), scale(pow(tot_grid/sz_prod, 1.0/3.0));
-		for (unsigned n = 0; n < 3; ++n) {grid_sz[n] = max(1, round_fp(sz[n]*scale));}
+		float const wall_thick(b.get_wall_thickness()), fc_thick(b.get_fc_thickness());
+		vector3d const min_spacing(wall_thick, wall_thick, fc_thick); // min grid spacing to avoid light leaking through walls and floors
+		for (unsigned n = 0; n < 3; ++n) {grid_sz[n] = max(1, min(round_fp(sz[n]*scale), (int)ceil(sz[n]/min_spacing[n])));}
 		lmgr.alloc(grid_sz[0], grid_sz[1], grid_sz[2], light_bounds);
 	}
 	void init_ray_directions() {
@@ -1004,8 +1006,8 @@ class building_indir_light_mgr_t {
 		while (is_running) {sleep_for_ms(1);}
 		kill_thread = 0;
 	}
-	void update_volume_light_texture() {
-		init_lmgr(); // init on first call
+	void update_volume_light_texture(building_t const &b) {
+		init_lmgr(b); // init on first call
 		//highres_timer_t timer("Lighting Tex Create"); // ~1.6ms
 		bool const incremental(is_running);
 		lmgr.update_indir_light_texture(cur_tid, incremental);
@@ -1124,7 +1126,7 @@ public:
 			unsigned const num_tot(is_remove_pass ? num_to_remove : max(light_ids.size(), lights_seen.size()) + remove_queue.size());
 			lighting_update_text = "Lights: " + std::to_string(num_done) + " / " + std::to_string(num_tot);
 		}
-		if (lighting_updated) {update_volume_light_texture();} // update lighting texture based on incremental progress
+		if (lighting_updated) {update_volume_light_texture(b);} // update lighting texture based on incremental progress
 		while (!lights_done.empty()) {mark_light_done(lights_done.wait_and_pop());} // shouldn't have to wait
 		
 		if (is_running) { // still running in USE_BKG_THREAD=1 mode
@@ -1148,7 +1150,7 @@ public:
 				return; // no work to do; done
 			}
 			if (!timer_val) {timer_val = GET_TIME_MS();} // start a new block of lights
-			init_lmgr();
+			init_lmgr(b);
 			assert(!needs_to_join); // must have joined previous thread
 			is_running = 1;
 			rt_thread  = std::thread(&building_indir_light_mgr_t::run_light_batch, this, b);
@@ -1157,7 +1159,7 @@ public:
 			mark_light_done(cur_job);
 			cur_job = get_next_light(b, target);
 			if (!cur_job.is_valid()) return; // no lights to update
-			init_lmgr();
+			init_lmgr(b);
 			lighting_updated = 1;
 			highres_timer_t timer("Ray Cast Building Light"); // 2354 in mall with 368 lights
 			cast_light_rays(b);
