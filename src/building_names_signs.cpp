@@ -609,6 +609,8 @@ bool building_t::add_sign_by_door(tquad_with_ix_t const &door, bool outside, std
 
 	if (outside) { // outside, place above the door; larger for restaurants
 		c.z2() = door_bcube.z2() + 0.1*height;
+		assert(!parts.empty());
+		min_eq(c.z2(), parts.front().z2()); // clamp to top of first part; needed for 1 floor buildings
 	}
 	else { // inside, place hanging near the top of the door
 		c.z2() = c.z1() + get_floor_ceil_gap(); // right against the ceiling; applies to ground floor and walkway doors
