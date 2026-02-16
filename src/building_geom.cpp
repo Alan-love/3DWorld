@@ -19,7 +19,7 @@ extern building_params_t global_building_params;
 float get_bldg_player_height() {return (CAMERA_RADIUS + get_player_height());} // feet to eyes
 
 void building_t::set_z_range(float z1, float z2) {
-	bcube.z1() = z1; bcube.z2() = z2;
+	set_cube_zvals(bcube, z1, z2);
 	adjust_part_zvals_for_floor_spacing(bcube);
 	if (!parts.empty()) {parts[0].z1() = z1; parts[0].z2() = z2;}
 }
@@ -262,7 +262,8 @@ void building_t::gen_geometry(int rseed1, int rseed2) {
 		return;
 	}
 	// determine building shape (cube, cylinder, other)
-	if      (rgen.rand_probability(mat.round_prob)) {num_sides = MAX_CYLIN_SIDES;} // max number of sides for drawing rounded (cylinder) buildings
+	if (was_custom_placed) {num_sides = 4;} // cube
+	else if (rgen.rand_probability(mat.round_prob)) {num_sides = MAX_CYLIN_SIDES;} // max number of sides for drawing rounded (cylinder) buildings
 	else if (rgen.rand_probability(mat.cube_prob )) {num_sides = 4;} // cube
 	else { // N-gon
 		num_sides = mat.min_sides;
@@ -274,7 +275,7 @@ void building_t::gen_geometry(int rseed1, int rseed2) {
 		flat_side_amt = max(0.0f, min(0.45f, rgen.rand_uniform(mat.min_fsa, mat.max_fsa)));
 		if (flat_side_amt > 0.0 && rot_sin == 0.0) {start_angle = rgen.rand_uniform(0.0, TWO_PI);} // flat side, not rotated: add random start angle to break up uniformity
 	}
-	if ((num_sides == 3 || num_sides == 4 || num_sides == 6) && mat.max_asf > 0.0 && rgen.rand_probability(mat.asf_prob)) { // triangles/cubes/hexagons
+	if (!was_custom_placed && (num_sides == 3 || num_sides == 4 || num_sides == 6) && mat.max_asf > 0.0 && rgen.rand_probability(mat.asf_prob)) { // triangles/cubes/hexagons
 		alt_step_factor = max(0.0f, min(0.99f, rgen.rand_uniform(mat.min_asf, mat.max_asf)));
 		if (alt_step_factor > 0.0 && !(num_sides&1)) {half_offset = 1;} // chamfered cube/hexagon
 		if (alt_step_factor > 0.0) {num_sides *= 2;}
@@ -282,12 +283,12 @@ void building_t::gen_geometry(int rseed1, int rseed2) {
 	// determine the number of levels and splits
 	unsigned num_levels(mat.min_levels);
 
-	if (mat.min_levels < mat.max_levels) { // have a range of levels
+	if (!was_custom_placed && mat.min_levels < mat.max_levels) { // have a range of levels
 		if (was_cube || rgen.rand_bool()) {num_levels += rgen.rand() % (mat.max_levels - mat.min_levels + 1);} // only half of non-cubes are multilevel (unless min_level > 1)
 	}
 	if (mat.min_level_height > 0.0) {num_levels = max(mat.min_levels, min(num_levels, unsigned(bcube.dz()/mat.min_level_height)));}
 	num_levels = max(num_levels, 1U); // min_levels can be zero to apply more weight to 1 level buildings
-	bool const do_split(num_levels < 4 && is_cube() && rgen.rand_probability(mat.split_prob)); // don't split buildings with 4 or more levels, or non-cubes
+	bool const do_split(num_levels < 4 && is_cube() && !was_custom_placed && rgen.rand_probability(mat.split_prob)); // don't split buildings with >= 4 levels, or non-cubes
 	float const height(base.dz()), floor_spacing(get_window_vspace());
 
 	if (num_levels == 1) { // single level
@@ -472,7 +473,7 @@ void building_t::create_per_part_ext_verts() {
 }
 void building_t::finish_gen_geometry(rand_gen_t &rgen, bool has_overlapping_cubes) { // for office buildings
 	if (coll_bcube.is_all_zeros()) {coll_bcube = bcube;} // calculate if it hasn't been calculated yet
-	if (global_building_params.add_office_basements) {maybe_add_basement(rgen);}
+	if (global_building_params.add_office_basements && !was_custom_placed) {maybe_add_basement(rgen);}
 	assert(parts.size() > 0 && parts.size() < 256);
 	real_num_parts = uint8_t(parts.size()); // no parts can be added after this point
 	create_per_part_ext_verts();
@@ -2473,7 +2474,7 @@ void building_t::maybe_add_special_roof(rand_gen_t &rgen) {
 	if (global_building_params.onion_roof && num_sides >= 16 && flat_side_amt == 0.0) { // cylinder building
 		if (sz.x < 1.2*sz.y && sz.y < 1.2*sz.x && sz.z > max(sz.x, sz.y)) {roof_type = ROOF_TYPE_ONION;}
 	}
-	else if (is_cube()) { // only simple cubes are handled
+	else if (is_cube() && !was_custom_placed) { // only simple cubes are handled, and no custom buildings
 		if (global_building_params.dome_roof && sz.x < 1.2*sz.y && sz.y < 1.2*sz.x && sz.z > max(sz.x, sz.y)) {roof_type = ROOF_TYPE_DOME;} // roughly square, not too short
 		else if (btype == BTYPE_OFFICE && parts.size() == 1 && round_fp(top.dz()/get_window_vspace()) <= 4 && rgen.rand_bool()) {
 			// shorter single cube building; likely to become factory or warehouse

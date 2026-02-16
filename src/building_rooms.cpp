@@ -2883,6 +2883,7 @@ bool building_t::check_ext_step_valid(cube_t const &c, unsigned ext_objs_start, 
 }
 
 void building_t::add_ext_door_steps(unsigned ext_objs_start) {
+	if (was_custom_placed) return; // not yet enabled for custom buildings
 	float const floor_spacing(get_window_vspace()), fc_thickness(get_fc_thickness());
 	float const door_shift_dist(2.5*get_door_shift_dist()); // 1x for door shift and 1.5x offset in add_door()
 	colorRGBA const step_color(LT_GRAY);

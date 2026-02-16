@@ -3585,10 +3585,15 @@ public:
 				}
 			}
 		} // for i
-		if (buildings.capacity() > 2*buildings.size()) {buildings.shrink_to_fit();}
+		if (buildings.capacity() > 2*buildings.size()) {
+			unsigned const orig_sz(buildings.size()), num_extra(32); // for custom placed buildings
+			buildings.resize(buildings.size() + num_extra);
+			buildings.shrink_to_fit();
+			buildings.resize(orig_sz);
+		}
 		// after this point buildings should no longer be resized and their pointers can be used without worrying about invalidation, at least within this buildings block
 		bix_by_x1 cmp_x1(buildings);
-		for (auto i = bix_by_plot.begin(); i != bix_by_plot.end(); ++i) {sort(i->begin(), i->end(), cmp_x1);}
+		for (auto &p : bix_by_plot) {sort(p.begin(), p.end(), cmp_x1);}
 		if (!is_tile) {timer.end();} // use a single timer for tile mode
 		parse_universe_name_str_tables(); // must do this here because it's not legal to call in MT code below
 
@@ -3632,12 +3637,11 @@ public:
 				}
 			} // for i
 			if (do_flatten) { // use conservative zmin for grid
-				for (auto i = grid.begin(); i != grid.end(); ++i) {i->bcube.z1() = def_water_level;}
+				for (grid_elem_t &g : grid) {g.bcube.z1() = def_water_level;}
 			}
 		} // if flatten_mesh
 		{ // open a scope
 			timer_t timer2("Gen Building Geometry", !is_tile); // 160ms/900ms
-			bool const gen_interiors(global_building_params.gen_building_interiors);
 
 			for (unsigned i = 0; i < buildings.size(); ++i) {
 				building_t &b(buildings[i]);
@@ -3645,7 +3649,9 @@ public:
 				b.gen_geometry(rs_ix, 1337*rs_ix+rseed);
 				grid[get_grid_ix(b.bcube.get_cube_center())].update_extb_bcube(b); // required to avoid overlapping extended basements
 			}
-			if (city_only && gen_interiors && global_building_params.max_ext_basement_room_depth > 0) {try_join_city_building_ext_basements(buildings);}
+			if (city_only && global_building_params.gen_building_interiors && global_building_params.max_ext_basement_room_depth > 0) {
+				try_join_city_building_ext_basements(buildings);
+			}
 		} // close the scope
 		if (0 && non_city_only) { // perform room graph analysis
 			timer_t timer3("Building Room Graph Analysis");
@@ -3714,6 +3720,41 @@ public:
 		build_grid_by_tile(is_tile);
 		if (!city_only) {create_vbos(is_tile);} // city VBOs are created later, after skyways are added
 	} // end gen()
+
+	bool place_building_at(cube_t const &bcube, bool dim, bool dir, unsigned plot_ix, unsigned city_ix, rand_gen_t rgen) { // Note: rgen passed by value
+		// Note: assumes caller has checked that bcube is a valid pos
+		if (buildings.size() == buildings.capacity()) return 0; // can't add a building as it will resize and invalidate conn pointers
+		unsigned const bix(buildings.size());
+		buildings.push_back(building_t());
+		building_t &b(buildings.back());
+		b.mat_ix     = global_building_params.choose_rand_mat(rgen, 1, 0, 0); // set material; city_only=1, non_city_only=0, residential=0
+		b.is_house   = 0;
+		b.is_in_city = 1;
+		b.city_ix    = city_ix;
+		b.bcube      = bcube; // copy XY; zvals set below
+		b.was_custom_placed = 1;
+		b.set_z_range(bcube.z1(), bcube.z2());
+		building_mat_t const &mat(b.get_material());
+		mat.side_color.gen_color(b.side_color, rgen);
+		mat.roof_color.gen_color(b.roof_color, rgen);
+		add_to_grid(b.bcube, bix, 0); // Note: max_extent is not updated
+
+		if (!bix_by_plot.empty()) {
+			assert(plot_ix < bix_by_plot.size());
+			vector<unsigned> &bbp(bix_by_plot[plot_ix]);
+			auto pos(std::lower_bound(bbp.begin(), bbp.end(), bix, bix_by_x1(buildings))); // insert in correct x1 sorted pos
+			bbp.insert(pos, bix);
+		}
+		b.gen_geometry(rgen.rand(), rgen.rand());
+		grid[get_grid_ix(b.bcube.get_cube_center())].update_extb_bcube(b); // not needed?
+		// add driveway, porch, door steps, etc. to grid?
+		buildings_bcube.assign_or_union_with_cube(b.bcube);
+		has_interior_geom |= b.has_interior();
+		unsigned const gtix(grid_by_tile.size());
+		grid_by_tile.push_back(grid_elem_t());
+		add_building_to_grid(b, gtix, bix);
+		return 1;
+	}
 
 	void place_building_trees(rand_gen_t &rgen) {
 		if (!has_city_trees()) return;
@@ -5043,7 +5084,7 @@ public:
 				if (!b->contains_pt_xy(p1)) continue;
 				unsigned const ret(get_building(b->ix).check_line_coll(p1, p2, t, 0, ret_any_pt, no_coll_pt, check_non_coll));
 				if (ret) {hit_bix = b->ix; return ret;} // can only intersect one building
-			} // for b
+			}
 			for (cube_t const &seg : ge.road_segs) { // check driveways; not guaranteed to be correct if driveway is in another grid than building?
 				if (seg.contains_pt_xy(p1)) return BLDG_COLL_DRIVEWAY;
 			}
@@ -5967,6 +6008,9 @@ bool connect_buildings_to_skyway(cube_t &m_bcube, bool m_dim, cube_t const &city
 }
 void get_city_building_walkways(cube_t const &city_bcube, vector<building_walkway_t *> &bwws) {
 	building_creator_city.get_city_building_walkways(city_bcube, bwws);
+}
+bool place_city_building_at(cube_t const &bcube, bool dim, bool dir, unsigned plot_ix, unsigned city_ix, rand_gen_t &rgen) {
+	return building_creator_city.place_building_at(bcube, dim, dir, plot_ix, city_ix, rgen);
 }
 void add_building_interior_lights(point const &xlate, cube_t &lights_bcube, bool sec_camera_mode) {
 	//highres_timer_t timer("Add building interior lights"); // 0.97/0.37
