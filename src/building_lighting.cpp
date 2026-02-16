@@ -920,7 +920,7 @@ class building_indir_light_mgr_t {
 			if (in_attic) {base_num_rays *= 8;} // more rays in attic, since light is large and there are only 1-2 of them
 			if (is_lamp ) {base_num_rays /= 2;} // half the rays for lamps
 			if (is_lamp ) {dir = 2;} // onmidirectional; dim stays at 2/Z
-			else if (ro.flags & RO_FLAG_ADJ_HI) {dim = ro.dim; dir = ro.dir;} // wall light
+			else if ((ro.flags & RO_FLAG_ADJ_HI) || ro.is_hanging()) {dim = ro.dim; dir = ro.dir;} // wall light or fallen/hanging
 			float const surface_area(ro.dx()*ro.dy() + 2.0f*(ro.dx() + ro.dy())*ro.dz()); // bottom + 4 sides (top is occluded), 0.0003 for houses
 			lcolor  = (is_lamp ? LAMP_COLOR : ro.get_color());
 			weight *= surface_area/0.0003f;
@@ -943,7 +943,7 @@ class building_indir_light_mgr_t {
 					base_num_rays /= 4;
 				}
 			}
-			if (!is_lamp && (ro.flags & RO_FLAG_ADJ_TOP)) { // fallen/hanging ceiling light
+			if (!is_lamp && (ro.flags & RO_FLAG_HANGING)) { // fallen/hanging ceiling light
 				light_dir = ro.get_dir();
 				hanging   = 1;
 			}
@@ -2531,7 +2531,7 @@ void building_t::add_room_lights(vector3d const &xlate, unsigned building_id, bo
 		if (in_camera_room && (in_retail_room || room.is_industrial())) {} // skip occlusion check for large open rooms
 		else if (check_occ && !clipped_bc.contains_pt(camera_rot) && check_obj_occluded(clipped_bc, camera_bs, oc, 0, 0, mall_light_vis)) continue;
 		bool const in_industrial(room.is_industrial()), tall_retail(in_retail_room && has_tall_retail()); // narrower for industrial ceiling lights and a bit lower for tall retail
-		bool const hanging(!wall_light && !is_lamp && (i->flags & RO_FLAG_ADJ_TOP));
+		bool const hanging(!wall_light && !is_lamp && (i->flags & RO_FLAG_HANGING));
 		float bwidth(in_industrial ? 0.125 : (tall_retail ? 0.24 : 0.25)); // as close to 180 degree FOV as we can get without shadow clipping
 		//if (wall_light) {bwidth = 1.0;} // wall light omnidirectional, but shadows are wrong
 		vector3d dir;

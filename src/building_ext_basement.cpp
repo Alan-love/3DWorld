@@ -404,7 +404,7 @@ void building_t::add_ceiling_tile_objects(rand_gen_t rgen) {
 				light.z1() -= sz_diff;
 				light.d[dim][!dir] += (dir ? 1.0 : -1.0)*sz_diff;
 				light.dir    = dir;
-				light.flags |= RO_FLAG_ADJ_TOP; // flag as hanging at the top
+				light.flags |= RO_FLAG_HANGING; // flag as hanging at the top
 				//objs.emplace_back(light, TYPE_COLLIDER, light.room_id, dim, dir, RO_FLAG_INVIS, 1.0); // no, blocks people but not the player
 				// add the frame; really there should be a hole in the tile here, but that causes problems with texture alignment, etc.
 				objs.emplace_back(frame, TYPE_METAL_BAR, light.room_id, dim, dir, RO_FLAG_NOCOLL, light_amt, SHAPE_CUBE, LT_GRAY, EF_Z2); // skip top
