@@ -194,12 +194,12 @@ void building_t::set_building_colors(building_colors_t &bcolors) const {
 struct ray_cast_args_t {
 	bool in_attic, in_ext_basement;
 	float max_extent;
-	cube_t valid_area;
-	cube_bvh_t const &bvh;
+	cube_t valid_area, room_area;
+	cube_bvh_t const &bvh, &room_bvh;
 	building_colors_t const &bcolors;
 
-	ray_cast_args_t(cube_t const &va, cube_bvh_t const &bvh_, bool ia, bool ieb, building_colors_t const &bcolors_)
-		: in_attic(ia), in_ext_basement(ieb), max_extent(va.get_max_dim_sz()), valid_area(va), bvh(bvh_), bcolors(bcolors_)
+	ray_cast_args_t(cube_t const &va, cube_t const &ra, cube_bvh_t const &bvh_, cube_bvh_t const &rbvh, bool ia, bool ieb, building_colors_t const &bcolors_)
+		: in_attic(ia), in_ext_basement(ieb), max_extent(va.get_max_dim_sz()), valid_area(va), room_area(ra), bvh(bvh_), room_bvh(rbvh), bcolors(bcolors_)
 	{valid_area.expand_by(0.01*max_extent);} // expand slightly so that collisions with objects on the edge are still considered interior
 };
 
@@ -245,6 +245,7 @@ bool building_t::ray_cast_interior(point const &pos, vector3d const &dir, ray_ca
 			return 1;
 		}
 	}
+	if (args.room_area.contains_pt(p1) && args.room_bvh.ray_cast(p1, p2, cpos, cnorm, ccolor)) return 1; // try room BVH first if valid
 	if (args.bvh.ray_cast(p1, p2, cpos, cnorm, ccolor)) return 1;
 	if (!hit) return 0;
 	if (rgen && p2.z > ground_floor_z1 && !args.in_attic && has_int_windows() && rgen->rand_bool()) return 0; // 50% chance of exiting through a window
@@ -764,7 +765,7 @@ public:
 
 class building_indir_light_mgr_t {
 	bool is_running=0, kill_thread=0, lighting_updated=0, needs_to_join=0, need_bvh_rebuild=0, update_windows=0, target_in_extb=0;
-	int cur_bix=-1, cur_floor=-1, timer_val=0;
+	int cur_bix=-1, cur_floor=-1, last_room_id=-1, timer_val=0;
 	unsigned cur_tid=0, num_to_remove=0, grid_sz[3]={};
 	colorRGBA outdoor_color;
 	cube_t valid_area, light_bounds;
@@ -774,7 +775,7 @@ class building_indir_light_mgr_t {
 	set<unsigned> lights_complete, lights_seen, lights_pend;
 	vector<vector3d> ray_directions;
 	vect_cube_with_ix_t windows;
-	cube_bvh_t bvh;
+	cube_bvh_t bvh, room_bvh;
 	lmap_manager_local_t lmgr;
 	std::thread rt_thread;
 
@@ -796,6 +797,28 @@ class building_indir_light_mgr_t {
 		vector3d const min_spacing(wall_thick, wall_thick, fc_thick); // min grid spacing to avoid light leaking through walls and floors
 		for (unsigned n = 0; n < 3; ++n) {grid_sz[n] = max(1, min(round_fp(sz[n]*scale), (int)ceil(sz[n]/min_spacing[n])));}
 		lmgr.alloc(grid_sz[0], grid_sz[1], grid_sz[2], light_bounds);
+	}
+	void get_room_bvh(building_t const &b, int room_id, cube_t &room_area_out) {
+		if (room_id < 0) return;
+		room_t const &room(b.get_room(room_id));
+		if (room.get_volume() > 0.5*valid_area.get_volume()) return; // room accounts for most of the area (factory, rest, backrooms, PG, retail)
+		cube_t room_area(room);
+		room_area.expand_by(b.get_wall_thickness()); // include adjacent walls, ceilings, and floors
+		if (room_id == last_room_id) {room_area_out = room_area; return;} // already valid
+		auto const &all_objs(bvh.get_objs());
+		auto &room_objs(room_bvh.get_objs());
+		room_bvh.clear();
+
+		for (auto const &c : all_objs) {
+			assert(c.is_strictly_normalized());
+			if (!room_area.intersects_no_adj(c)) continue;
+			room_objs.push_back(c);
+			room_objs.back().intersect_with_cube(room_area);
+		}
+		if (room_objs.size() > all_objs.size()/2) return; // most of the objects are in this room
+		room_bvh.build_tree_top(0); // verbose=0
+		room_area_out = room_area;
+		last_room_id  = room_id;
 	}
 	void init_ray_directions() {
 		rand_gen_t rgen;
@@ -829,6 +852,7 @@ class building_indir_light_mgr_t {
 		float const tolerance(1.0E-5*valid_area.get_max_dim_sz());
 		bool const is_window(cur_job.lix & IS_WINDOW_BIT);
 		bool in_attic(0), in_ext_basement(0), is_skylight(0), in_jail_cell(0), half_step_sz(1), hanging(0);
+		int light_room_id(-1);
 		float weight(100.0), light_radius(0.0);
 		point light_center;
 		cube_t light_cube;
@@ -875,6 +899,7 @@ class building_indir_light_mgr_t {
 				else if (b.is_restaurant() && b.interior->rooms.front().intersects(light_cube)) {base_num_rays = 2*base_num_rays/3;} // fewer rays in restaurant dining area
 				else if (b.has_attic() && window.z1() >= b.get_attic_part().z2()) {base_num_rays *= 8;} // attic window
 			}
+			light_room_id = b.get_room_containing_pt(window.get_cube_center());
 			// light intensity scales with surface area, since incoming light is a constant per unit area (large windows = more light)
 			weight *= surface_area/0.0016f; // a fraction the surface area weight of lights
 		} // end window case
@@ -888,6 +913,7 @@ class building_indir_light_mgr_t {
 			light_cube      = ro;
 			light_cube.z1() = light_cube.z2() = (ro.z1() - 0.01*ro.dz()); // set slightly below bottom of light
 			light_center    = light_cube.get_cube_center();
+			light_room_id   = ro.room_id;
 			in_attic        = ro.in_attic();
 			in_ext_basement = (light_in_basement && b.point_in_extended_basement_not_basement(light_center));
 			in_jail_cell    = (in_ext_basement && b.interior->has_jail && is_jail_room(b.get_room(ro.room_id).get_room_type(0)));
@@ -909,7 +935,7 @@ class building_indir_light_mgr_t {
 				if (in_ext_basement) {
 					if      (b.interior->has_backrooms) {weight *= 0.2; base_num_rays /= 4;} // darker and fewer rays
 					else if (b.has_mall()             ) {weight *= 0.1; base_num_rays /= 8; half_step_sz = 0;} // darker and fewer rays, since there are so many lights
-					else if ((int)ro.room_id == b.interior->pool.room_ix) {weight *= 0.5;} // extended basement pool room
+					else if (light_room_id == b.interior->pool.room_ix) {weight *= 0.5;} // extended basement pool room
 					else                                {weight *= 0.4; base_num_rays *= 2;} // regular extended basement; more rays to reduce noise
 				}
 				else { // basement is darker, parking garages are even darker
@@ -922,7 +948,7 @@ class building_indir_light_mgr_t {
 				hanging   = 1;
 			}
 		} // end room light case
-		if (b.check_pt_in_retail_room(light_center)) {weight *= 0.5; base_num_rays /= 5; half_step_sz = 0;} // many lights, fewer rays
+		if (b.check_pt_in_retail_room(light_center)) {weight *= 0.5; base_num_rays /= 5; half_step_sz = 0;} // many lights, fewer rays; windows or ceiling lights
 		if (b.is_house ) {weight *=  2.0;} // houses have dimmer lights and seem to work better with more indir
 		if (cur_job.neg) {weight *= -1.0;}
 		weight /= base_num_rays; // normalize to the number of rays
@@ -932,7 +958,9 @@ class building_indir_light_mgr_t {
 		int const num_rays(base_num_rays/NUM_PRI_SPLITS);
 		building_colors_t bcolors;
 		b.set_building_colors(bcolors);
-		ray_cast_args_t const args(valid_area, bvh, in_attic, in_ext_basement, bcolors);
+		cube_t room_area;
+		get_room_bvh(b, light_room_id, room_area); // build per-room BVH if needed
+		ray_cast_args_t const args(valid_area, room_area, bvh, room_bvh, in_attic, in_ext_basement, bcolors);
 		lmgr.set_step_sz(half_step_sz);
 		
 		// Note: dynamic scheduling is faster, and using blocks doesn't help
@@ -1068,7 +1096,7 @@ public:
 	void clear() {
 		lighting_updated = need_bvh_rebuild = update_windows = target_in_extb = 0;
 		num_to_remove    = 0;
-		cur_bix   = cur_floor = -1;
+		cur_bix   = cur_floor = last_room_id = -1;
 		timer_val = 0;
 		invalidate_lighting();
 		light_ids.clear();
@@ -1323,6 +1351,7 @@ public:
 		//highres_timer_t timer("Build BVH");
 		bvh.build_tree_top(0); // verbose=0
 		need_bvh_rebuild = 0;
+		last_room_id     = -1;
 	}
 	void invalidate_bvh    () {need_bvh_rebuild = 1;} // Note: can't directly clear bvh because a thread may be using it
 	void invalidate_windows() {update_windows   = 1;}
