@@ -2413,6 +2413,7 @@ void building_t::gen_details(rand_gen_t &rgen, bool is_rectangle) { // for the r
 			if (!bounds.contains_cube_xy(c)) continue; // not contained
 			if (!avoid_bcube .is_all_zeros() && c.intersects_xy(avoid_bcube ))      continue; // bad placement
 			if (!door_blocker.is_all_zeros() && c.intersects_xy(door_blocker))      continue; // bad placement
+			if (has_bcube_int_xy(c, skylights))                                     continue; // over skylight
 			if (!is_cube() && !check_part_contains_cube_xy(top, parts.size()-1, c)) continue; // not contained in roof
 			placed = 1;
 			break;
