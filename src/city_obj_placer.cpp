@@ -176,10 +176,10 @@ bool city_obj_placer_t::maybe_place_gas_station(road_plot_t const &plot, unsigne
 			b.num_sides  = 4; // simple cube
 			b.street_dir = 2*(!dim) + ent_dir + 1; // facing gas station
 			b.btype      = BTYPE_CONV_STORE;
-			b.mat_ix     = global_building_params.choose_rand_mat(rgen, 1, 0, 0); // set material; city_only=1, non_city_only=0, residential=0
-			b.gen_roof_and_side_color(rgen);
+			b.mat_ix     = global_building_params.choose_rand_mat(rgen, 0, 1, 0); // use brick or concrete: city_only=0, non_city_only=1, residential=0
 			b.roof_type  = ROOF_TYPE_PEAK;
 			b.was_custom_placed = 1;
+			b.gen_roof_and_side_color(rgen);
 			b.set_z_range(cs.z1(), cs.z2());
 			if (place_city_building_at(b, plot_ix, rgen)) {new_bcubes.push_back(cs);}
 		}
