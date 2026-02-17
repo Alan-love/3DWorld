@@ -316,7 +316,7 @@ void building_t::gen_geometry(int rseed1, int rseed2) {
 		else { // single part, entire cube/cylinder
 			parts.push_back(base);
 			unsigned const rand_val(rgen.rand()), num_floors(round_fp(height/floor_spacing));
-			if ((rand_val&3) != 0) {maybe_add_special_roof(rgen);} // 75% chance
+			if (was_custom_placed || (rand_val&3) != 0) {maybe_add_special_roof(rgen);} // 75% chance
 			
 			// consider a possible vertical split of the floorplan into two parts
 			if (!interior_enabled() || num_floors < 2) {} // no interior, or single floor, can't split vertically
@@ -454,7 +454,7 @@ void building_t::gen_geometry(int rseed1, int rseed2) {
 		if (num_levels <= 3) {gen_details(rgen, 0);}
 	}
 	else {
-		if ((rgen.rand()&3) != 0) {maybe_add_special_roof(rgen);} // 67% chance
+		if (was_custom_placed || (rgen.rand()&3) != 0) {maybe_add_special_roof(rgen);} // 67% chance
 		if (num_levels <= 3) {gen_details(rgen, 1);}
 	}
 	finish_gen_geometry(rgen, 0);
@@ -2477,7 +2477,15 @@ void building_t::maybe_add_special_roof(rand_gen_t &rgen) {
 	vector3d const sz(top.get_size()); // top/last part
 
 	if (was_custom_placed) { // use existing roof type
-		if (roof_type == ROOF_TYPE_SLOPE) {gen_sloped_roof(rgen, top);}
+		if (roof_type == ROOF_TYPE_PEAK) {
+			assert(parts.size() == 1); // should be a single above ground part; basement not yet added
+			cube_t const &main_part(parts.front());
+			bool const dim(main_part.dx() < main_part.dy());
+			unsigned skip_side_tri(2); // skip neither
+			float const peak_height(0.5), extend_to(0.0), max_dz(main_part.dz());
+			gen_peaked_roof(main_part, peak_height, dim, extend_to, max_dz, skip_side_tri);
+		}
+		else if (roof_type == ROOF_TYPE_SLOPE) {gen_sloped_roof(rgen, top);}
 	}
 	else if (global_building_params.onion_roof && num_sides >= 16 && flat_side_amt == 0.0) { // cylinder building
 		if (sz.x < 1.2*sz.y && sz.y < 1.2*sz.x && sz.z > max(sz.x, sz.y)) {roof_type = ROOF_TYPE_ONION;}
