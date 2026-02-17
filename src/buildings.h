@@ -57,6 +57,7 @@ float const MALL_FLOOR_HEIGHT      = 2.0; // as a multiple of normal building fl
 float const CEILING_BEAM_THICK     = 2.5; // as a multiple of wall thickness
 float const BACKSPLASH_HEIGHT      = 0.33; // relative to cabinet height
 float const LOCKER_BOT_SHELF_HEIGHT= 0.67; // relative to full height
+float const GLASS_IOR              = 1.6;
 
 unsigned const BOTTLE_EMPTY_MASK= 192; // empty if both bits 6 and 7 are set
 unsigned const NUM_CHAIR_COLORS = 13;
@@ -280,10 +281,10 @@ struct tid_nm_pair_dstate_t {
 	~tid_nm_pair_dstate_t();
 };
 
-struct tid_nm_pair_t { // size=32
+struct tid_nm_pair_t { // size=48
 
 	int tid=-1, nm_tid=-1; // Note: assumes each tid has only one nm_tid
-	float tscale_x=1.0, tscale_y=1.0, txoff=0.0, tyoff=0.0, emissive=0.0, metalness=0.0;
+	float tscale_x=1.0, tscale_y=1.0, txoff=0.0, tyoff=0.0, emissive=0.0, metalness=0.0, refract_ix=1.0;
 	color_wrapper spec_color;
 	unsigned char shininess=0; // Note: spec_mag is divided by 255.0
 	bool shadowed   =0; // Note: doesn't directly affect rendering, only used for uniquing/operator==()
@@ -305,7 +306,7 @@ struct tid_nm_pair_t { // size=32
 	bool enabled() const {return (tid >= 0 || nm_tid >= 0);}
 
 	bool is_compat_ignore_shadowed(tid_nm_pair_t const &t) const {
-		return (tid == t.tid && nm_tid == t.nm_tid && emissive == t.emissive && metalness == t.metalness &&
+		return (tid == t.tid && nm_tid == t.nm_tid && emissive == t.emissive && metalness == t.metalness && refract_ix == t.refract_ix &&
 			shininess == t.shininess && transparent == t.transparent && spec_color == t.spec_color && no_reflect == t.no_reflect);
 	}
 	bool is_compatible(tid_nm_pair_t const &t) const {return (is_compat_ignore_shadowed(t) && shadowed == t.shadowed && shadow_only == t.shadow_only);}

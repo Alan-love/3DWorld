@@ -138,22 +138,25 @@ void tid_nm_pair_t::set_gl(tid_nm_pair_dstate_t &state) const {
 	else if (tid == NO_SHADOW_WHITE_TEX || tid == SHADOW_ONLY_TEX) {select_no_texture();}
 	else {select_texture(tid);}
 	float const e_val(get_emissive_val());
-	if (e_val     > 0.0) {state.s.add_uniform_float("emissive_scale", e_val);} // enable emissive
-	if (shininess > 0  ) {state.s.set_specular_color(spec_color.get_c3(), shininess);} // colored specular
+	if (e_val      > 0.0) {state.s.add_uniform_float("emissive_scale", e_val);} // enable emissive
+	if (shininess  > 0  ) {state.s.set_specular_color(spec_color.get_c3(), shininess);} // colored specular
+	if (metalness  > 0.0) {state.s.set_metalness (metalness );}
+	if (refract_ix > 1.0) {state.s.set_refract_ix(refract_ix);}
+	if (metalness  > 0.0 && has_normal_map) {state.s.add_uniform_float("cube_map_normal_map_scale", 1.0);} // enable normal map for cube map metal reflections
 	if (no_cracks && state.crack_weight > 0.0) {state.s.add_uniform_float("crack_weight", 0.0);}
-	if (metalness > 0.0) {state.s.set_metalness(metalness);}
-	if (metalness > 0.0 && has_normal_map) {state.s.add_uniform_float("cube_map_normal_map_scale", 1.0);} // enable normal map for cube map metal reflections
 }
 void tid_nm_pair_t::unset_gl(tid_nm_pair_dstate_t &state) const {
 	if (tid == REFLECTION_TEXTURE_ID && room_mirror_ref_tid != 0) {state.s.make_current(); return;}
 	if (tid == ABST_ART_TEXTURE_ID) {state.s.make_current(); return;}
 	bool const has_normal_map(get_nm_tid() != FLAT_NMAP_TEX);
 	if (has_normal_map) {bind_default_flat_normal_map();} // reset back to flat normal map
-	if (get_emissive_val() > 0.0) {state.s.add_uniform_float("emissive_scale", 0.0);} // disable emissive
-	if (shininess          > 0  ) {state.s.clear_specular();} // clear specular
+	float const e_val(get_emissive_val());
+	if (e_val      > 0.0) {state.s.add_uniform_float("emissive_scale", 0.0);} // disable emissive
+	if (shininess  > 0  ) {state.s.clear_specular();} // clear specular
+	if (metalness  > 0.0) {state.s.set_metalness (0.0);} // clear metalness
+	if (refract_ix > 1.0) {state.s.set_refract_ix(1.0);} // clear IOR
+	if (metalness  > 0.0 && has_normal_map) {state.s.add_uniform_float("cube_map_normal_map_scale", 0.0);} // reset to 0
 	if (no_cracks && state.crack_weight > 0.0) {state.s.add_uniform_float("crack_weight", state.crack_weight);} // restore original value
-	if (metalness > 0.0) {state.s.set_metalness(0.0);} // clear metalness
-	if (metalness > 0.0 && has_normal_map) {state.s.add_uniform_float("cube_map_normal_map_scale", 0.0);} // reset to 0
 }
 void tid_nm_pair_t::toggle_transparent_windows_mode() { // hack
 	if      (tid == BLDG_WINDOW_TEX    ) {tid = BLDG_WIND_TRANS_TEX;}
@@ -2605,6 +2608,7 @@ void building_t::get_all_drawn_window_verts(building_draw_t &bdraw, bool lights_
 		colorRGBA const skylight_color(WHITE, 0.1);
 		tid_nm_pair_t tp;
 		tp.transparent = 1; // doesn't do anything?
+		tp.refract_ix  = GLASS_IOR;
 
 		for (cube_t const &skylight : skylights) {
 			cube_t glass(skylight);
@@ -4633,7 +4637,6 @@ public:
 				bool const single_tile(bc->is_single_tile()), no_depth_write(!single_tile), transparent_windows(draw_interior && bc->has_interior_to_draw());
 				if (single_tile && !bc->use_smap_this_frame) continue; // optimization
 				if (no_depth_write) {glDepthMask(GL_FALSE);} // disable depth writing
-				bool const is_reflective(ext_cube_map_reflect && bc->get_is_city()); // city building exteriors only
 
 				for (auto g = bc->grid_by_tile.begin(); g != bc->grid_by_tile.end(); ++g) { // Note: all grids should be nonempty
 					if (single_tile && bc->use_smap_this_frame) {} // not drawn in main/nonshadow pass, so must be drawn here
@@ -4651,11 +4654,9 @@ public:
 						enable_blend();
 						glEnable(GL_POLYGON_OFFSET_FILL);
 						if (!no_depth_write) {glDepthMask(GL_FALSE);} // always disable depth writing
-						if (is_reflective) {city_shader.set_refract_ix(1.6);} // refractive glass windows
 						if (transparent_windows) {bc->building_draw_windows.toggle_transparent_windows_mode();}
 						bc->building_draw_windows.draw_tile(city_shader, tile_id); // draw windows on top of other buildings
 						if (transparent_windows) {bc->building_draw_windows.toggle_transparent_windows_mode();}
-						if (is_reflective) {city_shader.set_refract_ix(1.0);} // restore
 						if (!no_depth_write) {glDepthMask(GL_TRUE);} // always re-enable depth writing
 						glDisable(GL_POLYGON_OFFSET_FILL);
 						disable_blend();
