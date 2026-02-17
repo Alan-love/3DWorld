@@ -508,7 +508,7 @@ enum {BTYPE_UNSET=0, BTYPE_HOUSE, BTYPE_MULT_FAM, BTYPE_OFFICE, BTYPE_APARTMENT,
 	BTYPE_WAREHOUSE, BTYPE_POWERPLANT, BTYPE_SCHOOL, BTYPE_POLICE, BTYPE_FIRE_STAT, BTYPE_PRISON, BTYPE_RESTAURANT, BTYPE_CONV_STORE, NUM_BUILDING_TYPES};
 std::string const btype_names[NUM_BUILDING_TYPES] =
 {"", "House", "Multi-Family House", "Office", "Apartments", "Hotel", "Hospital", "Parking", "Mall", "Factory", "Warehouse", "Power Plant",
- "School", "Police Station", "Fire Station", "Prison", "Restaurant", "Conveinence Store"};
+ "School", "Police Station", "Fire Station", "Prison", "Restaurant", "Store"};
 colorRGBA const  btype_colors[NUM_BUILDING_TYPES] =
 {WHITE, WHITE, YELLOW,               WHITE,    GREEN,        GREEN,   BLUE,       BROWN,     ORANGE, RED,       RED,         RED,
  PURPLE,   MAGENTA,          MAGENTA,        BLACK,    CYAN,         WHITE};
@@ -2309,6 +2309,7 @@ struct building_t : public building_geom_t {
 	bool is_fire_stat   () const {return (btype == BTYPE_FIRE_STAT );}
 	bool is_prison      () const {return (btype == BTYPE_PRISON    );}
 	bool is_restaurant  () const {return (btype == BTYPE_RESTAURANT);}
+	bool is_conv_store  () const {return (btype == BTYPE_CONV_STORE);}
 	bool is_apt_or_hotel() const {return (is_apartment() || is_hotel());}
 	bool is_residential () const {return (is_house || is_apt_or_hotel());}
 	bool is_industrial  () const {return (is_factory() || is_warehouse() || is_powerplant());}
@@ -2368,6 +2369,7 @@ struct building_t : public building_geom_t {
 	float get_industrial_window_z1    () const;
 	bool is_ground_floor_excluding_retail(float zval) const;
 	float get_ground_floor_z_thresh(bool for_spider) const;
+	void gen_roof_and_side_color(rand_gen_t &rgen);
 	void gen_rotation(rand_gen_t &rgen);
 	point get_inv_rot_pos(point const &pos) const;
 	void maybe_inv_rotate_pos_dir(point &pos, vector3d &dir) const;

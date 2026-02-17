@@ -3195,7 +3195,7 @@ class building_creator_t {
 			if (expand_by_one && ixr[1][d]+1 < grid_sz) {++ixr[1][d];}
 		}
 	}
-	void add_to_grid(cube_t const &bcube, unsigned bix, bool is_road_seg) {
+	void add_to_grid(cube_t const &bcube, unsigned bix, bool is_road_seg=0) {
 		unsigned ixr[2][2];
 		get_grid_range(bcube, ixr);
 		for (unsigned y = ixr[0][1]; y <= ixr[1][1]; ++y) {
@@ -3560,8 +3560,7 @@ public:
 				assert(height_val > 0.0);
 				b.set_z_range(center.z, (center.z + height_val));
 				assert(b.bcube.is_strictly_normalized());
-				mat.side_color.gen_color(b.side_color, rgen_mat);
-				mat.roof_color.gen_color(b.roof_color, rgen_mat);
+				b.gen_roof_and_side_color(rgen_mat);
 				if (use_city_plots) {b.street_dir = (pref_dir ? pref_dir : get_street_dir(b.bcube, pos_range));}
 				if (city_only     ) {b.is_in_city = 1; b.city_ix = city_ix;}
 				add_to_grid(b.bcube, cur_bix, 0);
@@ -3671,27 +3670,8 @@ public:
 
 		for (auto b = buildings.begin(); b != buildings.end(); ++b) { // add driveways, porches, etc. and calculate has_interior_geom
 			unsigned const bix(b - buildings.begin());
-
-			if (b->enable_driveway_coll()) {
-				if (!b->driveway.is_all_zeros()) {
-					cube_t driveway_ext(b->driveway);
-					driveway_ext.expand_by_xy(0.2*b->get_window_vspace()); // expand so that grass is excluded at the edges; determined experimentally
-					add_to_grid(driveway_ext, bix, 1);
-				}
-				if (!b->porch.is_all_zeros()) {add_to_grid(b->porch, bix, 1);}
-
-				for (auto const &d : b->doors) { // handle steps for exterior doors
-					if (d.type == tquad_with_ix_t::TYPE_GDOOR) continue; // already handled by driveway
-					cube_t step(b->get_step_for_ext_door(d));
-					step.translate_dim(2, -b->get_fc_thickness()); // shift down to make player coll smoother
-					if (step.z1() > b->ground_floor_z1) continue; // not on the ground floor
-					add_to_grid(step, bix, 1);
-				}
-			}
-			add_to_grid(b->bcube, bix, 0);
-			buildings_bcube.assign_or_union_with_cube(b->bcube);
-			has_interior_geom |= b->has_interior();
-		} // for b
+			add_building_post_gen_geom(*b, bix);
+		}
 		if (!is_tile && !city_only && has_transmission_lines) { // connect industrial secondary buildings to transmission lines
 			float const tline_dist(10.0*get_road_max_width());
 
@@ -3721,23 +3701,12 @@ public:
 		if (!city_only) {create_vbos(is_tile);} // city VBOs are created later, after skyways are added
 	} // end gen()
 
-	bool place_building_at(cube_t const &bcube, bool dim, bool dir, unsigned plot_ix, unsigned city_ix, rand_gen_t rgen) { // Note: rgen passed by value
+	bool place_building_at(building_t const &bldg, unsigned plot_ix, rand_gen_t rgen) { // Note: rgen passed by value
 		// Note: assumes caller has checked that bcube is a valid pos
 		if (buildings.size() == buildings.capacity()) return 0; // can't add a building as it will resize and invalidate conn pointers
 		unsigned const bix(buildings.size());
-		buildings.push_back(building_t());
+		buildings.push_back(bldg);
 		building_t &b(buildings.back());
-		b.mat_ix     = global_building_params.choose_rand_mat(rgen, 1, 0, 0); // set material; city_only=1, non_city_only=0, residential=0
-		b.is_house   = 0;
-		b.is_in_city = 1;
-		b.city_ix    = city_ix;
-		b.bcube      = bcube; // copy XY; zvals set below
-		b.was_custom_placed = 1;
-		b.set_z_range(bcube.z1(), bcube.z2());
-		building_mat_t const &mat(b.get_material());
-		mat.side_color.gen_color(b.side_color, rgen);
-		mat.roof_color.gen_color(b.roof_color, rgen);
-		add_to_grid(b.bcube, bix, 0); // Note: max_extent is not updated
 
 		if (!bix_by_plot.empty()) {
 			assert(plot_ix < bix_by_plot.size());
@@ -3747,13 +3716,33 @@ public:
 		}
 		b.gen_geometry(rgen.rand(), rgen.rand());
 		grid[get_grid_ix(b.bcube.get_cube_center())].update_extb_bcube(b); // not needed?
-		// add driveway, porch, door steps, etc. to grid?
-		buildings_bcube.assign_or_union_with_cube(b.bcube);
-		has_interior_geom |= b.has_interior();
+		add_building_post_gen_geom(b, bix);
 		unsigned const gtix(grid_by_tile.size());
 		grid_by_tile.push_back(grid_elem_t());
 		add_building_to_grid(b, gtix, bix);
 		return 1;
+	}
+
+	void add_building_post_gen_geom(building_t const &b, unsigned bix) { // called after gen_geometry()
+		if (b.enable_driveway_coll()) {
+			if (!b.driveway.is_all_zeros()) {
+				cube_t driveway_ext(b.driveway);
+				driveway_ext.expand_by_xy(0.2*b.get_window_vspace()); // expand so that grass is excluded at the edges; determined experimentally
+				add_to_grid(driveway_ext, bix, 1);
+			}
+			if (!b.porch.is_all_zeros()) {add_to_grid(b.porch, bix, 1);}
+
+			for (auto const &d : b.doors) { // handle steps for exterior doors
+				if (d.type == tquad_with_ix_t::TYPE_GDOOR) continue; // already handled by driveway
+				cube_t step(b.get_step_for_ext_door(d));
+				step.translate_dim(2, -b.get_fc_thickness()); // shift down to make player coll smoother
+				if (step.z1() > b.ground_floor_z1) continue; // not on the ground floor
+				add_to_grid(step, bix, 1);
+			}
+		}
+		add_to_grid(b.bcube, bix);
+		buildings_bcube.assign_or_union_with_cube(b.bcube);
+		has_interior_geom |= b.has_interior();
 	}
 
 	void place_building_trees(rand_gen_t &rgen) {
@@ -6009,8 +5998,8 @@ bool connect_buildings_to_skyway(cube_t &m_bcube, bool m_dim, cube_t const &city
 void get_city_building_walkways(cube_t const &city_bcube, vector<building_walkway_t *> &bwws) {
 	building_creator_city.get_city_building_walkways(city_bcube, bwws);
 }
-bool place_city_building_at(cube_t const &bcube, bool dim, bool dir, unsigned plot_ix, unsigned city_ix, rand_gen_t &rgen) {
-	return building_creator_city.place_building_at(bcube, dim, dir, plot_ix, city_ix, rgen);
+bool place_city_building_at(building_t const &bldg, unsigned plot_ix, rand_gen_t &rgen) {
+	return building_creator_city.place_building_at(bldg, plot_ix, rgen);
 }
 void add_building_interior_lights(point const &xlate, cube_t &lights_bcube, bool sec_camera_mode) {
 	//highres_timer_t timer("Add building interior lights"); // 0.97/0.37

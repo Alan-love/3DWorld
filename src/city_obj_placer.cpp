@@ -19,6 +19,7 @@ extern city_params_t city_params;
 extern object_model_loader_t building_obj_model_loader;
 extern plot_divider_type_t plot_divider_types[];
 extern textured_mat_t pool_deck_mats[];
+extern building_params_t global_building_params;
 extern vector<light_source> dl_sources;
 
 city_flag_t create_flag(bool dim, bool dir, point const &base_pt, float height, float length, int flag_id=-1);
@@ -27,7 +28,7 @@ void get_walkways_for_city(cube_t const &city_bcube, vect_bldg_walkway_t &walkwa
 void add_building_driveways_for_plot(cube_t const &plot, vect_cube_t &driveways);
 bool connect_buildings_to_skyway(cube_t &m_bcube, bool m_dim, cube_t const &city_bcube, vector<skyway_conn_t> &ww_conns);
 void get_city_building_walkways(cube_t const &city_bcube, vector<building_walkway_t *> &bwws);
-bool place_city_building_at(cube_t const &bcube, bool dim, bool dir, unsigned plot_ix, unsigned city_ix, rand_gen_t &rgen);
+bool place_city_building_at(building_t const &bldg, unsigned plot_ix, rand_gen_t &rgen);
 float get_inner_sidewalk_width();
 cube_t get_plot_coll_region(cube_t const &plot_bcube);
 void play_hum_sound(point const &pos, float gain, float pitch);
@@ -167,7 +168,20 @@ bool city_obj_placer_t::maybe_place_gas_station(road_plot_t const &plot, unsigne
 			cs.d[dim][!dir] += dscale*0.25*len_delta;
 		}
 		if (!has_bcube_int_xy(cs, bcubes, pad_dist)) { // not too close to a building
-			if (place_city_building_at(cs, !dim, ent_dir, plot_ix, city_id, rgen)) {new_bcubes.push_back(cs);}
+			building_t b;
+			b.is_house   = 0;
+			b.is_in_city = 1;
+			b.city_ix    = city_id;
+			b.bcube      = cs; // copy XY; zvals set below
+			b.num_sides  = 4; // simple cube
+			b.street_dir = 2*(!dim) + ent_dir + 1; // facing gas station
+			b.btype      = BTYPE_CONV_STORE;
+			b.mat_ix     = global_building_params.choose_rand_mat(rgen, 1, 0, 0); // set material; city_only=1, non_city_only=0, residential=0
+			b.gen_roof_and_side_color(rgen);
+			b.roof_type  = ROOF_TYPE_PEAK;
+			b.was_custom_placed = 1;
+			b.set_z_range(cs.z1(), cs.z2());
+			if (place_city_building_at(b, plot_ix, rgen)) {new_bcubes.push_back(cs);}
 		}
 	}
 	vector_add_to(new_bcubes, bcubes); // add at the end so that they don't block each other

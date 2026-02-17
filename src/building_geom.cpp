@@ -25,6 +25,10 @@ void building_t::set_z_range(float z1, float z2) {
 }
 building_mat_t const &building_t::get_material() const {return global_building_params.get_material(mat_ix);}
 
+void building_t::gen_roof_and_side_color(rand_gen_t &rgen) {
+	get_material().side_color.gen_color(side_color, rgen);
+	get_material().roof_color.gen_color(roof_color, rgen);
+}
 void building_t::gen_rotation(rand_gen_t &rgen) {
 	float const max_rot_angle(get_material().max_rot_angle);
 	if (max_rot_angle == 0.0) return;
@@ -262,7 +266,7 @@ void building_t::gen_geometry(int rseed1, int rseed2) {
 		return;
 	}
 	// determine building shape (cube, cylinder, other)
-	if (was_custom_placed) {num_sides = 4;} // cube
+	if (was_custom_placed) {} // left as default
 	else if (rgen.rand_probability(mat.round_prob)) {num_sides = MAX_CYLIN_SIDES;} // max number of sides for drawing rounded (cylinder) buildings
 	else if (rgen.rand_probability(mat.cube_prob )) {num_sides = 4;} // cube
 	else { // N-gon
@@ -288,7 +292,7 @@ void building_t::gen_geometry(int rseed1, int rseed2) {
 	}
 	if (mat.min_level_height > 0.0) {num_levels = max(mat.min_levels, min(num_levels, unsigned(bcube.dz()/mat.min_level_height)));}
 	num_levels = max(num_levels, 1U); // min_levels can be zero to apply more weight to 1 level buildings
-	bool const do_split(num_levels < 4 && is_cube() && !was_custom_placed && rgen.rand_probability(mat.split_prob)); // don't split buildings with >= 4 levels, or non-cubes
+	bool const do_split(num_levels < 4 && is_cube() && !was_custom_placed && rgen.rand_probability(mat.split_prob)); // don't split if >= 4 levels, non-cubes, or custom placed
 	float const height(base.dz()), floor_spacing(get_window_vspace());
 
 	if (num_levels == 1) { // single level
@@ -473,7 +477,7 @@ void building_t::create_per_part_ext_verts() {
 }
 void building_t::finish_gen_geometry(rand_gen_t &rgen, bool has_overlapping_cubes) { // for office buildings
 	if (coll_bcube.is_all_zeros()) {coll_bcube = bcube;} // calculate if it hasn't been calculated yet
-	if (global_building_params.add_office_basements && !was_custom_placed) {maybe_add_basement(rgen);}
+	if (global_building_params.add_office_basements && !is_conv_store()) {maybe_add_basement(rgen);}
 	assert(parts.size() > 0 && parts.size() < 256);
 	real_num_parts = uint8_t(parts.size()); // no parts can be added after this point
 	create_per_part_ext_verts();
@@ -2328,7 +2332,7 @@ void building_t::gen_details(rand_gen_t &rgen, bool is_rectangle) { // for the r
 	point top_center(top.get_cube_center());
 	if (is_rotated() && !is_cube()) {do_xy_rotate_inv(bcube.get_cube_center(), top_center);} // put top_center in building bcube coordinate space
 	float const helipad_radius(2.0*window_vspacing);
-	bool const can_have_hp_or_sl(flat_roof && num_sides >= 4 && flat_side_amt == 0.0 && !is_house && !is_parking());
+	bool const can_have_hp_or_sl(flat_roof && num_sides >= 4 && flat_side_amt == 0.0 && !is_house && !is_parking() && !is_conv_store());
 	has_helipad = (can_have_hp_or_sl && min(tsz.x, tsz.y) > (is_cube() ? 3.2 : 4.0)*helipad_radius && bcube.dz() > 8.0*window_vspacing && (rgen.rand() % 12) == 0);
 	cube_t avoid_bcube, door_blocker;
 
@@ -2347,15 +2351,16 @@ void building_t::gen_details(rand_gen_t &rgen, bool is_rectangle) { // for the r
 	else if (can_have_hp_or_sl && is_cube() && interior_enabled()) {
 		maybe_add_skylight(rgen);
 	}
+	bool const has_skylight(skylights.empty());
 	bool const add_rooftop_door(!is_cube() && has_complex_floorplan /*&& has_helipad*/); // add if there's no interior/stairs to the roof
 	unsigned num_blocks(0);
 	
-	if (flat_roof && !is_parking() && skylights.empty()) { // no roof blocks if there are roof quads (houses, etc.), skylights, or this is a parking garage
+	if (flat_roof && !is_parking() && !has_skylight) { // no roof blocks if there are roof quads (houses, etc.), skylights, or this is a parking garage
 		num_blocks = (rgen.rand() % 9); // 0-8
 		if (add_rooftop_door) {max_eq(num_blocks, 1U);} // at least one for the door
 	}
-	bool const add_antenna((flat_roof || roof_type == ROOF_TYPE_SLOPE) && !has_helipad && !is_parking() && skylights.empty() && rgen.rand_bool());
-	bool const can_add_special_obj(has_flat_top && !has_helipad && !add_antenna && !is_parking() && skylights.empty()); // open roof space with no blocker
+	bool const add_antenna((flat_roof || roof_type == ROOF_TYPE_SLOPE) && !has_helipad && !is_parking() && !has_skylight && rgen.rand_bool());
+	bool const can_add_special_obj(has_flat_top && !has_helipad && !add_antenna && !is_parking() && !has_skylight); // open roof space with no blocker
 	bool const add_water_tower(can_add_special_obj && (tsz.x < 2.0*tsz.y && tsz.y < 2.0*tsz.x) && (tsz.x > 0.5*tpsz.x && tsz.y > 0.5*tpsz.y) && rgen.rand_bool());
 	bool const add_sat_dish(can_add_special_obj && !add_water_tower && is_cube() && !is_industrial());
 	unsigned const num_details(num_blocks + num_ac_units + 4*add_walls + add_antenna + add_water_tower + add_sat_dish);
@@ -2471,10 +2476,13 @@ void building_t::maybe_add_special_roof(rand_gen_t &rgen) {
 	cube_t const &top(parts.back());
 	vector3d const sz(top.get_size()); // top/last part
 
-	if (global_building_params.onion_roof && num_sides >= 16 && flat_side_amt == 0.0) { // cylinder building
+	if (was_custom_placed) { // use existing roof type
+		if (roof_type == ROOF_TYPE_SLOPE) {gen_sloped_roof(rgen, top);}
+	}
+	else if (global_building_params.onion_roof && num_sides >= 16 && flat_side_amt == 0.0) { // cylinder building
 		if (sz.x < 1.2*sz.y && sz.y < 1.2*sz.x && sz.z > max(sz.x, sz.y)) {roof_type = ROOF_TYPE_ONION;}
 	}
-	else if (is_cube() && !was_custom_placed) { // only simple cubes are handled, and no custom buildings
+	else if (is_cube()) { // only simple cubes are handled, and no custom buildings
 		if (global_building_params.dome_roof && sz.x < 1.2*sz.y && sz.y < 1.2*sz.x && sz.z > max(sz.x, sz.y)) {roof_type = ROOF_TYPE_DOME;} // roughly square, not too short
 		else if (btype == BTYPE_OFFICE && parts.size() == 1 && round_fp(top.dz()/get_window_vspace()) <= 4 && rgen.rand_bool()) {
 			// shorter single cube building; likely to become factory or warehouse

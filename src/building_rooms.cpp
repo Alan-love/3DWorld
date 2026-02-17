@@ -2855,6 +2855,7 @@ cube_t building_t::get_step_for_ext_door(tquad_with_ix_t const &door) const {
 	bool const dim(c.dy() < c.dx()), dir(door.get_norm()[dim] > 0.0);
 	float length(((door.type == tquad_with_ix_t::TYPE_GDOOR) ? 0.6 : 0.5)*c.dz());
 	max_eq(length, 2.4f*get_scaled_player_radius()); // make sure step is wide enough for the player to walk on
+	if (is_conv_store()) {length *= 0.15;} // very short step to avoid blocking driveway
 	cube_t step(c);
 	set_cube_zvals(step, (c.z1() - get_fc_thickness()), c.z1());
 	step.d[dim][ dir] += (dir ? 1.0 : -1.0)*length; // extend outward
@@ -2883,7 +2884,6 @@ bool building_t::check_ext_step_valid(cube_t const &c, unsigned ext_objs_start, 
 }
 
 void building_t::add_ext_door_steps(unsigned ext_objs_start) {
-	if (was_custom_placed) return; // not yet enabled for custom buildings
 	float const floor_spacing(get_window_vspace()), fc_thickness(get_fc_thickness());
 	float const door_shift_dist(2.5*get_door_shift_dist()); // 1x for door shift and 1.5x offset in add_door()
 	colorRGBA const step_color(LT_GRAY);
