@@ -458,13 +458,13 @@ void shader_t::set_specular_color(colorRGB const &specular, float shininess) {
 void shader_t::set_metalness(float metalness) {
 	if (metalness == last_metalness) return;
 	ensure_uniform_loc(metalness_loc, "metalness");
-	set_uniform_float (metalness_loc, metalness);
+	if (metalness_loc >= 0) {set_uniform_float(metalness_loc, metalness);} // safe to call if there's no metalness uniform, but not recommended
 	last_metalness = metalness;
 }
 
 void shader_t::set_refract_ix(float ref_ix) { // Note: last val not cached
 	ensure_uniform_loc(ref_ix_loc, "refract_ix");
-	set_uniform_float (ref_ix_loc, ref_ix);
+	if (ref_ix_loc >= 0) {set_uniform_float(ref_ix_loc, ref_ix);} // safe to call if there's no refract_ix uniform, but not recommended
 }
 
 void shader_t::set_material(base_mat_t const &mat) {

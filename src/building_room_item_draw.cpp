@@ -1596,8 +1596,8 @@ void draw_obj_model(obj_model_inst_t const &i, room_object_t const &obj, shader_
 	bool const emissive_body_mat (!shadow_only && type == TYPE_WALL_LAMP && obj.is_light_on());
 	bool const use_low_z_bias(type == TYPE_CUP && !shadow_only);
 	bool const untextured(obj.flags & RO_FLAG_UNTEXTURED);
-	bool const upside_down((type == TYPE_RAT || type == TYPE_ROACH || type == TYPE_INSECT) && obj.is_broken());
-	float const refract_ix((type == TYPE_SINK     || type == TYPE_URINAL) ? 1.5 : 1.0);
+	bool const upside_down((type == TYPE_RAT  || type == TYPE_ROACH || type == TYPE_INSECT) && obj.is_broken());
+	float const refract_ix((type == TYPE_SINK || type == TYPE_URINAL) ? 1.5 : 1.0);
 	float metalness(0.0), specular(0.0), shine(0.0);
 	if      (type == TYPE_POOL_LAD ) {metalness = 1.0; specular = 1.0; shine = 80.0;} // object already has a low specular set, but is mostly metal
 	else if (type == TYPE_HOOD     ) {metalness = 0.5; specular = 1.0; shine = 40.0;} // painted metal
