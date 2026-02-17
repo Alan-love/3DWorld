@@ -2361,16 +2361,15 @@ void building_t::gen_details(rand_gen_t &rgen, bool is_rectangle) { // for the r
 	else if (can_have_hp_or_sl && is_cube() && interior_enabled()) {
 		maybe_add_skylight(rgen);
 	}
-	bool const has_skylight(skylights.empty());
 	bool const add_rooftop_door(!is_cube() && has_complex_floorplan /*&& has_helipad*/); // add if there's no interior/stairs to the roof
 	unsigned num_blocks(0);
 	
-	if (flat_roof && !is_parking() && !has_skylight) { // no roof blocks if there are roof quads (houses, etc.), skylights, or this is a parking garage
+	if (flat_roof && !is_parking()) { // no roof blocks if there are roof quads (houses, etc.), or this is a parking garage
 		num_blocks = (rgen.rand() % 9); // 0-8
 		if (add_rooftop_door) {max_eq(num_blocks, 1U);} // at least one for the door
 	}
-	bool const add_antenna((flat_roof || roof_type == ROOF_TYPE_SLOPE) && !has_helipad && !is_parking() && !has_skylight && rgen.rand_bool());
-	bool const can_add_special_obj(has_flat_top && !has_helipad && !add_antenna && !is_parking() && !has_skylight); // open roof space with no blocker
+	bool const add_antenna((flat_roof || roof_type == ROOF_TYPE_SLOPE) && !has_helipad && !is_parking() && rgen.rand_bool());
+	bool const can_add_special_obj(has_flat_top && !has_helipad && !add_antenna && !is_parking() && skylights.empty()); // open roof space with no blocker
 	bool const add_water_tower(can_add_special_obj && (tsz.x < 2.0*tsz.y && tsz.y < 2.0*tsz.x) && (tsz.x > 0.5*tpsz.x && tsz.y > 0.5*tpsz.y) && rgen.rand_bool());
 	bool const add_sat_dish(can_add_special_obj && !add_water_tower && is_cube() && !is_industrial());
 	unsigned const num_details(num_blocks + num_ac_units + 4*add_walls + add_antenna + add_water_tower + add_sat_dish);
