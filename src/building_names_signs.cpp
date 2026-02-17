@@ -526,6 +526,7 @@ void building_t::add_signs(vector<sign_t> &signs) const { // added as exterior c
 		}
 	} // for i
 	assert(best_width > 0.0);
+	if (part_zmax - ground_floor_z1 < 1.5*get_window_vspace()) return; // no sign for single story building as it may overlap door sign and generally looks too large
 
 	if (street_dir > 0) { // encoded as 2*dim + dir + 1; 0 is unassigned
 		bool const sdim((street_dir - 1) >> 1), sdir((street_dir - 1) & 1);
