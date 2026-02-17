@@ -938,10 +938,8 @@ class building_indir_light_mgr_t {
 					else if (light_room_id == b.interior->pool.room_ix) {weight *= 0.5;} // extended basement pool room
 					else                                {weight *= 0.4; base_num_rays *= 2;} // regular extended basement; more rays to reduce noise
 				}
-				else { // basement is darker, parking garages are even darker
-					weight *= (b.has_parking_garage ? 0.25 : 0.5);
-					base_num_rays /= 4;
-				}
+				else if (b.has_parking_garage) {weight *= 0.25; base_num_rays /= 4;} // parking garages are even darker
+				else {weight *= 0.5; base_num_rays *= 2;} // basement is darker
 			}
 			if (!is_lamp && (ro.flags & RO_FLAG_ROTATING)) { // rotated/hanging ceiling light
 				light_dir = ro.get_dir();
