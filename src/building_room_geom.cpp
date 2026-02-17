@@ -124,6 +124,16 @@ int get_carpet_tid (room_object_t const &c) {return get_texture_by_name((c.obj_i
 colorRGBA get_textured_wood_color() {return WOOD_COLOR.modulate_with(texture_color(WOOD2_TEX));} // Note: uses default WOOD_COLOR, not the per-building random variant
 colorRGBA get_counter_color      () {return (get_textured_wood_color()*0.75 + texture_color(get_counter_tid())*0.25);}
 
+rgeom_mat_t &building_room_geom_t::get_transparent_material(float refract_ix, bool small, bool no_reflect) {
+	tid_nm_pair_t tp(-1, 1.0f, 0, 1, no_reflect); // transparent=1
+	tp.refract_ix = refract_ix;
+	return get_material(tp, 0, 0, small, 1); // transparent=1
+}
+rgeom_mat_t &building_room_geom_t::get_crack_material(room_object_t const &c, int alpha) {
+	tid_nm_pair_t tp(get_crack_tid(c, alpha), 0.0, 0, (alpha > 0));
+	if (alpha == 0 || alpha == 2) {tp.refract_ix = GLASS_IOR;}
+	return get_material(tp, 0, 0, 0, (alpha > 0));
+}
 rgeom_mat_t &building_room_geom_t::get_wood_material(float tscale, bool inc_shadows, bool dynamic, unsigned small, bool exterior, unsigned type) {
 	int tid(-1), nm_tid(-1);
 	if      (type == WOOD_TYPE_DARK   ) {tid = WOOD2_TEX; nm_tid = get_texture_by_name("normal_maps/wood_NRM.jpg", 1);} // dark wood/bark, horizontal
@@ -363,16 +373,15 @@ void building_room_geom_t::add_table(room_object_t const &c, float tscale, float
 			add_tc_legs(legs_bc, c, BLACK, 0.5*leg_width, 0, tscale, glass, glass, 1.0*top.dz()); // use_metal_mat=1, draw_tops=1, frame_height=nonzero
 
 			if (c.taken_level == 0) { // draw glass top surface if not taken
-				rgeom_mat_t &mat(get_untextured_material(0, 0, 0, 1)); // no shadows + transparent
 				colorRGBA const top_color(apply_light_color(c, table_glass_color));
-				mat.add_cube_to_verts_untextured(top, top_color); // all faces drawn
+				get_transparent_material(GLASS_IOR).add_cube_to_verts_untextured(top, top_color); // all faces drawn
 
 				if (c.is_broken()) { // glass is cracked
 					cube_t crack(top);
 					crack.z1()  = top.z2();
 					crack.z2() += 0.1*top.dz(); // move up to prevent z-fighting
-					rgeom_mat_t &mat(get_material(tid_nm_pair_t(get_crack_tid(c, 2), 0.0, 0, true), 0, 0, 0, 1)); // alpha=2, unshadowed, transparent=1
-					mat.add_cube_to_verts(crack, colorRGBA(top_color, 1.0), top.get_llc(), ~EF_Z2, c.dim, (c.obj_id&1), (c.obj_id&2)); // top only; X/Y mirror based on obj_id
+					rgeom_mat_t &cmat(get_crack_material(c, 2)); // alpha=2 (transparent center)
+					cmat.add_cube_to_verts(crack, colorRGBA(top_color, 1.0), top.get_llc(), ~EF_Z2, c.dim, (c.obj_id&1), (c.obj_id&2)); // top only; X/Y mirror based on obj_id
 				}
 			}
 		}
@@ -609,7 +618,7 @@ void building_room_geom_t::draw_mirror_surface(room_object_t const &c, cube_t co
 	if (c.is_broken()) {
 		cube_t crack(mirror);
 		crack.d[dim][dir] += backing_shift; // move out to prevent z-fighting
-		rgeom_mat_t &mat(get_material(tid_nm_pair_t(get_crack_tid(c, 1), 0.0, 0, true), 0, 0, 0, 1)); // alpha=1, unshadowed, transparent=1
+		rgeom_mat_t &mat(get_crack_material(c, 1)); // alpha=1 (opaque center)
 		mat.add_cube_to_verts(crack, apply_light_color(c, WHITE), all_zeros, skip_faces, !dim, (c.obj_id&1), (c.obj_id&2)); // X/Y mirror based on obj_id
 	}
 }
@@ -2122,7 +2131,7 @@ void building_room_geom_t::add_shower(room_object_t const &c, float tscale, bool
 		metal_mat.add_cube_to_verts_untextured(handle, metal_color); // draw all faces
 		// add transparent glass
 		colorRGBA const glass_color(apply_light_color(c, colorRGBA(1.0, 1.0, 1.0, 0.25)));
-		rgeom_mat_t &glass_mat(get_untextured_material(0, 0, 0, 1)); // no shadows; transparent=1
+		rgeom_mat_t &glass_mat(get_transparent_material(GLASS_IOR)); // glass
 
 		for (unsigned d = 0; d < 2; ++d) { // for each dim
 			bool const dir(dirs[d]);
@@ -2250,6 +2259,7 @@ void building_room_geom_t::add_bottle(room_object_t const &c, bool add_bottom, f
 	// setup the untextured plastic/glass material
 	tid_nm_pair_t tex(-1, 1.0, mat_shadow, 0, 1); // no_reflect=1
 	tex.set_specular(0.5, 80.0);
+	if (transparent) {tex.refract_ix = GLASS_IOR;} // plastic uses glass IOR
 	rgeom_mat_t &mat(get_material(tex, mat_shadow, 0, 1, transparent)); // dynamic=0, small=1
 	vector3d const sz(c.get_size());
 	unsigned const dim(get_max_dim(sz)), dim1((dim+1)%3), dim2((dim+2)%3);
@@ -2328,7 +2338,7 @@ void building_room_geom_t::add_bottle(room_object_t const &c, bool add_bottom, f
 	if (rot_angle != 0.0) {rotate_verts(label_mat.itri_verts, plus_z, rot_angle, center, label_verts_start);}
 
 	if (transparent) { // draw inside if plastic is transparent
-		rgeom_mat_t &imat(get_untextured_material(0, 0, 1, 0, 0, 1)); // no_reflect=1
+		rgeom_mat_t &imat(get_transparent_material(GLASS_IOR, 1, 1)); // small=1, no_reflect=1
 		unsigned const verts_start(imat.itri_verts.size()), ixs_start(imat.indices.size());
 		body.expand_in_dim(dim1, -0.02*radius); // shrink off most of the expand to reduce clipping through the floor
 		body.expand_in_dim(dim2, -0.02*radius);
@@ -2375,7 +2385,8 @@ void building_room_geom_t::add_drink_can(room_object_t const &c) {
 void building_room_geom_t::add_jar(room_object_t const &c) {
 	tid_nm_pair_t tex(-1, 1.0, false, 0, 1); // unshadowed, no_reflect=1
 	tex.set_specular(0.5, 80.0);
-	rgeom_mat_t &glass_mat(get_material(tex, 0, 0, 1, 1)); // dynamic=0, small=1, transparent
+	tex.refract_ix = GLASS_IOR;
+	rgeom_mat_t &glass_mat(get_transparent_material(GLASS_IOR, 1, 1)); // small=1, no_reflect=1
 	glass_mat.add_vcylin_to_verts(c, apply_light_color(c, GLASS_COLOR), 0, 0, 1); // glass jar: no ends, two sided
 	// add the spice
 	float const glass_thick(0.04*c.get_radius());
@@ -5221,7 +5232,7 @@ void building_room_geom_t::add_bucket(room_object_t const &c, bool draw_metal, b
 		if (liquid_level <= 0.0) return; // no liquid
 		float const radius(c.get_radius()*(liquid_level + (1.0 - liquid_level)*bot_rscale));
 		point const center(c.xc(), c.yc(), (c.z1() + liquid_level*c.dz()));
-		get_untextured_material(0, 0, 1, 1, 0, 1).add_vert_disk_to_verts(center, radius, 0, apply_light_color(c, liquid_color)); // unshadowed, transparent, small, no_reflect=1
+		get_transparent_material(WATER_INDEX_REFRACT, 1, 1).add_vert_disk_to_verts(center, radius, 0, apply_light_color(c, liquid_color)); // small, no_reflect=1
 	}
 }
 
@@ -6319,9 +6330,8 @@ void building_room_geom_t::add_window(room_object_t const &c, float tscale) { //
 void building_room_geom_t::add_int_window(room_object_t const &c) {
 	unsigned const skip_faces(~get_skip_mask_for_xy(c.dim));
 	colorRGBA const window_color(0.7, 1.0, 0.85, 0.15); // greenish tint, semi transparent
-	rgeom_mat_t &mat(get_untextured_material(0, 0, 0, 1)); // no shadows + transparent
-	mat.add_cube_to_verts_untextured(c, window_color, skip_faces);
-	// Note: can't add a crack for broken interior windows because the window extends through multiple floors; cracks must be added with decals or TYPE_CRACK
+	get_transparent_material(GLASS_IOR).add_cube_to_verts_untextured(c, window_color, skip_faces); // glass
+	// Note: can't add a crack for broken interior windows because the window extends through multiple floors; cracks must be added with decals
 }
 
 colorRGBA const &get_outlet_or_switch_box_color(room_object_t const &c) {return (c.is_hanging() ? GRAY : c.color);} // should be silver metal
@@ -6452,7 +6462,7 @@ void building_room_geom_t::add_plate(room_object_t const &c) { // is_small=1
 void building_room_geom_t::add_water_plane(room_object_t const &c, cube_t const &water_area, float water_level) {
 	cube_t water(water_area);
 	water.z2() = water_area.z1() + min(water_level, 1.0f)*water_area.dz();
-	get_untextured_material(0, 0, 0, 1).add_cube_to_verts_untextured(water, apply_light_color(c, colorRGBA(0.4, 0.6, 1.0, 0.5)), ~EF_Z2); // no shadows + transparent, top only
+	get_transparent_material(WATER_INDEX_REFRACT).add_cube_to_verts_untextured(water, apply_light_color(c, colorRGBA(0.4, 0.6, 1.0, 0.5)), ~EF_Z2); // top only
 }
 float get_tub_water_level(room_object_t const &c) { // should this slowly reduce over time when turned off? would need to update geom each frame
 	return min(0.84f, 0.21f*c.state_flags);
@@ -6513,7 +6523,7 @@ int get_tv_or_monitor_tid(room_object_t const &c) {
 void building_room_geom_t::add_tv_picture(room_object_t const &c) {
 	if (c.is_broken()) { // draw cracks for broken screen
 		unsigned skip_faces(get_face_mask(c.dim, c.dir)); // only the face oriented outward
-		rgeom_mat_t &mat(get_material(tid_nm_pair_t(get_crack_tid(c), 0.0, 0, true))); // unshadowed, transparent; should this be reflective to match the screen?
+		rgeom_mat_t &mat(get_crack_material(c, 0)); // alpha=0 (decal); should this be reflective to match the screen?
 		mat.add_cube_to_verts(get_tv_screen(c), apply_light_color(c, WHITE), c.get_llc(), skip_faces, !c.dim, (c.obj_id&1), (c.obj_id&2)); // X/Y mirror based on obj_id
 		return;
 	}
@@ -7097,16 +7107,16 @@ void building_room_geom_t::add_fishtank(room_object_t const &c) { // unshadowed,
 	}
 	// draw the sides
 	colorRGBA const glass_color(apply_light_color(c, table_glass_color));
-	rgeom_mat_t &trans_mat(get_untextured_material(0, 0, 0, 1)); // no shadows, transparent; for glass and water
+	rgeom_mat_t &glass_mat(get_transparent_material(GLASS_IOR));
 	unsigned const back_wall_ix(2*(!c.dim) + (!c.dir));
 	if (back_wall_ix > 0) {swap(sides[back_wall_ix], sides[0]);} // back wall should be first for improved back-to-front alpha blending
-	for (unsigned n = 0; n < 4; ++n) {trans_mat.add_cube_to_verts_untextured(sides[n], glass_color, EF_Z12);} // skip top and bottom
+	for (unsigned n = 0; n < 4; ++n) {glass_mat.add_cube_to_verts_untextured(sides[n], glass_color, EF_Z12);} // skip top and bottom
 	unsigned const animal_type(c.item_flags);
 
 	if (!c.is_broken() && animal_type == TYPE_FISH) { // draw water if there are fish
 		cube_t water(c);
 		water.z2() -= 0.12*height; // 88% filled
-		trans_mat.add_cube_to_verts_untextured(water, apply_light_color(c, colorRGBA(0.7, 0.85, 1.0, 0.2)), ~EF_Z2); // top surface
+		get_transparent_material(WATER_INDEX_REFRACT).add_cube_to_verts_untextured(water, apply_light_color(c, colorRGBA(0.7, 0.85, 1.0, 0.2)), ~EF_Z2); // top surface
 	}
 	// draw gravel/dirt/wood bottom; this won't be in the correct blend order and won't be visible when outside the building looking in through a window
 	int tid(-1);
