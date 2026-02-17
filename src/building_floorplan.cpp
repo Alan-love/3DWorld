@@ -1696,7 +1696,7 @@ bool building_t::maybe_assign_interior_garage(bool &gdim, bool &gdir) {
 	rgen.set_state(mat_ix+1, num_rooms+1);
 	unsigned const room_start(rgen.rand() % num_rooms);
 	float const wall_thickness(get_wall_thickness());
-	bool const pref_street_dim(street_dir ? ((street_dir-1) >> 1) : 0), pref_street_dir(street_dir ? ((street_dir-1)&1) : 0);
+	bool const pref_street_dim(get_street_dim()), pref_street_dir(get_street_side());
 	int best_room(-1);
 	float best_score(0.0);
 

@@ -129,8 +129,8 @@ void building_t::clip_door_to_interior(tquad_with_ix_t &door) const {
 
 void building_t::get_garage_dim_dir(cube_t const &garage, bool &dim, bool &dir) const { // works with interior or exterior garages
 	dim = (garage.dx() < garage.dy()); // long dim
-	if (street_dir > 0 && bool((street_dir-1)>>1) == dim) {dir = !((street_dir-1)&1);} // use street_dir if it's set and dims agree
-	else {dir = (garage.get_center_dim(dim) < bcube.get_center_dim(dim));} // assumes the garage is at an exterior wall and doesn't occupy the entire house width
+	if (street_dir > 0 && get_street_dim() == dim) {dir = get_street_side();} // use street_dir if it's set and dims agree
+	else {dir = (bcube.get_center_dim(dim) < garage.get_center_dim(dim));} // assumes the garage is at an exterior wall and doesn't occupy the entire house width
 }
 
 int building_t::get_part_ix_containing_pt(point const &pt) const {
@@ -889,7 +889,7 @@ void building_t::gen_house(cube_t const &base, rand_gen_t &rgen) {
 	float door_height(get_door_height()), door_center(0.0), door_pos(0.0), dist1(0.0), dist2(0.0);
 	float const floor_spacing(get_window_vspace()), driveway_dz(0.004*door_height);
 	bool const stacked_parts(!two_parts && (rand_num & 32) && bcube.dz() > 1.8*floor_spacing); // single part and at least two floors
-	bool const pref_street_dim(street_dir ? ((street_dir-1) >> 1) : 0), pref_street_dir(street_dir ? ((street_dir-1)&1) : 0);
+	bool const pref_street_dim(get_street_dim()), pref_street_dir(get_street_side());
 	bool door_dim(street_dir ? pref_street_dim : (rand_num & 1)), door_dir(0), dim(0), dir(0), dir2(0), skip_last_roof(0);
 	unsigned door_part(0), detail_type(0), num_floors(0); // num_floors is only calculated for single cube houses and only used for multi-family houses
 	real_num_parts = (two_parts ? 2 : 1); // only walkable parts: excludes shed, garage, porch roof, and chimney
@@ -1612,7 +1612,7 @@ bool building_t::get_power_point(vector<point> &ppts) const {
 	float ridge_pos(0.0);
 
 	if (street_dir) {
-		bool const street_dim((street_dir-1) >> 1), pref_dir((street_dir-1)&1);
+		bool const street_dim(get_street_dim()), pref_dir(get_street_side());
 		
 		if (p1[street_dim] != p2[street_dim]) { // choose the point closest to the street as it will likely also be closest to the power lines
 			ridge_pos = (((p1[street_dim] < p2[street_dim]) ^ pref_dir) ? 0.01 : 0.99); // near the end of the roof, but leave some space for the connecting pole
@@ -2025,11 +2025,21 @@ void building_t::gen_building_doors_if_needed(rand_gen_t &rgen) { // for office 
 		}
 		return;
 	}
-	bool const pref_dim(rgen.rand_bool()), pref_dir(rgen.rand_bool()), bldg_has_windows(has_windows());
+	bool pref_dim(0), pref_dir(0); // for first door
+
+	if (street_dir > 0) { // prefer first door along the street
+		pref_dim = get_street_dim ();
+		pref_dir = get_street_side();
+	}
+	else {
+		pref_dim = rgen.rand_bool();
+		pref_dir = rgen.rand_bool();
+	}
+	bool const bldg_has_windows(has_windows());
 	bool used[4] = {0,0,0,0}; // per-side, not per-base cube
 	// at least 2 doors unless it's a small rectangle (large rectangle will have a central hallway with doors at each end)
 	unsigned const min_doors((parts.size() > 1 || is_industrial()) ? 2 : 1);
-	unsigned const max_doors(is_parking() ? 2 : (bldg_has_windows ? 3 : 4)); // buildings with windows have at most 3 doors since they're smaller
+	unsigned const max_doors((is_parking() || is_conv_store()) ? 2 : (bldg_has_windows ? 3 : 4)); // buildings with windows have at most 3 doors since they're smaller
 	unsigned const num_doors(min_doors + (rgen.rand() % (max_doors - min_doors + 1)));
 	cube_t const parts_bcube(get_unrotated_parts_bcube());
 	assert(real_num_parts > (unsigned)has_basement());

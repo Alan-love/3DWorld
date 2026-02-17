@@ -439,7 +439,7 @@ void building_t::add_signs(vector<sign_t> &signs) const { // added as exterior c
 			if (i->contains_cube_xy(porch)) {porch_roof = *i; break;} // find the porch roof; should be the first part visited
 		}
 		assert(!porch_roof.is_all_zeros()); // must be found
-		bool const dim((street_dir-1)>>1), dir((street_dir-1)&1); // direction to the road; should be on the exterior side of the porch
+		bool const dim(get_street_dim()), dir(get_street_side()); // direction to the road; should be on the exterior side of the porch
 		float const sign_hwidth(0.08*porch.get_sz_dim(!dim)), sign_height(0.75*sign_hwidth), sign_depth(0.025*sign_height);
 		if (porch_roof.dz() < sign_height) {set_cube_zvals(sign, (porch_roof.z2() - sign_height), porch_roof.z2());} // hang from the top edge of the porch roof
 		else {set_wall_width(sign, porch_roof.zc(), 0.5*sign_height, 2);} // center on the porch roof

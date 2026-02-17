@@ -2302,8 +2302,9 @@ void building_t::add_garage_objs(rand_gen_t rgen, room_t const &room, float zval
 		return;
 	}
 	unsigned const flags(RO_FLAG_NOCOLL | RO_FLAG_USED | RO_FLAG_INVIS); // lines not shown
-	bool dim(0), dir(0); // set dir so that cars pull into driveways
+	bool dim(0), dir(0);
 	get_garage_dim_dir(room, dim, dir);
+	dir ^= 1; // cars pull into driveways; dir is the pull in direction opposite the side with the garage
 	cube_t space(room); // full room, car will be centered here
 	set_cube_zvals(space, zval, (zval + get_rug_thickness()));
 	room_object_t pspace(space, TYPE_PARK_SPACE, room_id, dim, dir, flags, tot_light_amt, SHAPE_CUBE, WHITE);

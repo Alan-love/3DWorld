@@ -2325,6 +2325,8 @@ struct building_t : public building_geom_t {
 	bool room_inc_half_walls(room_t const &room) const {return ((is_restaurant() && room.z1() >= ground_floor_z1) || room.inc_half_walls());}
 	bool maybe_has_ext_door_this_floor(float part_z1, unsigned floor_ix) const;
 	void get_garage_dim_dir(cube_t const &garage, bool &dim, bool &dir) const;
+	bool get_street_dim () const {return (street_dir ? ((street_dir-1) >> 1) : 0);}
+	bool get_street_side() const {return (street_dir ? ((street_dir-1) &  1) : 0);}
 	unsigned get_attic_part_ix   () const;
 	room_t const &get_retail_room() const {assert(interior && !interior->rooms.empty()); assert(has_retail()); return interior->rooms.front();} // always the first room
 	cube_t const &get_retail_part() const {assert(has_retail()); assert(!parts.empty()); return parts.front();} // always the first part

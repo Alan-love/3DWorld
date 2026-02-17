@@ -23,7 +23,7 @@ bool building_t::add_parking_structure_entrance(rand_gen_t rgen) {
 	room_t const &room(interior->rooms.front()); // main above ground room is first; sets the interior space
 	float const entrance_width(get_parking_ramp_width()), extend_len(1.0*get_parked_car_size().x), door_width(get_doorway_width());
 	// choose a random wall + end to try first; if in the side, use the closest street side
-	bool const wdim(street_dir ? ((street_dir-1) >> 1) : rgen.rand_bool()), wdir(street_dir ? ((street_dir-1)&1) : rgen.rand_bool()), wside(rgen.rand_bool());
+	bool const wdim(street_dir ? get_street_dim() : rgen.rand_bool()), wdir(street_dir ? get_street_side() : rgen.rand_bool()), wside(rgen.rand_bool());
 	cube_t entrance;
 	entrance.z1() = room    .z1() + get_fc_thickness();
 	entrance.z2() = entrance.z1() + get_floor_ceil_gap();
