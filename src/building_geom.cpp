@@ -2450,9 +2450,12 @@ void building_t::gen_details(rand_gen_t &rgen, bool is_rectangle) { // for the r
 		roof_obj_t antenna(ROOF_OBJ_ANT);
 		antenna.set_from_point(top_center); // always in the center of the roof
 		antenna.expand_by_xy(radius);
-		set_cube_zvals(antenna, top.z2(), (bcube.z2() + height)); // z2 uses bcube to include sloped roof
-		details.push_back(antenna);
-		has_antenna = 1;
+
+		if (!has_bcube_int_xy(antenna, skylights)) {
+			set_cube_zvals(antenna, top.z2(), (bcube.z2() + height)); // z2 uses bcube to include sloped roof
+			details.push_back(antenna);
+			has_antenna = 1;
+		}
 	}
 	if (num_ac_units > 0) {
 		vect_cube_t ac_avoid;
