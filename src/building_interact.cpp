@@ -1498,7 +1498,7 @@ void building_t::run_dynamic_obj_update(vect_room_object_t::iterator obj_it, poi
 
 	if (move_sphere_to_valid_part(new_center, center, radius) && new_center != prev_new_center) { // collision with exterior wall
 		apply_object_bounce_with_sound(*this, velocity, (new_center - prev_new_center).get_norm(), new_center, 1.0, on_floor); // hardness=1.0
-		// add TYPE_CRACK if collides with a window?
+		// add crack if collides with a window?
 	}
 	if (new_center != center) { // is moving
 		interior->update_dynamic_draw_data();

@@ -121,7 +121,6 @@ void setup_bldg_obj_types() {
 	bldg_obj_types[TYPE_SPRAYCAN  ] = bldg_obj_type_t(0, 0, 0, 1, 0, 0, 2, 2.0,   1.0,   "spray paint", 5000);
 	bldg_obj_types[TYPE_MARKER    ] = bldg_obj_type_t(0, 0, 0, 1, 0, 0, 2, 0.20,  0.05,  "marker",      10000);
 	bldg_obj_types[TYPE_BUTTON    ] = bldg_obj_type_t(0, 0, 0, 1, 1, 0, 2, 1.0,   0.05,  "button");
-	bldg_obj_types[TYPE_CRACK     ] = bldg_obj_type_t(0, 0, 0, 0, 1, 0, 2, 0.0,   0.0,   "crack"); // in glass; not yet used
 	bldg_obj_types[TYPE_SWITCH    ] = bldg_obj_type_t(0, 0, 0, 0, 1, 0, 2, 10.0,  0.1,   "switch");
 	bldg_obj_types[TYPE_BREAKER   ] = bldg_obj_type_t(0, 0, 0, 0, 1, 0, 2, 20.0,  0.1,   "breaker");
 	bldg_obj_types[TYPE_PLATE     ] = bldg_obj_type_t(0, 0, 0, 1, 0, 0, 2, 6.0,   0.25,  "plate");

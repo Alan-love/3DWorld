@@ -6483,12 +6483,6 @@ void building_room_geom_t::add_sink_water(room_object_t const &c) {
 	add_water_plane(c, wa2, water_level); // front
 }
 
-void building_room_geom_t::add_crack(room_object_t const &c) { // in window? (TV and computer monitor cracks are drawn below)
-	bool const use_alpha(c.color.A < 1.0);
-	rgeom_mat_t &mat(get_material(tid_nm_pair_t(get_crack_tid(c, (use_alpha ? 2 : 0)), 0.0, 0, true), 0, 0, !use_alpha, use_alpha)); // unshadowed, small or transparent
-	mat.add_cube_to_verts(c, apply_light_color(c), c.get_llc(), get_face_mask(c.dim, c.dir), !c.dim, (c.obj_id&1), (c.obj_id&2)); // X/Y mirror based on obj_id
-}
-
 cube_t get_tv_screen(room_object_t const &c) {
 	cube_t screen(c);
 	screen.d[c.dim][c.dir] += (c.dir ? -1.0 : 1.0)*0.35*c.get_depth();
@@ -7979,7 +7973,6 @@ colorRGBA room_object_t::get_color() const {
 	case TYPE_PIZZA_BOX:return texture_color(get_texture_by_name("interiors/pizzatop.jpg"));
 	case TYPE_TPROLL:   return (WHITE*0.75  + GRAY*0.25);
 	case TYPE_SPRAYCAN: return (DK_GRAY*0.5 + color*0.5);
-	case TYPE_CRACK:    return ALPHA0; // transparent
 	case TYPE_FPLACE:   return texture_color(BRICK2_TEX).modulate_with(color);
 	case TYPE_FURNACE:  return get_furnace_color();
 	case TYPE_SERVER:   return get_server_color ();

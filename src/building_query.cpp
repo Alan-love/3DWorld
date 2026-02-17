@@ -1686,9 +1686,9 @@ bool building_interior_t::check_sphere_coll_room_objects(building_t const &build
 		room_object const type(c->type);
 		// ignore blockers and railings, but allow more than c->no_coll()
 		if (c == self || type == TYPE_BLOCKER || type == TYPE_PAPER || type == TYPE_PEN || type == TYPE_PENCIL || c->is_a_drink() || type == TYPE_FLOORING || type == TYPE_SIGN ||
-			type == TYPE_WBOARD || type == TYPE_WALL_TRIM || type == TYPE_DRAIN || type == TYPE_CRACK || type == TYPE_SWITCH || type == TYPE_BREAKER || type == TYPE_OUTLET ||
-			type == TYPE_VENT || type == TYPE_WIND_SILL || type == TYPE_TEESHIRT || type == TYPE_PANTS || type == TYPE_BLANKET || type == TYPE_FOLD_SHIRT ||
-			type == TYPE_SPIWEB || type == TYPE_ELEC_WIRE || type == TYPE_TESTTUBE || type == TYPE_O_SHOWER || type == TYPE_JAR) continue;
+			type == TYPE_WBOARD || type == TYPE_WALL_TRIM || type == TYPE_DRAIN || type == TYPE_SWITCH || type == TYPE_BREAKER || type == TYPE_OUTLET || type == TYPE_VENT ||
+			type == TYPE_WIND_SILL || type == TYPE_TEESHIRT || type == TYPE_PANTS || type == TYPE_BLANKET || type == TYPE_FOLD_SHIRT || type == TYPE_SPIWEB ||
+			type == TYPE_ELEC_WIRE || type == TYPE_TESTTUBE || type == TYPE_O_SHOWER || type == TYPE_JAR) continue;
 		if (type == TYPE_RAILING && (!(c->flags & RO_FLAG_TOS) || !c->is_open())) continue; // only railings at the top of stairs (non-sloped) with balusters have collisions
 		if (type == TYPE_POOL_TILE && c->no_coll()) continue;
 		cube_t bc(get_true_room_obj_bcube(*c));
@@ -2248,7 +2248,7 @@ public:
 				is_ball_type(type) || type == TYPE_PAN || type == TYPE_PG_BEAM || type == TYPE_PLANT_MODEL || type == TYPE_PICTURE || type == TYPE_WINDOW ||
 				type == TYPE_SIGN || type == TYPE_WALL_TRIM || type == TYPE_BLINDS || type == TYPE_PEN || type == TYPE_PENCIL || type == TYPE_HANGER_ROD ||
 				type == TYPE_MONEY || type == TYPE_PHONE || type == TYPE_TPROLL || type == TYPE_SPRAYCAN || type == TYPE_MARKER || type == TYPE_BUTTON || type == TYPE_VALVE ||
-				type == TYPE_CRACK || type == TYPE_SWITCH || type == TYPE_TAPE || type == TYPE_OUTLET || type == TYPE_CURB || type == TYPE_BRK_PANEL || type == TYPE_VENT ||
+				type == TYPE_SWITCH || type == TYPE_TAPE || type == TYPE_OUTLET || type == TYPE_CURB || type == TYPE_BRK_PANEL || type == TYPE_VENT ||
 				type == TYPE_BREAKER || type == TYPE_DUCT || type == TYPE_TOY || type == TYPE_VASE || type == TYPE_URN || type == TYPE_STAPLER || type == TYPE_WIND_SILL ||
 				type == TYPE_SPRINKLER || type == TYPE_FEXT_MOUNT || type == TYPE_FEXT_SIGN || type == TYPE_PIZZA_TOP || type == TYPE_TEESHIRT || type == TYPE_PANTS ||
 				type == TYPE_DBG_SHAPE || type == TYPE_POOL_CUE || type == TYPE_WALL_MOUNT || type == TYPE_FALSE_DOOR || type == TYPE_FLASHLIGHT || type == TYPE_CANDLE ||

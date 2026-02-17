@@ -370,7 +370,7 @@ void building_t::gather_interior_cubes(vect_colored_cube_t &cc, cube_t const &ex
 		if (c->shape == SHAPE_ANGLED) continue; // sloped objects such as parking garage and pool ramps aren't cubes
 		if (c->is_exterior())         continue; // interior objects only
 		// skip other object types that are too small, not cube shaped, transparent, or not interior
-		if (type == TYPE_WALL_TRIM || type == TYPE_BOOK || type == TYPE_CRACK || type == TYPE_PLANT || type == TYPE_RAILING || type == TYPE_SHELVES || c->is_a_drink() ||
+		if (type == TYPE_WALL_TRIM || type == TYPE_BOOK || type == TYPE_PLANT || type == TYPE_RAILING || type == TYPE_SHELVES || type == TYPE_BUCKET || c->is_a_drink() ||
 			type == TYPE_PEN || type == TYPE_PENCIL || is_ball_type(type) || type == TYPE_HANGER_ROD || type == TYPE_DRAIN || type == TYPE_MONEY || type == TYPE_PHONE ||
 			type == TYPE_TPROLL || type == TYPE_SPRAYCAN || type == TYPE_MARKER || type == TYPE_BUTTON || type == TYPE_SWITCH || type == TYPE_TAPE || type == TYPE_OUTLET ||
 			type == TYPE_PARK_SPACE || type == TYPE_RAMP || type == TYPE_PIPE || type == TYPE_VENT || type == TYPE_BREAKER || type == TYPE_KEY || type == TYPE_HANGER ||
@@ -388,7 +388,7 @@ void building_t::gather_interior_cubes(vect_colored_cube_t &cc, cube_t const &ex
 			type == TYPE_MUSHROOM || type == TYPE_POOL_CUE || type == TYPE_CEIL_TILE || type == TYPE_SHELL_CASE || type == TYPE_SHOP_CART || type == TYPE_JAR ||
 			type == TYPE_RADIATOR || type == TYPE_RAD_FAN || type == TYPE_FIRE_EXT || type == TYPE_FOLD_SHIRT || type == TYPE_CASHREG || type == TYPE_FOOD_FISH ||
 			type == TYPE_MILK || type == TYPE_TRASH || type == TYPE_PLATE || type == TYPE_SPRINKLER || type == TYPE_TOASTER || type == TYPE_FOOD_TUB ||
-			type == TYPE_KEYBOARD || type == TYPE_LAPTOP || type == TYPE_BUCKET) continue;
+			type == TYPE_KEYBOARD || type == TYPE_LAPTOP) continue;
 		if (type == TYPE_FISHTANK && c->z1() < ground_floor_z1)      continue; // skip  mall fishtanks
 		if (type == TYPE_TCAN && !(c->in_mall() || c->in_hallway())) continue; // skip small trashcans
 		if (type >= TYPE_RAT) continue; // skip animals (for example, roaches in sinks)

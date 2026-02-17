@@ -771,7 +771,6 @@ void building_room_geom_t::add_small_static_objs_to_verts(vect_room_object_t con
 		case TYPE_TPROLL:    add_tproll  (c); break;
 		case TYPE_TAPE:      add_tape    (c); break;
 		case TYPE_SPRAYCAN:  add_spraycan(c); break;
-		case TYPE_CRACK:     add_crack   (c); break;
 		case TYPE_SWITCH:    add_switch  (c, 0); break; // draw_detail_pass=0
 		case TYPE_BREAKER:   add_breaker (c); break;
 		case TYPE_PLATE:     add_plate   (c); break;
