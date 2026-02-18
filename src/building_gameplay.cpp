@@ -544,8 +544,10 @@ float get_obj_weight(room_object_t const &obj) {
 	return get_taken_obj_type(obj).weight; // constant per object type, for now, but really should depend on object size/volume
 }
 bool is_consumable(room_object_t const &obj) {
-	if (!in_building_gameplay_mode() || !obj.is_a_drink() || obj.is_bottle_empty() || (obj.flags & RO_FLAG_NO_CONS)) return 0; // not consumable
-	if (obj.type == TYPE_DRINK_CAN) return 1; // always consumable; not an inventory item
+	if (!in_building_gameplay_mode()) return 0;
+	//if (obj.type == TYPE_MILK)        return 1;
+	if (!obj.is_a_drink() || obj.is_bottle_empty() || (obj.flags & RO_FLAG_NO_CONS)) return 0; // not consumable
+	if (obj.type == TYPE_DRINK_CAN)   return 1; // always consumable; not an inventory item
 	unsigned const bottle_type(obj.get_bottle_type());
 	bool const is_drink(bottle_type == BOTTLE_TYPE_WATER || bottle_type == BOTTLE_TYPE_COKE);
 
@@ -964,6 +966,9 @@ public:
 				case DRINK_CAN_TYPE_BEER: drunk  = 0.2; liquid = 0.4; break;
 				default: assert(0);
 				}
+			}
+			else if (type == TYPE_MILK) {
+				// TODO
 			}
 			else {assert(0);} // invalid type
 		}

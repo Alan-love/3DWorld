@@ -821,7 +821,7 @@ struct room_object_t : public oriented_cube_t { // size=68
 	bool is_collidable(bool for_spider) const {return (for_spider ? is_spider_collidable() : is_floor_collidable());}
 	bool is_vert_cylinder() const;
 	bool is_round  () const {return (shape == SHAPE_CYLIN || shape == SHAPE_SPHERE || shape == SHAPE_VERT_TORUS);}
-	bool is_a_drink() const {return (type == TYPE_BOTTLE || type == TYPE_DRINK_CAN);}
+	bool is_a_drink() const {return (type == TYPE_BOTTLE || type == TYPE_DRINK_CAN);} // what about TYPE_MILK?
 	bool is_pet_container() const {return (type == TYPE_FISHTANK || type == TYPE_PET_CAGE);}
 	bool is_metal_model() const {return (type == TYPE_SILVER || type == TYPE_KEY || type == TYPE_HANDGUN /*|| type == TYPE_KITCH_APP*/);}
 	bool is_horizontal_cylin   () const {return (shape == SHAPE_CYLIN && (type == TYPE_DUCT || type == TYPE_PIPE || type == TYPE_VALVE || type == TYPE_METAL_BAR));}
