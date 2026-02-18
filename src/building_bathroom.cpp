@@ -32,7 +32,8 @@ bool building_t::add_bathroom_objs(rand_gen_t rgen, room_t &room, float &zval, u
 	cube_t place_area(room_bounds);
 	place_area.expand_by(-0.5*wall_thickness);
 	vector2d const place_area_sz(place_area.dx(), place_area.dy());
-	if (min(place_area_sz.x, place_area_sz.y) < 0.7*floor_spacing) return 0; // room is too small (should be rare)
+	float const min_room_dim(min(place_area_sz.x, place_area_sz.y));
+	if (min_room_dim < 0.7*floor_spacing) return 0; // room is too small (should be rare)
 	bool const have_toilet(building_obj_model_loader.is_model_valid(OBJ_MODEL_TOILET)), have_sink(building_obj_model_loader.is_model_valid(OBJ_MODEL_SINK));
 	vect_room_object_t &objs(interior->room_geom->objs);
 
@@ -44,7 +45,7 @@ bool building_t::add_bathroom_objs(rand_gen_t rgen, room_t &room, float &zval, u
 		}
 	}
 	if (have_toilet && (room.is_office || (!is_basement && is_prison()) || is_restaurant())) { // office, above ground prison bathroom, and restaurant have stalls
-		if (min(place_area_sz.x, place_area_sz.y) > 1.5*floor_spacing && max(place_area_sz.x, place_area_sz.y) > 2.0*floor_spacing) {
+		if (min_room_dim > 1.5*floor_spacing && max(place_area_sz.x, place_area_sz.y) > 2.0*floor_spacing) {
 			if (divide_bathroom_into_stalls(rgen, room, zval, room_id, tot_light_amt, floor, lights_start, objs_start)) { // large enough, divide into bathroom stalls
 				added_bathroom_objs_mask |= (PLACED_TOILET | PLACED_SINK);
 				return 1;
@@ -55,6 +56,7 @@ bool building_t::add_bathroom_objs(rand_gen_t rgen, room_t &room, float &zval, u
 	unsigned const vanity_obj_ix(objs.size());
 	bool placed_obj(0), placed_toilet(0), no_tub(0);
 	bool added_vanity(is_house && !is_basement && rgen.rand_float() < 0.75 && add_vanity_to_room(rgen, room, zval, room_id, tot_light_amt, objs_start)); // maybe add vanity
+	if (min_room_dim < 0.88*floor_spacing) {no_tub = 1;} // too narrow for a tub; may block the player if a sink is placed opposite the tub
 
 	// place toilet first because it's in the corner out of the way and higher priority
 	if (have_toilet) { // have a toilet model
