@@ -241,8 +241,8 @@ template<typename T> void add_sign_text_verts(string const &text, cube_t const &
 	}
 	vector3d col_dir(zero_vector), normal(zero_vector);
 	bool const ldir(dim ^ dir);
-	col_dir[!dim] = (ldir  ? 1.0 : -1.0);
-	normal [ dim] = (dir ? 1.0 : -1.0);
+	col_dir[!dim] = (ldir ? 1.0 : -1.0);
+	normal [ dim] = (dir  ? 1.0 : -1.0);
 	static vector<vert_tc_t> verts;
 	verts.clear();
 	point pos;

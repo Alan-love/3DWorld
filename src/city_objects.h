@@ -584,6 +584,7 @@ struct sign_t : public oriented_city_obj_t {
 	int sign_id=-1; // >= 0 means this is one of multiple alternatives
 	float draw_zmin=0.0; // for skyway signs
 	float frame_width=0.0; // relative to height
+	float char_space=0.0; // for scrolling text
 	colorRGBA bkg_color, text_color, frame_color;
 	cube_t connector, frame_bcube, text_bcube;
 	string text;
@@ -596,7 +597,7 @@ struct sign_t : public oriented_city_obj_t {
 	static void pre_draw (draw_state_t &dstate, bool shadow_only);
 	static void post_draw(draw_state_t &dstate, bool shadow_only);
 	void draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist_scale, bool shadow_only) const;
-	void draw_text(draw_state_t &dstate, city_draw_qbds_t &qbds, string const &text_to_draw, float first_char_clip_val=0.0, float last_char_clip_val=0.0) const;
+	void draw_text(draw_state_t &dstate, city_draw_qbds_t &qbds, string const &text_to_draw, float first_char_clip_val=0.0, float last_char_clip_val=0.0, float advance_val=0.0) const;
 	bool proc_sphere_coll(point &pos_, point const &p_last, float radius_, point const &xlate, vector3d *cnorm) const;
 };
 
