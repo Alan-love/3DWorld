@@ -1326,7 +1326,7 @@ public:
 		show_stats();
 		phone_manager.next_frame(); // even if not in gameplay mode?
 		float const fticks_clamped(min(fticks, 0.25f*TICKS_PER_SECOND)); // limit to 250ms so that the player doesn't die when un-paused
-		float const elapsed_time(animate2 ? fticks_clamped : 0.0); // no time elapsed when time is paused
+		float const elapsed_ticks(animate2 ? fticks_clamped : 0.0), elapsed_secs(elapsed_ticks/TICKS_PER_SECOND); // no time elapsed when time is paused
 		
 		// update held inventory item, even when not in gameplay mode
 		if (!carried.empty()) {
@@ -1334,7 +1334,7 @@ public:
 
 			if (obj.type == TYPE_CANDLE && obj.is_lit()) { // apply lit candle use and water effect
 				obj.flags |= RO_FLAG_USED; // mark as used so that black tip is drawn
-				if ((frame_counter % 10) == 0) {obj.use_count += 10.0*elapsed_time;} // special logic for integer incrementing
+				if ((frame_counter % 10) == 0) {obj.use_count += 10.0*elapsed_ticks;} // special logic for integer incrementing
 				min_eq(obj.use_count, get_taken_obj_type(obj).capacity); // use_count can't be > capacity
 				if (obj.get_remaining_capacity_ratio() <= 0.0) {obj.flags &= ~RO_FLAG_LIT;} // goes out when used up
 				if (player_in_water == 2) {obj.flags &= ~RO_FLAG_LIT;} // goes out under water
@@ -1356,7 +1356,7 @@ public:
 		}
 		if (!in_building_gameplay_mode()) return;
 		// handle oxygen
-		float oxygen_use_rate((elapsed_time/TICKS_PER_SECOND)/30.0); // used up in 30s
+		float oxygen_use_rate(elapsed_secs/30.0); // used up in 30s
 
 		if (player_in_water == 2) { // head underwater, lose oxygen slowly
 			oxygen = max(0.0f, (oxygen - oxygen_use_rate));
@@ -1400,7 +1400,7 @@ public:
 			return;
 		}
 		if (is_poisoned) {
-			player_health -= 0.0002*elapsed_time;
+			player_health -= elapsed_secs/120.0; // full health in 120s
 
 			if (player_is_dead()) {
 				string const poison_type(poison_from_spider ? " of spider venom" : " of snake venom");
@@ -1414,17 +1414,17 @@ public:
 		}
 		// update state for next frame
 		vector3d const prev_shroom_amt(shrooms_amt);
-		drunkenness = max(0.0f, (drunkenness - 0.0001f*elapsed_time)); // slowly decrease over time
+		drunkenness = max(0.0f, (drunkenness - elapsed_secs/240.0f)); // slowly decrease over 4 min
 
 		for (unsigned d = 0; d < 3; ++d) {
 			float &time(shrooms_time[d]), &amt(shrooms_amt[d]);
-			time = max(0.0f, (time - elapsed_time));
-			amt  = ((time > 0.0) ? min(1.0, (amt + elapsed_time/(1.5*TICKS_PER_SECOND))) : max(0.0, (amt - elapsed_time/(3.0*TICKS_PER_SECOND))));
+			time = max(0.0f, (time - elapsed_ticks));
+			amt  = ((time > 0.0) ? min(1.0, (amt + elapsed_secs/1.5)) : max(0.0, (amt - elapsed_secs/3.0)));
 			if (prev_shroom_amt[d] < 1.0 && amt >= 1.0) {print_text_onscreen("You don't feel well", RED, 1.0, 3*TICKS_PER_SECOND, 0);}
 		}
 		// should the player drink when underwater? maybe depends on how clean the water is? how about only if thirst < 0.5
-		if (player_in_water == 2 && thirst < 0.5) {thirst = min(1.0f, (thirst + 0.01f *elapsed_time));} // underwater
-		else {thirst = max(0.0f, (thirst - 0.0001f*elapsed_time));} // slowly decrease over time (250s)
+		if (player_in_water == 2 && thirst < 0.5) {thirst = min(1.0f, (thirst + elapsed_secs/2.5f));} // underwater
+		else {thirst = max(0.0f, (thirst - elapsed_secs/240.0f));} // slowly decrease over time (240s)
 		
 		if (player_near_toilet) { // empty bladder
 			if (bladder > 0.9) {gen_sound_thread_safe_at_player(SOUND_GASP);} // urinate
@@ -1437,9 +1437,9 @@ public:
 			bladder = 0.0;
 		}
 		else if (bladder > 0.9) {
-			bladder_time += elapsed_time;
+			bladder_time += elapsed_secs;
 
-			if (bladder_time > 5.0*TICKS_PER_SECOND) { // play the "I have to go" sound
+			if (bladder_time > 5.0) { // play the "I have to go" sound evern 5s
 				gen_sound_thread_safe_at_player(SOUND_HURT);
 				bladder_time = 0.0;
 			}
