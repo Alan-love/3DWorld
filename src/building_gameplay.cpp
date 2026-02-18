@@ -33,7 +33,7 @@ extern building_t const *player_building;
 
 void place_player_at_xy(float xval, float yval);
 void show_key_icon(vector<colorRGBA> const &key_colors);
-void show_flashlight_icon();
+void show_flashlight_icon(float charge_amt);
 void show_pool_cue_icon();
 bool is_shirt_model(room_object_t const &obj);
 bool is_pants_model(room_object_t const &obj);
@@ -704,7 +704,7 @@ class player_inventory_t { // manages player inventory, health, and other stats
 	set<unsigned> rooms_stolen_from;
 	vector3d shrooms_amt, shrooms_time; // stored separately for the three types: white, red, red with white spots (invincibility)
 	float cur_value, cur_weight, tot_value, tot_weight, damage_done, best_value, player_health, drunkenness, bladder, bladder_time, oxygen, thirst;
-	float prev_player_zval, respawn_time=0.0, accum_fall_damage=0.0;
+	float prev_player_zval, respawn_time=0.0, accum_fall_damage=0.0, flashlight_battery=1.0;
 	unsigned num_doors_unlocked, has_key, extra_ammo, last_item_type; // has_key is a bit mask for key colors
 	unsigned machine_rseed1=0, machine_rseed2=0;
 	int prev_respawn_frame=0, last_meds_frame=0;
@@ -756,6 +756,7 @@ public:
 		num_doors_unlocked = has_key = extra_ammo = last_item_type = 0; // num_doors_unlocked not saved on death, but maybe should be?
 		prev_in_building = has_flashlight = is_poisoned = poison_from_spider = has_pool_cue = 0;
 		machine_rseed1 = machine_rseed2 = 0;
+		flashlight_battery = 1.0;
 		carried.clear();
 		on_empty_inventory();
 	}
@@ -813,6 +814,7 @@ public:
 	bool  player_is_dead () const {return (player_health <= 0.0);}
 	unsigned player_has_key    () const {return has_key;}
 	bool  player_has_flashlight() const {return has_flashlight;}
+	float get_flashlight_power () const {return flashlight_battery;}
 	bool  player_has_pool_cue  () const {return has_pool_cue;}
 	bool  player_at_full_health() const {return (player_health == 1.0 && !is_poisoned);}
 	bool  player_is_thirsty    () const {return (thirst < 0.5);}
@@ -822,6 +824,7 @@ public:
 	bool  player_holding_loaded_gun    () const {return (!carried.empty() && carried.back().type == TYPE_HANDGUN    && !carried.back().is_broken());}
 	bool  was_room_stolen_from(unsigned room_id) const {return (rooms_stolen_from.find(room_id) != rooms_stolen_from.end());}
 	void  refill_thirst() {thirst = 1.0;}
+	void recharge_flashlight() {flashlight_battery = 1.0;} // print onscreen text?
 
 	bool can_open_door(door_t const &door) { // non-const because num_doors_unlocked is modified
 		if (!door.check_key_mask_unlocks(has_key)) {
@@ -979,7 +982,7 @@ public:
 			else {assert(0);}
 		}
 		adjust_health(health, (type == TYPE_MUSHROOM), oss, text_color);
-		if (type == TYPE_FLASHLIGHT) {has_flashlight = 1;} // also goes in inventory
+		if (type == TYPE_FLASHLIGHT) {has_flashlight = 1; flashlight_battery = 1.0;} // recharges to full power; also goes in inventory
 		if (type == TYPE_POOL_CUE  ) {has_pool_cue   = 1;} // also goes in inventory
 
 		if (type == TYPE_KEY) {
@@ -1300,8 +1303,8 @@ public:
 			for (unsigned n = 0; n < NUM_LOCK_COLORS; ++n) {key_colors[n] = ((has_key & (1 << n)) ? lock_colors[n] : ALPHA0);}
 			show_key_icon(key_colors);
 		}
-		if (has_flashlight) {show_flashlight_icon();}
-		if (has_pool_cue  ) {show_pool_cue_icon  ();}
+		if (has_flashlight) {show_flashlight_icon(flashlight_battery);}
+		if (has_pool_cue  ) {show_pool_cue_icon();}
 	}
 	void apply_fall_damage(float delta_z, float dscale=1.0) {
 		if (player_is_invincible())       return;
@@ -1417,6 +1420,12 @@ public:
 			register_player_death(SOUND_GULP, " of thirst"); // not sure what the sound should be
 			return;
 		}
+		// handle flashlight
+		if (player_holding_lit_flashlight()) {
+			float const new_fb((flashlight_battery - elapsed_secs/180.0f));
+			if (new_fb < 0.15 && flashlight_battery >= 0.15) {print_text_onscreen("Low Battery", RED, 0.75, 2.5*TICKS_PER_SECOND, 0);}
+			flashlight_battery = max(0.0f, new_fb); // drains in 3 min
+		}
 		// update state for next frame
 		vector3d const prev_shroom_amt(shrooms_amt);
 		drunkenness = max(0.0f, (drunkenness - elapsed_secs/240.0f)); // slowly decrease over 4 min
@@ -1473,6 +1482,8 @@ bool player_at_full_health() {return player_inventory.player_at_full_health();}
 bool player_is_thirsty    () {return player_inventory.player_is_thirsty    ();}
 bool player_holding_lit_candle    () {return player_inventory.player_holding_lit_candle    ();}
 bool player_holding_lit_flashlight() {return player_inventory.player_holding_lit_flashlight();}
+float get_player_flashlight_power () {return player_inventory.get_flashlight_power();}
+void recharge_flashlight() {player_inventory.recharge_flashlight();}
 bool was_room_stolen_from(unsigned room_id) {return player_inventory.was_room_stolen_from(room_id);}
 void refill_thirst() {player_inventory.refill_thirst();}
 void apply_building_fall_damage(float delta_z) {player_inventory.apply_fall_damage(delta_z, 0.5);} // dscale=0.5

@@ -3425,7 +3425,6 @@ unsigned ped_manager_t::get_next_plot(pedestrian_t &ped, int exclude_plot) const
 
 
 void city_lights_manager_t::add_player_flashlight(float radius_scale) {
-	if (!enable_player_flashlight()) return;
 	add_player_flashlight_light_source(radius_scale);
 	assert(!dl_sources.empty()); // must have been added
 	float const zval(dl_sources.back().get_pos().z), light_radius(dl_sources.back().get_radius());
@@ -3694,7 +3693,7 @@ public:
 		car_manager.add_car_headlights(xlate, lights_bcube);
 		road_gen   .add_city_lights   (xlate, lights_bcube);
 		if (is_night()) {add_buildings_exterior_lights(xlate, lights_bcube);} // currently building lights are only on at night
-		if (flashlight_on && !camera_in_building) {add_player_flashlight(0.25);} // add player flashlight
+		if (flashlight_on && !camera_in_building && enable_player_flashlight()) {add_player_flashlight(0.25);} // add player flashlight
 		clamp_to_max_lights(xlate, dl_sources);
 		setup_shadow_maps(dl_sources, (camera_pdu.pos - xlate), city_params.max_shadow_maps);
 		finalize_lights(dl_sources);

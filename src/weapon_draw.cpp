@@ -1065,7 +1065,21 @@ void show_icon_image(string const &fn, float xsize, float ysize, float xpos=0.0,
 		glEnable(GL_DEPTH_TEST);
 	}
 }
-void show_key_icon(vector<colorRGBA> const &colors) {show_icon_image("icons/key.png",        1.0, 0.4, 0.0, colors);} // rightmost slot
-void show_flashlight_icon()                         {show_icon_image("icons/flashlight.png", 1.0, 1.0, 1.0        );} // one slot  to the left
-void show_pool_cue_icon  ()                         {show_icon_image("icons/pool_cue.png",   1.0, 1.0, 2.0        );} // two slots to the left
+void show_key_icon(vector<colorRGBA> const &colors) {
+	show_icon_image("icons/key.png", 1.0, 0.4, 0.0, colors); // rightmost slot
+}
+void show_flashlight_icon(float charge_amt) {
+	// TODO: display charge_amt
+	if (charge_amt < 0.15) { // nearly dead, flash the icon
+		static bool show_icon(1);
+		static float cur_ticks(0.0);
+		cur_ticks += fticks;
+		if (cur_ticks > 0.5*TICKS_PER_SECOND) {show_icon ^= 1; cur_ticks = 0.0;} // toggle twice a second
+		if (!show_icon) return;
+	}
+	show_icon_image("icons/flashlight.png", 1.0, 1.0, 1.0); // one slot to the left
+}
+void show_pool_cue_icon() {
+	show_icon_image("icons/pool_cue.png", 1.0, 1.0, 2.0); // two slots to the left
+}
 

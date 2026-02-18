@@ -26,6 +26,8 @@ extern building_t const *player_building;
 
 
 bool player_can_open_door(door_t const &door);
+bool player_holding_lit_flashlight();
+void recharge_flashlight();
 unsigned player_has_room_key();
 bool player_has_pool_cue();
 bool was_room_stolen_from(unsigned room_id);
@@ -577,6 +579,7 @@ bool building_t::apply_player_action_key(point const &closest_to_in, vector3d co
 					else if (type == TYPE_POOL_BALL && player_has_pool_cue()) {keep = 1;} // can only push pool ball if holding a pool cue
 					else if (type == TYPE_FALSE_DOOR && !i->is_open() && !((i->flags & RO_FLAG_WALKWAY) && i->is_interior())) {keep = 1;} // skip walkway only decal doors
 					else if (type == TYPE_DWASHER) {keep = 1;} // bare dishwasher, in an appliance store
+					else if (type == TYPE_OUTLET && player_holding_lit_flashlight()) {keep = 1;} // recharge flashlight
 				}
 				else if (type == TYPE_LIGHT) {keep = 1;} // closet light
 				if (!keep) continue;
@@ -879,6 +882,10 @@ bool building_t::interact_with_object(unsigned obj_ix, point const &int_pos, poi
 		toggle_circuit_breaker(obj.is_open(), obj.obj_id, obj.item_flags);
 		sound_scale      = 0.25;
 		update_draw_data = 1;
+	}
+	else if (type == TYPE_OUTLET) {
+		gen_sound_thread_safe_at_player(SOUND_NEON_SIGN, 1.0); // electric buzz sound
+		recharge_flashlight();
 	}
 	else if (type == TYPE_BLINDS) { // see building_t::add_window_blinds()
 		if (!adjust_blinds_state(obj_ix)) return 0;

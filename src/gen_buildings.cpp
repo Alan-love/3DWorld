@@ -60,6 +60,7 @@ float get_power_pole_height();
 void register_player_not_in_building();
 bool player_holding_lit_candle();
 bool player_holding_lit_flashlight();
+float get_player_flashlight_power ();
 void parse_universe_name_str_tables();
 void clear_city_building_data();
 void try_join_city_building_ext_basements(vect_building_t &buildings);
@@ -437,8 +438,12 @@ struct building_lights_manager_t : public city_lights_manager_t {
 		if (player_building != nullptr) {lights_bcube.union_with_cube_xy(player_building->get_bcube_inc_extensions());}
 		// no room lights if player is hiding in a closed closet/windowless room with light off (prevents light leakage)
 		if (sec_camera_mode || !player_in_dark_room()) {add_building_interior_lights(xlate, lights_bcube, sec_camera_mode);}
+		
 		// add player flashlight, even when outside of building so that flashlight can shine through windows
-		if (enable_player_flashlight() && !sec_camera_mode) {add_player_flashlight(0.12);}
+		if (enable_player_flashlight() && !sec_camera_mode) {
+			float const power(get_player_flashlight_power());
+			if (power > 0.0) {add_player_flashlight(0.125*CLIP_TO_01(4.0f*power));} // fades to 0 in last 25%
+		}
 		if (camera_in_building && !sec_camera_mode && player_holding_lit_candle()) {add_player_candle_light(xlate);}
 		clamp_to_max_lights(xlate, dl_sources);
 		tighten_light_bcube_bounds(dl_sources); // clip bcube to tight bounds around lights for better dlights texture utilization (possible optimization)
