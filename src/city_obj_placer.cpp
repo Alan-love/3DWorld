@@ -919,7 +919,7 @@ void city_obj_placer_t::place_detail_objects(road_plot_t const &plot, vect_cube_
 		get_building_bcubes(plot, bcubes);
 		
 		for (cube_with_ix_t const &b : bcubes) {
-			if (rgen.rand_float() < 0.1) continue; // skip this building 10% of the time; placements often fail anyway, and usually fail for non-cube buildings
+			// Note: placements often fail, and usually fail for non-cube buildings
 			// find the bcube side furthest from the road/closest to the plot center
 			bool dim(0), dir(0);
 			float dmin_sq(0.0);
