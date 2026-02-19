@@ -871,6 +871,7 @@ void building_room_geom_t::expand_breaker_panel(room_object_t const &c, building
 		} // for r
 	} // for C
 	invalidate_small_geom();
+	invalidate_text_geom ();
 }
 
 void building_room_geom_t::expand_dishwasher(room_object_t &c, cube_t const &dishwasher) {
