@@ -1041,11 +1041,11 @@ void show_player_keycards() {
 	draw_qbd_with_textured_shader(qbd, KEYCARD_TEX);
 }
 
-void show_icon_image(string const &fn, float xsize, float ysize, float xpos=0.0, vector<colorRGBA> const &colors=vector<colorRGBA>()) {
+void show_icon_image(string const &fn, float xsize, float ysize, float xpos, colorRGBA const &icon_color=WHITE, vector<colorRGBA> const &colors=vector<colorRGBA>()) {
 	float const ar(float(window_width)/float(window_height)), s(10.0*DEF_NEAR_CLIP), quad_sz_x(0.025*s*xsize), quad_sz_y(0.025*s*ysize);
 	quad_batch_draw qbd;
 	point pos((0.52 - 0.05*xpos)*s*ar, 0.52*s, -s);
-	qbd.add_quad_dirs(pos, quad_sz_x*plus_x, quad_sz_y*plus_y, WHITE); // top right; dx and dy are radius values
+	qbd.add_quad_dirs(pos, quad_sz_x*plus_x, quad_sz_y*plus_y, icon_color); // top right; dx and dy are radius values
 	draw_qbd_with_textured_shader(qbd, get_texture_by_name(fn, 0, 0, 0), 0.1); // wrap_mir=0 (clamp), min_alpha=0.1
 
 	if (!colors.empty()) { // draw colors as bars in a row below the icon
@@ -1066,18 +1066,19 @@ void show_icon_image(string const &fn, float xsize, float ysize, float xpos=0.0,
 	}
 }
 void show_key_icon(vector<colorRGBA> const &colors) {
-	show_icon_image("icons/key.png", 1.0, 0.4, 0.0, colors); // rightmost slot
+	show_icon_image("icons/key.png", 1.0, 0.4, 0.0, WHITE, colors); // rightmost slot
 }
 void show_flashlight_icon(float charge_amt) {
 	// TODO: display charge_amt
-	if (charge_amt < 0.15) { // nearly dead, flash the icon
+	if (charge_amt > 0.0 && charge_amt < 0.15) { // nearly dead, flash the icon
 		static bool show_icon(1);
 		static float cur_ticks(0.0);
 		cur_ticks += fticks;
-		if (cur_ticks > 0.5*TICKS_PER_SECOND) {show_icon ^= 1; cur_ticks = 0.0;} // toggle twice a second
+		if (cur_ticks > 0.4*TICKS_PER_SECOND) {show_icon ^= 1; cur_ticks = 0.0;} // toggle a bit faster than twice a second
 		if (!show_icon) return;
 	}
-	show_icon_image("icons/flashlight.png", 1.0, 1.0, 1.0); // one slot to the left
+	colorRGBA const icon_color((charge_amt == 0.0) ? DK_GRAY : WHITE); // grayed out when no battery
+	show_icon_image("icons/flashlight.png", 1.0, 1.0, 1.0, icon_color); // one slot to the left
 }
 void show_pool_cue_icon() {
 	show_icon_image("icons/pool_cue.png", 1.0, 1.0, 2.0); // two slots to the left

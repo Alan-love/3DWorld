@@ -708,7 +708,7 @@ class player_inventory_t { // manages player inventory, health, and other stats
 	unsigned num_doors_unlocked, has_key, extra_ammo, last_item_type; // has_key is a bit mask for key colors
 	unsigned machine_rseed1=0, machine_rseed2=0;
 	int prev_respawn_frame=0, last_meds_frame=0;
-	bool prev_in_building, has_flashlight, is_poisoned, poison_from_spider, has_pool_cue;
+	bool prev_in_building, has_flashlight, is_poisoned, poison_from_spider, has_pool_cue, charged_flashlight=0;
 
 	void register_player_death(unsigned sound_id, string const &why) {
 		player_wait_respawn = 1;
@@ -824,7 +824,7 @@ public:
 	bool  player_holding_loaded_gun    () const {return (!carried.empty() && carried.back().type == TYPE_HANDGUN    && !carried.back().is_broken());}
 	bool  was_room_stolen_from(unsigned room_id) const {return (rooms_stolen_from.find(room_id) != rooms_stolen_from.end());}
 	void  refill_thirst() {thirst = 1.0;}
-	void recharge_flashlight() {flashlight_battery = 1.0;} // print onscreen text?
+	void recharge_flashlight() {flashlight_battery = 1.0; charged_flashlight = 1;} // print onscreen text?
 
 	bool can_open_door(door_t const &door) { // non-const because num_doors_unlocked is modified
 		if (!door.check_key_mask_unlocks(has_key)) {
@@ -1422,8 +1422,13 @@ public:
 		}
 		// handle flashlight
 		if (player_holding_lit_flashlight()) {
-			float const new_fb((flashlight_battery - elapsed_secs/180.0f));
-			if (new_fb < 0.15 && flashlight_battery >= 0.15) {print_text_onscreen("Low Battery", RED, 0.75, 2.5*TICKS_PER_SECOND, 0);}
+			float const new_fb((flashlight_battery - 10.0*elapsed_secs/180.0f));
+			
+			if (new_fb < 0.15 && flashlight_battery >= 0.15) {
+				string str("Low Battery");
+				if (!charged_flashlight) {str += "\nCharge at an Outlet";} // only print if player hasn't used an outlet
+				print_text_onscreen(str, RED, 0.75, (charged_flashlight ? 2.5 : 7.5)*TICKS_PER_SECOND, 0);
+			}
 			flashlight_battery = max(0.0f, new_fb); // drains in 3 min
 		}
 		// update state for next frame

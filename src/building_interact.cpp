@@ -337,7 +337,7 @@ void building_t::toggle_circuit_breaker(bool is_on, unsigned zone_id, unsigned n
 			i->flags ^= RO_FLAG_NO_POWER;
 		} // TYPE_VENT_FAN?
 		else if (i->type == TYPE_MWAVE || i->type == TYPE_CEIL_FAN || i->type == TYPE_CAMERA || i->type == TYPE_CLOCK || i->type == TYPE_LAVALAMP ||
-			i->type == TYPE_FISHTANK || i->type == TYPE_WARN_LIGHT || i->type == TYPE_VENDING || i->type == TYPE_SWITCH)
+			i->type == TYPE_FISHTANK || i->type == TYPE_WARN_LIGHT || i->type == TYPE_VENDING || i->type == TYPE_SWITCH || i->type == TYPE_OUTLET)
 		{
 			i->flags ^= RO_FLAG_NO_POWER; // interactive powered devices; stove is gas and not electric powered
 		}
@@ -579,7 +579,7 @@ bool building_t::apply_player_action_key(point const &closest_to_in, vector3d co
 					else if (type == TYPE_POOL_BALL && player_has_pool_cue()) {keep = 1;} // can only push pool ball if holding a pool cue
 					else if (type == TYPE_FALSE_DOOR && !i->is_open() && !((i->flags & RO_FLAG_WALKWAY) && i->is_interior())) {keep = 1;} // skip walkway only decal doors
 					else if (type == TYPE_DWASHER) {keep = 1;} // bare dishwasher, in an appliance store
-					else if (type == TYPE_OUTLET && player_holding_lit_flashlight()) {keep = 1;} // recharge flashlight
+					else if (type == TYPE_OUTLET && player_holding_lit_flashlight() && i->is_powered()) {keep = 1;} // recharge flashlight
 				}
 				else if (type == TYPE_LIGHT) {keep = 1;} // closet light
 				if (!keep) continue;
