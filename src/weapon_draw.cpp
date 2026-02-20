@@ -1076,8 +1076,8 @@ void show_flashlight_icon(float charge_amt) {
 		if (cur_ticks > 0.4*TICKS_PER_SECOND) {show_icon ^= 1; cur_ticks = 0.0;} // toggle a bit faster than twice a second
 		if (!show_icon) return;
 	}
-	vector<colorRGBA> colors(9); // 9 bars for each 10%
-	for (unsigned n = 0; n < 9; ++n) {colors[n] = ((charge_amt > 0.1*n) ? YELLOW : GRAY);}
+	vector<colorRGBA> colors(10); // 10 bars for each 10%
+	for (unsigned n = 0; n < 10; ++n) {colors[n] = ((charge_amt > 0.1*n) ? YELLOW : GRAY);}
 	colorRGBA const icon_color((charge_amt == 0.0) ? GRAY : WHITE); // grayed out when no battery
 	show_icon_image("icons/flashlight.png", 1.0, 1.0, 0.2, 1.0, icon_color, colors); // one slot to the left
 }
