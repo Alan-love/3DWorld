@@ -1041,7 +1041,7 @@ void show_player_keycards() {
 	draw_qbd_with_textured_shader(qbd, KEYCARD_TEX);
 }
 
-void show_icon_image(string const &fn, float xsize, float ysize, float xpos, colorRGBA const &icon_color=WHITE, vector<colorRGBA> const &colors=vector<colorRGBA>()) {
+void show_icon_image(string const &fn, float xsize, float ysize, float bar_sz, float xpos, colorRGBA const &icon_color=WHITE, vector<colorRGBA> const &colors=vector<colorRGBA>()) {
 	float const ar(float(window_width)/float(window_height)), s(10.0*DEF_NEAR_CLIP), quad_sz_x(0.025*s*xsize), quad_sz_y(0.025*s*ysize);
 	quad_batch_draw qbd;
 	point pos((0.52 - 0.05*xpos)*s*ar, 0.52*s, -s);
@@ -1049,7 +1049,7 @@ void show_icon_image(string const &fn, float xsize, float ysize, float xpos, col
 	draw_qbd_with_textured_shader(qbd, get_texture_by_name(fn, 0, 0, 0), 0.1); // wrap_mir=0 (clamp), min_alpha=0.1
 
 	if (!colors.empty()) { // draw colors as bars in a row below the icon
-		float const pitch(2.2*quad_sz_x/max(colors.size(), size_t(2))), width(0.75*pitch), hheight(0.67*quad_sz_y);
+		float const pitch(2.2*quad_sz_x/max(colors.size(), size_t(2))), width(0.75*pitch), hheight(bar_sz*quad_sz_y);
 		qbd.clear();
 		pos.y -= 1.25*quad_sz_y + hheight; // shift below
 		pos.x -= quad_sz_x - 0.5*pitch; // shift nearly to left edge
@@ -1066,10 +1066,9 @@ void show_icon_image(string const &fn, float xsize, float ysize, float xpos, col
 	}
 }
 void show_key_icon(vector<colorRGBA> const &colors) {
-	show_icon_image("icons/key.png", 1.0, 0.4, 0.0, WHITE, colors); // rightmost slot
+	show_icon_image("icons/key.png", 1.0, 0.4, 0.67, 0.0, WHITE, colors); // rightmost slot
 }
 void show_flashlight_icon(float charge_amt) {
-	// TODO: display charge_amt
 	if (charge_amt > 0.0 && charge_amt < 0.15) { // nearly dead, flash the icon
 		static bool show_icon(1);
 		static float cur_ticks(0.0);
@@ -1077,10 +1076,12 @@ void show_flashlight_icon(float charge_amt) {
 		if (cur_ticks > 0.4*TICKS_PER_SECOND) {show_icon ^= 1; cur_ticks = 0.0;} // toggle a bit faster than twice a second
 		if (!show_icon) return;
 	}
-	colorRGBA const icon_color((charge_amt == 0.0) ? DK_GRAY : WHITE); // grayed out when no battery
-	show_icon_image("icons/flashlight.png", 1.0, 1.0, 1.0, icon_color); // one slot to the left
+	vector<colorRGBA> colors(9); // 9 bars for each 10%
+	for (unsigned n = 0; n < 9; ++n) {colors[n] = ((charge_amt > 0.1*n) ? YELLOW : GRAY);}
+	colorRGBA const icon_color((charge_amt == 0.0) ? GRAY : WHITE); // grayed out when no battery
+	show_icon_image("icons/flashlight.png", 1.0, 1.0, 0.2, 1.0, icon_color, colors); // one slot to the left
 }
 void show_pool_cue_icon() {
-	show_icon_image("icons/pool_cue.png", 1.0, 1.0, 2.0); // two slots to the left
+	show_icon_image("icons/pool_cue.png", 1.0, 1.0, 1.0, 2.0); // two slots to the left
 }
 

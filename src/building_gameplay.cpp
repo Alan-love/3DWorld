@@ -1422,7 +1422,7 @@ public:
 		}
 		// handle flashlight
 		if (player_holding_lit_flashlight()) {
-			float const new_fb((flashlight_battery - 10.0*elapsed_secs/180.0f));
+			float const new_fb((flashlight_battery - elapsed_secs/180.0f));
 			
 			if (new_fb < 0.15 && flashlight_battery >= 0.15) {
 				string str("Low Battery");
