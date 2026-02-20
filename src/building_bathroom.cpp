@@ -52,11 +52,10 @@ bool building_t::add_bathroom_objs(rand_gen_t rgen, room_t &room, float &zval, u
 			}
 		}
 	}
-	float const tub_height_factor(0.2); // in units of floor spacing
+	float const tub_height_factor(0.2), sink_height_factor(0.45); // in units of floor spacing
 	unsigned const vanity_obj_ix(objs.size());
-	bool placed_obj(0), placed_toilet(0), no_tub(0);
+	bool placed_obj(0), placed_toilet(0);
 	bool added_vanity(is_house && !is_basement && rgen.rand_float() < 0.75 && add_vanity_to_room(rgen, room, zval, room_id, tot_light_amt, objs_start)); // maybe add vanity
-	if (min_room_dim < 0.88*floor_spacing) {no_tub = 1;} // too narrow for a tub; may block the player if a sink is placed opposite the tub
 
 	// place toilet first because it's in the corner out of the way and higher priority
 	if (have_toilet) { // have a toilet model
@@ -130,7 +129,18 @@ bool building_t::add_bathroom_objs(rand_gen_t rgen, room_t &room, float &zval, u
 		}
 	} // end have_toilet
 	unsigned const pre_shower_tub_sink_ix(objs.size());
+	float tub_clearance(0.0);
+	bool no_tub(0);
 
+	if (building_obj_model_loader.is_model_valid(OBJ_MODEL_TUB) && building_obj_model_loader.is_model_valid(OBJ_MODEL_SINK)) {
+		// add clearance around the tub if a sink placed on the opposite wall blocks the player
+		vector3d const tub_sz (building_obj_model_loader.get_model_world_space_size(OBJ_MODEL_TUB )); // D, W, H
+		vector3d const sink_sz(building_obj_model_loader.get_model_world_space_size(OBJ_MODEL_SINK)); // D, W, H
+		float const tub_depth (tub_height_factor *floor_spacing*tub_sz .x/tub_sz .z);
+		float const sink_depth(sink_height_factor*floor_spacing*sink_sz.x/sink_sz.z);
+		float const clearance(get_min_front_clearance_inc_people());
+		if (min_room_dim < (clearance + tub_depth + sink_depth)) {tub_clearance = clearance;}
+	}
 	for (unsigned n = 0; n < 20; ++n) { // 20 tries to add a tub/shower and sink
 		unsigned bathroom_objs_mask(0);
 
@@ -223,11 +233,17 @@ bool building_t::add_bathroom_objs(rand_gen_t rgen, room_t &room, float &zval, u
 			unsigned const tub_obj_ix(objs.size());
 		
 			if (place_model_along_wall(OBJ_MODEL_TUB, TYPE_TUB, room, tub_height_factor, rgen, zval, room_id, tot_light_amt, place_area_tub, objs_start, 0.4)) {
+				room_object_t const &tub(objs[tub_obj_ix]);
 				placed_obj = 1;
 				bathroom_objs_mask |= PLACED_TUB;
 
+				if (tub_clearance > 0.0 && objs.back().type == TYPE_BLOCKER) {
+					cube_t min_blocker(tub);
+					min_blocker.expand_by_xy(tub_clearance);
+					min_blocker.intersect_with_cube_xy(place_area_tub);
+					objs.back().union_with_cube(min_blocker);
+				}
 				if (rgen.rand_bool()) { // add a bar of soap on the edge of the tub
-					room_object_t const &tub(objs[tub_obj_ix]);
 					float const one_inch(get_one_inch()), soap_hlen(2.0*one_inch), soap_hwidth(1.25*one_inch), soap_height(1.0*one_inch); // 4x2.5x1
 					colorRGBA const soap_color(soap_colors[rgen.rand() % NUM_SOAP_COLORS]);
 					cube_t soap;
@@ -243,7 +259,7 @@ bool building_t::add_bathroom_objs(rand_gen_t rgen, room_t &room, float &zval, u
 		if (added_vanity) { // added vanity, no need to place a sink
 			added_bathroom_objs_mask |= PLACED_SINK; // vanity includes a sink
 		}
-		else if (place_model_along_wall(OBJ_MODEL_SINK, TYPE_SINK, room, 0.45, rgen, zval, room_id, tot_light_amt, place_area, objs_start, 0.6)) {
+		else if (place_model_along_wall(OBJ_MODEL_SINK, TYPE_SINK, room, sink_height_factor, rgen, zval, room_id, tot_light_amt, place_area, objs_start, 0.6)) {
 			placed_obj = 1;
 			bathroom_objs_mask |= PLACED_SINK;
 			assert(sink_obj_ix < objs.size());
