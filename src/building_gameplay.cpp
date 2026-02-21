@@ -545,7 +545,7 @@ float get_obj_weight(room_object_t const &obj) {
 }
 bool is_consumable(room_object_t const &obj) {
 	if (!in_building_gameplay_mode()) return 0;
-	//if (obj.type == TYPE_MILK)        return 1;
+	if (obj.type == TYPE_MILK)        return 1;
 	if (!obj.is_a_drink() || obj.is_bottle_empty() || (obj.flags & RO_FLAG_NO_CONS)) return 0; // not consumable
 	if (obj.type == TYPE_DRINK_CAN)   return 1; // always consumable; not an inventory item
 	unsigned const bottle_type(obj.get_bottle_type());
@@ -970,8 +970,9 @@ public:
 				default: assert(0);
 				}
 			}
-			else if (type == TYPE_MILK) {
-				// TODO
+			else if (type == TYPE_MILK) { // full health but 2x liquid
+				health = 1.0;
+				liquid = 2.0;
 			}
 			else {assert(0);} // invalid type
 		}
@@ -1052,9 +1053,9 @@ public:
 		bool const bladder_was_full(bladder >= 0.9);
 
 		if (liquid > 0.0) { // add one drink to the bladder, 25% of capacity
-			oss << ": -" << round_fp(100.0*liquid) << "% Thirst";
-			thirst  = min(1.0f, (thirst + liquid));
-			bladder = min(1.0f, (bladder + 0.25f));
+			oss << ": -" << round_fp(100.0*min(liquid, 1.0f)) << "% Thirst";
+			thirst  = min(1.0f, (thirst  + liquid));
+			bladder = min(1.0f, (bladder + 0.25f*max(liquid, 1.0f))); // 25%, more if liquid > 1.0
 		}
 		if (drunk > 0.0) {
 			drunkenness += drunk;
