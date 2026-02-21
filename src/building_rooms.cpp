@@ -421,7 +421,7 @@ void building_t::gen_room_details(rand_gen_t &rgen, unsigned building_ix) {
 			// top floor may have stairs connecting to upper stack
 			bool const top_floor(f+1 == num_floors), has_stairs_this_floor(r->has_stairs_on_floor(f));
 			bool const floor_will_alias(num_floors > NUM_RTYPE_SLOTS && f+1 >= NUM_RTYPE_SLOTS); // this floor will alias with later floors in room type assignment
-			unsigned const floor_objs_start(objs.size()); // needed for backrooms lights
+			unsigned const floor_objs_start(objs.size()); // needed for backrooms lights and mall stores
 			unsigned pillars_start(0); // needed for mall lights
 			bool is_lit(0), light_dim(room_dim), wall_light(0), has_stairs(has_stairs_this_floor), top_of_stairs(has_stairs && top_floor);
 			float light_delta_z(0.0);
@@ -435,6 +435,7 @@ void building_t::gen_room_details(rand_gen_t &rgen, unsigned building_ix) {
 				}
 				else { // underground parking garage
 					assert(!has_window); // can't have windows
+					add_outlets_to_room    (rgen, *r, room_center.z, room_id, floor_objs_start, 0, 1); // is_ground_floor=0, is_basement=1
 					add_parking_garage_objs(rgen, *r, room_center.z, room_id, f, num_floors, nx, ny, light_delta_z, light_ix_assign);
 				}
 			}
@@ -446,14 +447,14 @@ void building_t::gen_room_details(rand_gen_t &rgen, unsigned building_ix) {
 				pillars_start = add_mall_objs(rgen, *r, room_center.z, room_id, rooms_to_light);
 			}
 			else if (is_retail_room) {
+				add_outlets_to_room (rgen, *r, room_center.z, room_id, floor_objs_start, 1, 0); // is_ground_floor=1, is_basement=0
 				add_retail_room_objs(rgen, *r, room_center.z, room_id, light_ix_assign);
 			}
 			else if (is_mall_store) {
 				is_lit = 1;
-				unsigned const objs_start(objs.size());
 				unsigned const store_type(add_mall_store_objs(rgen, *r, room_center.z, room_id, store_type_mask, div_wall, light_ix_assign));
-				add_outlets_to_room       (rgen, *r, room_center.z,  room_id, objs_start, 0, 0); // is_ground_floor=is_basement=0
-				add_light_switches_to_room(rgen, *r, room_center.z,  room_id, objs_start, 0, 0, is_lit); // is_ground_floor=is_basement=0
+				add_outlets_to_room       (rgen, *r, room_center.z, room_id, floor_objs_start, 0, 0); // is_ground_floor=0, is_basement=0
+				add_light_switches_to_room(rgen, *r, room_center.z, room_id, floor_objs_start, 0, 0, is_lit); // is_ground_floor=0, is_basement=0
 				rgen.rand_mix(); // make sure numbers are different for each store
 				
 				if (store_type == STORE_FOOD) { // restaurants have separate dining vs. kitchen and may need more lights
@@ -899,7 +900,7 @@ void building_t::gen_room_details(rand_gen_t &rgen, unsigned building_ix) {
 					added_obj = 1;
 				}
 				else if (is_rest_kitchen) {
-					added_obj = add_commercial_kitchen_objs(rgen, *r, room_center.z, room_id, f, tot_light_amt, objs_start, objs_start_inc_lights, light_ix_assign);
+					added_obj = is_kitchen = add_commercial_kitchen_objs(rgen, *r, room_center.z, room_id, f, tot_light_amt, objs_start, objs_start_inc_lights, light_ix_assign);
 					if (added_obj) {added_kitchen_mask |= 1;}
 				}
 				else if (init_rtype_f0 == RTYPE_MENS || init_rtype_f0 == RTYPE_WOMENS) {
@@ -1019,7 +1020,7 @@ void building_t::gen_room_details(rand_gen_t &rgen, unsigned building_ix) {
 								if (added_obj) {r->assign_to(RTYPE_LAB, f);}
 							}
 							else if (!added_kitchen_mask) { // commercial kitchen on the first floor; should this be next to the cafeteria?
-								added_obj = no_whiteboard =
+								added_obj = is_kitchen = no_whiteboard =
 									add_commercial_kitchen_objs(rgen, *r, room_center.z, room_id, f, tot_light_amt, objs_start, objs_start_inc_lights, light_ix_assign);
 								if (added_obj) {added_kitchen_mask |= 1;}
 								if (added_obj) {r->assign_to(RTYPE_KITCHEN, f);}
@@ -1040,7 +1041,7 @@ void building_t::gen_room_details(rand_gen_t &rgen, unsigned building_ix) {
 					if (added_obj) {r->assign_to(RTYPE_CAFETERIA, f);}
 				}
 				if (!added_obj && f == 0 && !added_kitchen_mask && rgen.rand_bool()) { // commercial kitchen; should this be next to the cafeteria?
-					added_obj = no_plants = no_whiteboard =
+					added_obj = is_kitchen = no_plants = no_whiteboard =
 						add_commercial_kitchen_objs(rgen, *r, room_center.z, room_id, f, tot_light_amt, objs_start, objs_start_inc_lights, light_ix_assign);
 					if (added_obj) {added_kitchen_mask |= 1;}
 					if (added_obj) {r->assign_to(RTYPE_KITCHEN, f);}

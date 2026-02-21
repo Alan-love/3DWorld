@@ -4408,7 +4408,8 @@ void building_t::add_light_switches_to_room(rand_gen_t rgen, room_t const &room,
 void building_t::add_outlets_to_room(rand_gen_t rgen, room_t const &room, float zval, unsigned room_id,
 	unsigned objs_start, bool is_ground_floor, bool is_basement, bool is_kitchen)
 {
-	float const wall_thickness(get_wall_thickness()), plate_height(1.8*wall_thickness), plate_hwidth(0.5*wall_thickness), min_wall_spacing(4.0*plate_hwidth);
+	float const wall_thickness(get_wall_thickness()), floor_spacing(get_window_vspace()), min_outlet_spacing(0.25*floor_spacing);
+	float const plate_height(1.8*wall_thickness), plate_hwidth(0.5*wall_thickness), min_wall_spacing(4.0*plate_hwidth);
 	cube_t const room_bounds(get_room_wall_bounds(room));
 	if (min(room_bounds.dx(), room_bounds.dy()) < 3.0*min_wall_spacing) return; // room is too small; shouldn't happen
 	float const outlet_z1(zval + get_trim_height() + 0.4*plate_height); // wall trim height + some extra padding; same for every outlet
@@ -4416,18 +4417,20 @@ void building_t::add_outlets_to_room(rand_gen_t rgen, room_t const &room, float 
 	if ((int)room_id == interior->pool.room_ix) {plate_thickness += 0.5*get_flooring_thick();} // add over pool tile, somewhat recessed
 	vect_door_stack_t const &doorways(get_doorways_for_room(room, zval));
 	vect_room_object_t &objs(interior->room_geom->objs);
-	unsigned const num_outlets_per_wall(is_kitchen ? 2 : 1); // more outlets in kitchen
+	bool const single_lg_room(room.is_single_large_room());
+	unsigned const num_outlets_per_wall((is_kitchen || single_lg_room) ? 2 : 1); // more outlets in kitchen and large rooms
 
 	// try to add an outlet to each wall, down near the floor so that they don't intersect objects such as pictures
 	for (unsigned wall = 0; wall < 4; ++wall) {
 		bool const dim(wall >> 1), dir(wall & 1);
-		if (!is_commercial() && room.get_sz_dim(!dim) < room.get_sz_dim(dim)) continue; // only add outlets to the long walls of office building rooms
+		if (!is_commercial() && room.get_sz_dim(!dim) < room.get_sz_dim(dim)) continue; // only add outlets to the long walls of office/commercial building rooms
 		bool const is_exterior_wall(classify_room_wall(room, zval, dim, dir, 0) == ROOM_WALL_EXT); // includes basement
 		if (is_exterior_wall && !is_cube()) continue; // don't place on ext wall if it's not X/Y aligned
 		bool const might_have_windows(!is_basement && has_int_windows() && is_exterior_wall);
 		if (might_have_windows && is_industrial()) continue; // industrial buildings have irregular sub-room window placement, so skip these exterior walls
 		cube_t const &wall_bounds(is_exterior_wall ? room : room_bounds); // exterior wall should use the original room, not room_bounds
 		float const wall_face(wall_bounds.d[dim][dir]), dir_sign(dir ? -1.0 : 1.0);
+		cube_t exclude_area;
 
 		for (unsigned n = 0; n < num_outlets_per_wall; ++n) {
 			float const wall_pos(rgen.rand_uniform((room_bounds.d[!dim][0] + min_wall_spacing), (room_bounds.d[!dim][1] - min_wall_spacing)));
@@ -4436,6 +4439,7 @@ void building_t::add_outlets_to_room(rand_gen_t rgen, room_t const &room, float 
 			set_wall_width(c, wall_pos, plate_hwidth, !dim);
 			c.d[dim][ dir] = wall_face; // flush with wall
 			c.d[dim][!dir] = wall_face + dir_sign*plate_thickness; // expand out a bit
+			if (!exclude_area.is_all_zeros() && c.intersects(exclude_area)) continue; // too close to previous outlet (maybe same wall); doesn't apply to kitchen counters
 
 			if (might_have_windows) { // check for window intersection
 				cube_t const &part(get_part_for_room(room));
@@ -4499,8 +4503,26 @@ void building_t::add_outlets_to_room(rand_gen_t rgen, room_t const &room, float 
 			}
 			expand_to_nonzero_area(c, plate_thickness, dim);
 			objs.emplace_back(c, TYPE_OUTLET, room_id, dim, dir, flags, 1.0); // dim/dir matches wall; fully lit
+			exclude_area = c;
+			exclude_area.expand_by_xy(min_outlet_spacing); // don't place other outlets in this area
 		} // for n
 	} // for wall
+	if (single_lg_room && room.has_elevator) {
+		// place outlets on sides of elevators for retail, parking garage, backrooms, etc.; may be inside an elevator equipment room
+		for (elevator_t const &e : interior->elevators) {
+			if (!room.contains_cube_xy(e))                  continue; // not fully contained in this room
+			if (e.adj_pair_ix == 2)                         continue; // only use first elevator in a pair
+			if (e.get_sz_dim(e.dim) < 2.1*min_wall_spacing) continue; // too narrow; shouldn't happen
+			bool const dim(!e.dim), dir(rgen.rand_bool());
+			float const wall_face(e.d[dim][!dir]), wall_pos(rgen.rand_uniform((e.d[!dim][0] + min_wall_spacing), (e.d[!dim][1] - min_wall_spacing)));
+			cube_t c;
+			set_cube_zvals(c, outlet_z1, (outlet_z1 + plate_height));
+			set_wall_width(c, wall_pos, plate_hwidth, !dim);
+			c.d[dim][ dir] = wall_face; // flush with wall
+			c.d[dim][!dir] = wall_face + (dir ? -1.0 : 1.0)*plate_thickness; // expand out a bit
+			objs.emplace_back(c, TYPE_OUTLET, room_id, dim, dir, RO_FLAG_NOCOLL, 1.0);
+		} // for e
+	}
 }
 
 bool building_t::add_wall_vent_to_room(rand_gen_t rgen, room_t const &room, float zval, unsigned room_id, unsigned objs_start, bool check_for_ducts) {
