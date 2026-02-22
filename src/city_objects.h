@@ -515,6 +515,7 @@ struct city_bldg_t : public obj_with_roof_pavement_lights_t, public reservable_t
 	bool has_back_wall=0, sloped_roof=0;
 	cube_t bldg, exit_driveway, bcube_with_extras, bays[num_lanes], lights[num_lanes], light_clip_cubes[num_lanes];
 	mutable bool cached_smaps[num_lanes]={}; // for lights
+	mutable unsigned lane_in_use=0; // bit flags for for car washes
 	vect_cube_t walls, tires, tire_stacks;
 
 	city_bldg_t(cube_t const &c, bool dim_, bool dir_, bool edir, unsigned pix, unsigned bix, uint8_t btype_, rand_gen_t &rgen);

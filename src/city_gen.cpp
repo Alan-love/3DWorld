@@ -2012,9 +2012,9 @@ private:
 public:
 	void update_car(car_t &car, vector<car_t> const &cars, rand_gen_t &rgen, vector<road_network_t> const &road_networks, road_network_t const &global_rn) const {
 		assert(car.cur_city == city_id);
+		city_obj_placer.register_car_state(car); // register, even if stopped (for washing in car wash)
 		if (car.is_parked()) return; // stopped, no update (for now)
 		car.is_braking = 0; // reset for this frame
-		city_obj_placer.register_car_state(car);
 			
 		if (car.cur_road_type == TYPE_DRIVEWAY) { // moving in a driveway; could also be TYPE_PARK_LOT
 			if (run_car_in_driveway_logic(car, cars, rgen)) return;

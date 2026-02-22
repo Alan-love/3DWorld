@@ -2819,7 +2819,8 @@ city_bldg_t::city_bldg_t(cube_t const &c, bool dim_, bool dir_, bool edir, unsig
 }
 void city_bldg_t::draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist_scale, bool shadow_only) const {
 	// Note: most geometry is drawn immediately rather than in multiple passes since there are several materials and likely only one or two visible car washes
-	float const tscale(1.0/bldg.dz());
+	float const tscale(1.0/bldg.dz()), dmax(dist_scale*dstate.draw_tile_dist);
+
 	// draw walls and sides of roof
 	if (!shadow_only) {
 		select_texture(get_texture_by_name("bricks_tan.png"));
@@ -2871,7 +2872,6 @@ void city_bldg_t::draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist_
 	
 	if (!shadow_only) { // draw pavement and lights; not shadow casters
 		bind_default_flat_normal_map();
-		float const dmax(dist_scale*dstate.draw_tile_dist);
 		if (!bcube.closest_dist_less_than(dstate.camera_bs, 0.4*dmax)) return; // no pavements, lights, or tires (pavement has Z-fighting problems anyway)
 		draw_road_pavement(dstate, qbds); // draw pavement surface
 		if (!bcube.closest_dist_less_than(dstate.camera_bs, 0.2*dmax)) return; // no lights or tires
@@ -2892,6 +2892,36 @@ void city_bldg_t::draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist_
 			draw_circle_normal(hradius, tradius, ndiv, 0, top, 0.0, 0.0); // invert_normals=0; single texel
 			if (!on_ground) {draw_circle_normal(hradius, tradius, ndiv, 0, bot, 0.0, 0.0);} // draw bottom surface of stacked tires
 		} // for tire
+	}
+	if (!shadow_only && btype == CITY_BLDG_CARWASH && lane_in_use && bcube.closest_dist_less_than(dstate.camera_bs, 0.1*dmax)) {
+		// at least one lane is in use; draw water
+		unsigned const num_lines = 100;
+		static vector<vert_norm_comp> water_verts;
+		static rand_gen_t rgen;
+		vert_norm_comp vert;
+		water_verts.clear();
+		select_no_texture();
+		bind_default_flat_normal_map();
+		dstate.s.set_cur_color(LT_BLUE);
+		//enable_blend(); // is this needed/does this help?
+
+		for (unsigned n = 0; n < num_lanes; ++n) {
+			if (!(lane_in_use & (1 << n))) continue;
+			cube_t water_area(bays[n]);
+			water_area.expand_in_dim(dim, -0.1*get_depth()); // no water at the very ends
+			float const max_hlen(0.05*water_area.dz());
+			vert.set_norm((dstate.camera_bs - water_area.get_cube_center()).get_norm()); // facing the camera
+			
+			for (unsigned i = 0; i < num_lines; ++i) {
+				gen_xyz_pos_in_cube(vert.v, water_area, rgen); // center of droplet line
+				float const hlen(max_hlen*rgen.rand_float()), zval(vert.v.z);
+				vert.v.z = max(water_area.z1(), (zval - hlen)); // bot
+				water_verts.push_back(vert);
+				vert.v.z = min(water_area.z2(), (zval + hlen)); // bot
+				water_verts.push_back(vert);
+			} // for i
+		} // for n
+		draw_verts(water_verts, GL_LINES);
 	}
 }
 bool city_bldg_t::proc_sphere_coll(point &pos_, point const &p_last, float radius_, point const &xlate, vector3d *cnorm) const {
@@ -2971,6 +3001,8 @@ void city_bldg_t::register_car(car_t const &car) const {
 		if      (cbc_inner.intersects_xy(bays[n])) {enable_light (n);} // enter bay
 		else if (car.bcube.intersects_xy(bays[n])) {disable_light(n);} // exit  bay
 	}
+	if (car.is_washing) {lane_in_use |=  (1 << car.dest_cw_lane);} // set   in_use bit
+	else                {lane_in_use &= ~(1 << car.dest_cw_lane);} // clear in_use bit
 }
 
 // birds/pigeons
