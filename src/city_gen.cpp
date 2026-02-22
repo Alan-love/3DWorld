@@ -73,7 +73,7 @@ void set_city_lighting_shader_opts(shader_t &s, cube_t const &lights_bcube, bool
 
 // use_smap: 0=no, 1=sun/moon + dynamic lights; enable in shader and set shadow map uniforms, 2=dynamic lights only; disable in shader but set shadow map uniforms
 void city_shader_setup(shader_t &s, cube_t const &lights_bcube, bool use_dlights, int use_smap, int use_bmap, float min_alpha, bool force_tsl,
-	float pcf_scale, int use_texgen, bool indir_lighting, bool is_outside, bool enable_int_reflect, bool enable_dirt)
+	float pcf_scale, int use_texgen, bool indir_lighting, bool is_outside, bool enable_int_reflect, bool enable_dirt, bool enable_foam)
 {
 	use_dlights &= (lights_bcube.is_strictly_normalized() && !dl_sources.empty());
 	have_indir_smoke_tex = indir_lighting; // assume someone is going to set the indir texture in this case; ***note that this breaks normal indir scene drawing***
@@ -81,6 +81,7 @@ void city_shader_setup(shader_t &s, cube_t const &lights_bcube, bool use_dlights
 	if (enable_int_reflect) {s.set_prefix("#define ENABLE_BUILDING_CUBE_MAP",  1);} // FS
 	if (enable_int_reflect) {s.set_prefix("#define ENABLE_CUBE_MAP_BUMP_MAPS", 1);} // FS
 	if (enable_dirt       ) {s.set_prefix("#define ENABLE_DIRT_EFFECT",        1);} // FS
+	if (enable_foam       ) {s.set_prefix("#define ENABLE_FOAM_EFFECT",        1);} // FS
 	// increase shadow map precision for small light far from origin, but much slower for rooms with dense lights such as factories and warehouses
 	//if (use_dlights && camera_in_building) {s.set_prefix("#define DLIGHT_SMAP_DOUBLE_PRECISION", 1);}
 	// Note: here use_texgen mode 5 is used as a hack so that the shader still has binding points for tex coords (can't optimize it out)
@@ -88,8 +89,9 @@ void city_shader_setup(shader_t &s, cube_t const &lights_bcube, bool use_dlights
 	// use texgen mode 6 instead for cylinder buildings
 	int const use_texgen_val(use_texgen ? (use_texgen + 4) : 0);
 	bool const keep_alpha = 1; // required for fog on windows
+	bool const use_mvm(use_dlights || indir_lighting || enable_dirt || enable_foam);
 	setup_smoke_shaders(s, min_alpha, use_texgen_val, keep_alpha, indir_lighting, 1, use_dlights, 0, 0, ((use_smap == 1) ? 2 : 0),
-		use_bmap, 0, (use_dlights || indir_lighting || enable_dirt), force_tsl, 0.0, 0.0, 0, (enable_int_reflect ? 2 : 0), is_outside); // use_spec_map=0
+		use_bmap, 0, use_mvm, force_tsl, 0.0, 0.0, 0, (enable_int_reflect ? 2 : 0), is_outside); // use_spec_map=0
 	set_city_lighting_shader_opts(s, lights_bcube, use_dlights, (use_smap != 0), pcf_scale);
 	if (use_texgen    ) {s.add_uniform_float("tc_texgen_mix",   0.0);} // always uses texgen in this mode
 	if (indir_lighting) {s.add_uniform_float("max_indir_light", 0.8);} // clamp to avoid over saturation with both direct and indir light
@@ -97,8 +99,9 @@ void city_shader_setup(shader_t &s, cube_t const &lights_bcube, bool use_dlights
 	if (enable_int_reflect) {bind_player_building_cube_map(s);}
 	s.add_uniform_float("cube_map_normal_map_scale", 0.0); // off by default
 
-	if (enable_dirt) { // uses puddle texture logic
+	if (enable_dirt || enable_foam) { // uses puddle texture logic
 		s.add_uniform_float("dirtiness",    0.0); // reset to 0
+		s.add_uniform_float("foaminess",    0.0); // reset to 0
 		s.add_uniform_float("puddle_scale", 1.0);
 		setup_puddles_texture(s);
 	}
@@ -133,7 +136,7 @@ void draw_state_t::pre_draw(vector3d const &xlate_, bool use_dlights_, bool shad
 		bool const force_tsl = 0; // helps with hedges and flags, but causes problems with other models
 		cube_t const &lights_bcube(use_building_lights ? get_building_lights_bcube() : get_city_lights_bcube());
 		city_shader_setup(s, lights_bcube, use_dlights, use_smap, (use_bmap && !shadow_only),
-			DEF_CITY_MIN_ALPHA, force_tsl, 0.5, 0, 0, 1, enable_reflect, enable_dirt); // is_outside=1
+			DEF_CITY_MIN_ALPHA, force_tsl, 0.5, 0, 0, 1, enable_reflect, enable_dirt, enable_foam); // is_outside=1
 	}
 }
 void draw_state_t::end_draw() {

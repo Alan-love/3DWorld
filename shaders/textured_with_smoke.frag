@@ -37,7 +37,9 @@ uniform float crack_weight = 0.0;
 uniform float crack_zmax   = 0.0;
 uniform float crack_normal_zmax = -2.0; // default is all normals
 uniform float dirtiness   = 0.0;
-uniform vec3  dirt_origin = vec3(0.0);
+uniform float foaminess   = 1.0;
+uniform float foam_time   = 0.0; // used to translate foam effect
+uniform vec3  dirt_origin = vec3(0.0); // also applies to foam
 uniform int cube_map_texture_size = 0;
 uniform vec4 emission = vec4(0,0,0,1);
 uniform bool two_sided_lighting = true;
@@ -580,9 +582,20 @@ void main() {
 		float dirt_scale1 = 0.4*sqrt(min(1.0, 8.0*dirt_ratio1))*min(1.0, pow((dirt_ratio1 + max(dirt_rval1, 0.6) - 0.6), 8.0)); // large areas
 		float dirt_scale2 = 1.0*sqrt(min(1.0, 8.0*dirt_ratio2))*min(1.0, pow((dirt_ratio2 + max(dirt_rval2, 0.6) - 0.6), 8.0)); // smaller spots
 		float dirt_amt    = min(sqrt(dirtiness)*(dirt_scale1 + dirt_scale2), 1.0);
-		color = mix(color, vec4(0.0, 0.0, 0.0, 1.0), dirt_amt); // dirt_scale transitions color to black
+		color = mix(color, vec4(0.0, 0.0, 0.0, 1.0), dirt_amt); // dirt_amt transitions color to black
 	}
 #endif // ENABLE_DIRT_EFFECT
+
+#ifdef ENABLE_FOAM_EFFECT
+	if (foaminess > 0.0) { // add foam similar to puddles; applied over dirt
+		vec3 foam_tex_off = puddle_scale*(vpos - dirt_origin - vec3(0.0, 0.0, 0.003*foam_time));
+		float foam_ratio  = 0.5*min(foaminess, 1.0); // at most 50% foam
+		float foam_rval   = noise_lookup_4_octaves(5.0*foam_tex_off);
+		float foam_scale  = sqrt(min(1.0, 8.0*foam_ratio))*min(1.0, pow((foam_ratio + max(foam_rval, 0.6) - 0.6), 8.0));
+		float foam_amt    = smoothstep(0.4, 0.6, foam_scale);
+		color = mix(color, vec4(1.0), foam_amt); // foam_amt transitions color to white
+	}
+#endif // ENABLE_FOAM_EFFECT
 
 #ifndef SMOKE_ENABLED
 #ifndef NO_ALPHA_TEST

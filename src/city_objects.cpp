@@ -3004,8 +3004,9 @@ void city_bldg_t::register_car(car_t const &car) const {
 		if      (cbc_inner.intersects_xy(bays[n])) {enable_light (n);} // enter bay
 		else if (car.bcube.intersects_xy(bays[n])) {disable_light(n);} // exit  bay
 	}
-	if (car.is_washing) {lane_in_use |=  (1 << car.dest_cw_lane);} // set   in_use bit
-	else                {lane_in_use &= ~(1 << car.dest_cw_lane);} // clear in_use bit
+	bool const enable_water(car.is_washing || car.foam_amt > 0.0);
+	if (enable_water) {lane_in_use |=  (1 << car.dest_cw_lane);} // set   in_use bit
+	else              {lane_in_use &= ~(1 << car.dest_cw_lane);} // clear in_use bit
 }
 
 // birds/pigeons

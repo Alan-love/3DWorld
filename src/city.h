@@ -148,7 +148,7 @@ struct car_t : public car_base_t, public waiting_obj_t { // size = 136
 	bool in_reverse=0, engine_running=0, is_braking=0, in_parking_lot=0;
 	uint8_t color_id=0, front_car_turn_dir=TURN_UNSPEC, model_id=0, headlight_color=0, dest_gs_lane=0, dest_cw_lane=0;
 	uint16_t dest_city=0, dest_isec=0;
-	float height=0.0, dz=0.0, rot_z=0.0, turn_val=0.0, waiting_pos=0.0, wake_time=0.0, fuel_amt=0.0, dirt_amt=0.0;
+	float height=0.0, dz=0.0, rot_z=0.0, turn_val=0.0, waiting_pos=0.0, wake_time=0.0, fuel_amt=0.0, dirt_amt=0.0, foam_amt=0.0;
 	vector2d park_space_cent; // or gas station pos
 	cube_t prev_bcube;
 	car_t const *car_in_front=nullptr;
@@ -443,7 +443,7 @@ struct draw_state_t {
 	shader_t s;
 	vector3d xlate;
 	point camera_bs;
-	bool use_building_lights=0, enable_dirt=0;
+	bool use_building_lights=0, enable_dirt=0, enable_foam=0;
 	unsigned pass_ix=0;
 	float draw_tile_dist=0.0;
 	hedge_draw_t hedge_draw;
@@ -723,7 +723,7 @@ public:
 	void draw_remaining_cars();
 	void add_car_headlights(vector<car_t> const &cars, vector3d const &xlate_, cube_t &lights_bcube);
 	static void gen_car_pts(car_t const &car, bool include_top, point pb[8], point pt[8]);
-	void draw_car(car_t const &car, bool is_dlight_shadows, int dirt_shader_loc, int dpos_shader_loc);
+	void draw_car(car_t const &car, bool is_dlight_shadows, int dirt_shader_loc, int dpos_shader_loc, int foam_shader_loc, int ftime_shader_loc);
 	void draw_helicopter(helicopter_t const &h, bool shadow_only);
 	void add_car_headlights(car_t const &car, cube_t &lights_bcube) const;
 }; // car_draw_state_t
