@@ -877,11 +877,11 @@ bool building_t::interact_with_object(unsigned obj_ix, point const &int_pos, poi
 		update_draw_data = 1;
 	}
 	else if (type == TYPE_BREAKER) {
-		gen_sound_thread_safe_at_player(SOUND_CLICK, 1.0);
 		obj.flags       ^= RO_FLAG_OPEN; // toggle on/off
-		toggle_circuit_breaker(obj.is_open(), obj.obj_id, obj.item_flags);
 		sound_scale      = 0.25;
 		update_draw_data = 1;
+		gen_sound_thread_safe_at_player(SOUND_CLICK, 1.0);
+		toggle_circuit_breaker(obj.is_open(), obj.obj_id, obj.item_flags);
 	}
 	else if (type == TYPE_OUTLET) {
 		gen_sound_thread_safe_at_player(SOUND_NEON_SIGN, 1.0); // electric buzz sound

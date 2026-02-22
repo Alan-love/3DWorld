@@ -7011,7 +7011,7 @@ void building_room_geom_t::add_camera(room_object_t const &c) { // Note: camera 
 	point light_pt(lens_pt);
 	light_pt.z += 0.9*lens_radius; // shift up
 	light_pt[!c.dim] += ((c.dim ^ c.dir) ? 1.0 : -1.0)*1.0*lens_radius; // shift to the side
-	rgeom_mat_t &light_mat(get_material(tid_nm_pair_t(RED_TEX), 0, 0, 1)); // unshadowed, small
+	rgeom_mat_t &light_mat(get_material(tid_nm_pair_t(c.is_powered() ? RED_TEX : WHITE_TEX), 0, 0, 1)); // unshadowed, small
 	unsigned const tvl_start(light_mat.itri_verts.size());
 	light_mat.add_disk_to_verts(light_pt, 0.2*lens_radius, camera_dir, RED);
 	rotate_verts(light_mat.itri_verts, rot_axis, rot_angle, rot_pt, tvl_start);
