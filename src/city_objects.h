@@ -449,6 +449,7 @@ struct parking_solar_t : public oriented_city_obj_t {
 };
 
 struct obj_with_roof_pavement_lights_t : public oriented_city_obj_t {
+	bool has_daytime_lights=0;
 	mutable unsigned lights_enabled=0; // bit mask per light; mutable so that cars can change light state in their update logic
 	cube_t roof, pavement;
 
@@ -458,7 +459,7 @@ struct obj_with_roof_pavement_lights_t : public oriented_city_obj_t {
 	static void post_draw(draw_state_t &dstate, bool shadow_only);
 	void draw_road_pavement(draw_state_t &dstate, city_draw_qbds_t &qbds) const;
 	void draw_lights(draw_state_t &dstate, city_draw_qbds_t &qbds, cube_t const *lights, unsigned num_lights) const;
-	void add_night_time_lights(vector3d const &xlate, cube_t &lights_bcube, float ldist, cube_t const *lights,
+	void add_lights(vector3d const &xlate, cube_t &lights_bcube, float ldist, cube_t const *lights,
 		bool *cached_smaps, cube_t const *clip_cubes, unsigned num_lights, bool car_is_using) const;
 	bool proc_roof_sphere_coll(point &pos_, point const &p_last, float radius_, point const &xlate, vector3d *cnorm) const;
 };
@@ -499,7 +500,7 @@ struct gas_station_t : public obj_with_roof_pavement_lights_t, public reservable
 	bool proc_sphere_coll(point &pos_, point const &p_last, float radius_, point const &xlate, vector3d *cnorm) const;
 	bool line_intersect(point const &p1, point const &p2, float &t) const;
 	void add_ped_colliders(vect_cube_t &colliders) const;
-	void add_night_time_lights(vector3d const &xlate, cube_t &lights_bcube) const;
+	void add_lights(vector3d const &xlate, cube_t &lights_bcube, bool night_mode) const;
 	// car lane management logic
 	driveway_t get_entrance_for_lane(unsigned lane_ix) const;
 	driveway_t get_exit_lane() const;
@@ -522,7 +523,7 @@ struct city_bldg_t : public obj_with_roof_pavement_lights_t, public reservable_t
 	bool has_exit() const {return !exit_driveway.is_all_zeros();}
 	void draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist_scale, bool shadow_only) const;
 	bool proc_sphere_coll(point &pos_, point const &p_last, float radius_, point const &xlate, vector3d *cnorm) const;
-	void add_night_time_lights(vector3d const &xlate, cube_t &lights_bcube) const;
+	void add_lights(vector3d const &xlate, cube_t &lights_bcube, bool night_mode) const;
 	// car lane management logic
 	driveway_t get_entrance_for_lane(unsigned lane_ix) const;
 	driveway_t get_exit_lane() const;

@@ -2709,9 +2709,10 @@ void city_obj_placer_t::draw_transparent_objects(draw_state_t &dstate) {
 }
 
 void city_obj_placer_t::add_lights(vector3d const &xlate, cube_t &lights_bcube) const {
+	bool const night_mode(is_night());
 	skyway.add_lights(xlate, lights_bcube);
 
-	if (is_night()) { // add sculpture, gas station, car wash, and service station lights if night time
+	if (night_mode) { // add sculpture, gas station, car wash, and service station lights if night time
 		if (!sculpt_groups.empty() && sculpt_groups.get_bcube().intersects_xy(lights_bcube)) {
 			unsigned start_ix(0);
 
@@ -2729,12 +2730,12 @@ void city_obj_placer_t::add_lights(vector3d const &xlate, cube_t &lights_bcube) 
 				}
 			} // for i
 		}
-		if (!gstations.empty() && gass_groups.get_bcube().intersects_xy(lights_bcube)) {
-			for (gas_station_t const &gs : gstations) {gs.add_night_time_lights(xlate, lights_bcube);}
-		}
-		if (!bldgs.empty() && bldg_groups.get_bcube().intersects_xy(lights_bcube)) {
-			for (city_bldg_t const &cw : bldgs) {cw.add_night_time_lights(xlate, lights_bcube);}
-		}
+	}
+	if (!gstations.empty() && gass_groups.get_bcube().intersects_xy(lights_bcube)) {
+		for (gas_station_t const &gs : gstations) {gs.add_lights(xlate, lights_bcube, night_mode);}
+	}
+	if (!bldgs.empty() && bldg_groups.get_bcube().intersects_xy(lights_bcube)) {
+		for (city_bldg_t const &cw : bldgs) {cw.add_lights(xlate, lights_bcube, night_mode);}
 	}
 }
 

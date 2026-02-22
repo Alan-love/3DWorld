@@ -2472,18 +2472,18 @@ void obj_with_roof_pavement_lights_t::draw_road_pavement(draw_state_t &dstate, c
 }
 void obj_with_roof_pavement_lights_t::draw_lights(draw_state_t &dstate, city_draw_qbds_t &qbds, cube_t const *lights, unsigned num_lights) const {
 	colorRGBA const lights_color(get_light_color_temp(GS_LIGHT_COLOR_TEMP)); // bluish
-	bool const enable_lights(is_night());
+	bool const enable_lights(has_daytime_lights || is_night());
 	
 	for (unsigned n = 0; n < num_lights; ++n) {
 		quad_batch_draw &lights_qbd((enable_lights && (lights_enabled & (1<<n))) ? qbds.emissive_qbd : qbds.untex_qbd); // lights on/emissive at night
 		dstate.draw_cube(lights_qbd, lights[n], lights_color, 0, 0.0, 0, 0, 0, 0, 1.0, 1.0, 1.0, 1); // skip_top=1
 	}
 }
-void obj_with_roof_pavement_lights_t::add_night_time_lights(vector3d const &xlate, cube_t &lights_bcube, float ldist,
+void obj_with_roof_pavement_lights_t::add_lights(vector3d const &xlate, cube_t &lights_bcube, float ldist,
 	cube_t const *lights, bool *cached_smaps, cube_t const *clip_cubes, unsigned num_lights, bool car_is_using) const
 {
-	if (lights_enabled == 0) return; // all lights disabled
-	if (!lights_bcube.intersects(bcube)) return; // not contained within the light volume
+	if (lights_enabled == 0)                return; // all lights disabled
+	if (!lights_bcube.intersects_xy(bcube)) return; // not contained within the light volume
 	bool cache_shadow_maps(!car_is_using);
 	ldist *= city_params.road_width;
 	cube_t bcube_exp(bcube);
@@ -2499,7 +2499,7 @@ void obj_with_roof_pavement_lights_t::add_night_time_lights(vector3d const &xlat
 	for (unsigned n = 0; n < num_lights; ++n) {
 		if (!(lights_enabled & (1<<n))) continue; // this light disabled
 		point const lpos(cube_bot_center(lights[n]));
-		if (!lights_bcube.contains_pt(lpos)) continue;
+		if (!lights_bcube.contains_pt_xy(lpos)) continue;
 		if (!camera_pdu.sphere_visible_test((lpos + xlate), ldist)) continue; // VFC
 		colorRGBA const color(get_light_color_temp(GS_LIGHT_COLOR_TEMP)); // bluish
 		min_eq(lights_bcube.z1(), (lpos.z - ldist));
@@ -2656,10 +2656,11 @@ void gas_station_t::add_ped_colliders(vect_cube_t &colliders) const {
 		colliders.back().union_with_cube(pumps[n].bcube);
 	}
 }
-void gas_station_t::add_night_time_lights(vector3d const &xlate, cube_t &lights_bcube) const {
+void gas_station_t::add_lights(vector3d const &xlate, cube_t &lights_bcube, bool night_mode) const {
+	if (!night_mode) return; // lights are currently only enabled at night
 	bool car_is_using(out_reserved); // assume a car may be casting shadows if a line is reserved; conservative
 	for (unsigned n = 0; n < num_lanes; ++n) {car_is_using |= lane_reserved[n];}
-	obj_with_roof_pavement_lights_t::add_night_time_lights(xlate, lights_bcube, 1.0, lights, cached_smaps, nullptr, num_lights, car_is_using); // no clip cubes
+	obj_with_roof_pavement_lights_t::add_lights(xlate, lights_bcube, 1.0, lights, cached_smaps, nullptr, num_lights, car_is_using); // no clip cubes
 }
 // ^
 // ^ LANE1  => V
@@ -2745,6 +2746,7 @@ city_bldg_t::city_bldg_t(cube_t const &c, bool dim_, bool dir_, bool edir, unsig
 	float const bay_spacing((width - wall_thick)/num_lanes), dsign(dir ? 1.0 : -1.0);
 	has_back_wall = (btype == CITY_BLDG_SERVICE);
 	sloped_roof   = (btype == CITY_BLDG_CARWASH || btype == CITY_BLDG_SERVICE); // both
+	has_daytime_lights = 1;
 	bldg = bcube_with_extras = bcube;
 	if (sloped_roof) {bcube.z2() += 0.55*bldg.dz();} // expand to include the roof peak height
 	cube_t side_wall(bldg);
@@ -2953,8 +2955,9 @@ bool city_bldg_t::proc_sphere_coll(point &pos_, point const &p_last, float radiu
 	}
 	return ret;
 }
-void city_bldg_t::add_night_time_lights(vector3d const &xlate, cube_t &lights_bcube) const {
-	obj_with_roof_pavement_lights_t::add_night_time_lights(xlate, lights_bcube, 0.6, lights, cached_smaps, light_clip_cubes, num_lanes, 0); // car_is_using=0
+void city_bldg_t::add_lights(vector3d const &xlate, cube_t &lights_bcube, bool night_mode) const {
+	if (!has_daytime_lights && !night_mode) return; // daytime lights only
+	obj_with_roof_pavement_lights_t::add_lights(xlate, lights_bcube, 0.6, lights, cached_smaps, light_clip_cubes, num_lanes, 0); // car_is_using=0
 }
 driveway_t city_bldg_t::get_entrance_for_lane(unsigned lane_ix) const { // single entrance driveway, but stop pos is per-lane
 	assert(lane_ix < num_lanes);
