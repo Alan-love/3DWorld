@@ -2167,6 +2167,11 @@ struct room_cand_t {
 	room_cand_t(unsigned r, unsigned f) : room_ix(r), floor_ix(f) {}
 };
 
+void building_t::add_person(person_t &person) const { // not really const?
+	assert(interior);
+	person.ssn = interior->people.size();
+	interior->people.push_back(person);
+}
 bool building_t::place_people_if_needed(unsigned building_ix, float radius) const {
 	if (!interior || interior->rooms.empty() || is_rotated()) return 0; // no people in these cases
 	if (interior->placed_people) return 0; // already placed
@@ -2176,12 +2181,33 @@ bool building_t::place_people_if_needed(unsigned building_ix, float radius) cons
 	unsigned num_min(treat_as_house ? global_building_params.people_per_house_min : global_building_params.people_per_office_min);
 	unsigned num_max(treat_as_house ? global_building_params.people_per_house_max : global_building_params.people_per_office_max);
 	if (num_max < num_min) {swap(num_min, num_max);} // or error? if so, it should be checked during option processing
-	if (num_max == 0) return 0;
+	if (num_max == 0) return 0; // no people enabled
 	rand_gen_t rgen;
 	rgen.set_state(building_ix+1, mat_ix); // should be canonical per building
 	rgen.rand_mix();
-	unsigned num_people(num_min + (rgen.rand()%(num_max - num_min + 1)));
-	if (num_people == 0) return 0;
+	if (has_room_geom()) {place_stationary_people(radius, rgen);}
+	//unsigned const num_pre_placed_people(interior->people.size());
+	unsigned const num_people(num_min + (rgen.rand()%(num_max - num_min + 1)));
+	place_random_people(num_people, building_ix, radius, rgen);
+	// add people to beds; has_room_geom() is usually true; this adds people to jail cell beds as well, but only for houses, apartments, and hotels
+	if (has_room_geom() && (is_residential() || is_hospital() /*|| interior->has_jail*/)) {place_people_in_beds(radius, rgen);}
+	return !interior->people.empty();
+}
+
+void building_t::place_stationary_people(float radius, rand_gen_t &rgen) const {
+	// place people in fixed locations
+	if (is_restaurant()) {
+		// TODO
+	}
+	if (has_retail()) {
+		// TODO
+	}
+	if (has_mall()) {
+		// TODO
+	}
+}
+
+void building_t::place_random_people(unsigned num_people, unsigned building_ix, float radius, rand_gen_t &rgen) const {
 	float const floor_thickness(get_floor_thickness()), fc_thick(0.5*floor_thickness);
 	// weight rooms by number of floors to avoid placing too many people in basements
 	static vector<room_cand_t> room_cands;
@@ -2205,7 +2231,7 @@ bool building_t::place_people_if_needed(unsigned building_ix, float radius) cons
 			if (r->any_lit_floors() && !r->is_lit_on_floor(f)) continue; // don't place person in an unlit room; only applies if room geom has been generated
 			float const zval(r->z1() + f*floor_spacing);
 			if (has_water() && r->intersects(get_water_cube()) && zval < interior->water_zval) continue; // don't place in a room with water on the floor
-			
+
 			if (!r->is_hallway && !r->has_stairs_on_floor(f) && !r->is_single_large_room()) { // check if this room has all closed/locked doors
 				float const z_test(zval + 0.5*floor_spacing); // mid-floor height
 				bool any_usable_doors(0);
@@ -2233,7 +2259,6 @@ bool building_t::place_people_if_needed(unsigned building_ix, float radius) cons
 		} // for f
 	} // for r
 	min_eq(num_people, (unsigned)room_cands.size()); // don't place more people than we have rooms (notably for factories with 3 single floor rooms total)
-	person_t person(radius);
 
 	for (unsigned N = 0; N < num_people; ++N) {
 		unsigned const max_cand_ix((N == 0 && first_basement_room > 0) ? first_basement_room : room_cands.size()); // place the first person in a non-basement room
@@ -2246,13 +2271,13 @@ bool building_t::place_people_if_needed(unsigned building_ix, float radius) cons
 			bool success(0);
 
 			for (unsigned m = 0; m < 100; ++m) { // make 100 attempts at choosing a position in this room
+				person_t person(radius);
 				person.pos = gen_xy_pos_in_area(room, radius, rgen, zval); // random XY point inside this room
 				if (!is_valid_ai_placement(person.pos, radius, 1)) continue; // skip_nocoll=1
-				person.ssn = interior->people.size();
 				room_type const rtype(room.get_room_type(cand.floor_ix));
 				if      (rtype == RTYPE_MENS  ) {person.is_female = 0;} // must be male
 				else if (rtype == RTYPE_WOMENS) {person.is_female = 1;} // must be female
-				interior->people.push_back(person); // other params will be filled in later
+				add_person(person); // other params will be filled in later
 				success = 1;
 				break; // done/success
 			} // for n
@@ -2263,42 +2288,41 @@ bool building_t::place_people_if_needed(unsigned building_ix, float radius) cons
 			}
 		} // for n
 	} // for N
-	// add people to beds; has_room_geom() is usually true; this adds people to jail cell beds as well, but only for houses, apartments, and hotels
-	if (has_room_geom() && (is_residential() || is_hospital() /*|| interior->has_jail*/)) {
-		auto objs_end(interior->room_geom->get_placed_objs_end()); // skip buttons/stairs/elevators
+}
 
-		for (auto i = interior->room_geom->objs.begin(); i != objs_end; ++i) {
-			if (i->type == TYPE_BED) {
-				if (rgen.rand_float() > (i->in_jail() ? 0.15 : 0.1)) continue; // 10% chance for residential beds, 15% for jail beds
-				cube_t cubes[6]; // frame, head, foot, mattress, pillow, legs_bcube
-				get_bed_cubes(*i, cubes);
-				person.pos = cube_top_center(cubes[3]); // center of the mattress
-				// if there are two pillows, move to a random side
-				if (bed_is_wide(*i)) {person.pos[!i->dim] += (rgen.rand_bool() ? -1.0 : 1.0)*0.265*cubes[4].get_sz_dim(!i->dim);}
+void building_t::place_people_in_beds(float radius, rand_gen_t &rgen) const {
+	auto objs_end(interior->room_geom->get_placed_objs_end()); // skip buttons/stairs/elevators
+	person_t person(radius);
+
+	for (auto i = interior->room_geom->objs.begin(); i != objs_end; ++i) {
+		if (i->type == TYPE_BED) {
+			if (rgen.rand_float() > (i->in_jail() ? 0.15 : 0.1)) continue; // 10% chance for residential beds, 15% for jail beds
+			cube_t cubes[6]; // frame, head, foot, mattress, pillow, legs_bcube
+			get_bed_cubes(*i, cubes);
+			person.pos = cube_top_center(cubes[3]); // center of the mattress
+			// if there are two pillows, move to a random side
+			if (bed_is_wide(*i)) {person.pos[!i->dim] += (rgen.rand_bool() ? -1.0 : 1.0)*0.265*cubes[4].get_sz_dim(!i->dim);}
+		}
+		else if (i->type == TYPE_HOSP_BED) {
+			if (rgen.rand_float() > 0.2) continue; // 20% chance
+			person.pos = cube_top_center(*i);
+			switch (i->item_flags % 3) {
+			case 0: person.pos.z -= 0.16*i->dz(); break; // flat bed used in patient rooms and exam rooms
+			case 1: person.pos.z -= 0.10*i->dz(); break; // flat bed used in patient rooms
+			case 2: continue; // electric bed; skip since it's inclined rather than flat
 			}
-			else if (i->type == TYPE_HOSP_BED) {
-				if (rgen.rand_float() > 0.2) continue; // 20% chance
-				person.pos = cube_top_center(*i);
-				switch (i->item_flags % 3) {
-				case 0: person.pos.z -= 0.16*i->dz(); break; // flat bed used in patient rooms and exam rooms
-				case 1: person.pos.z -= 0.10*i->dz(); break; // flat bed used in patient rooms
-				case 2: continue; // electric bed; skip since it's inclined rather than flat
-				}
-			}
-			else if (i->type == TYPE_OP_TABLE) {
-				if (rgen.rand_float() > 0.1) continue; // 25% chance
-				person.pos.assign(i->xc(), i->yc(), (i->z2() - 0.03*i->dz()));
-				person.pos[i->dim] += (i->dir ? 1.0 : -1.0)*0.05*i->get_length(); // move up a bit
-			}
-			else {continue;}
-			person.dir = vector_from_dim_dir(i->dim, (i->dir ^ (i->type != TYPE_HOSP_BED))); // hospital bed dir is backwards from bed/OR table
-			person.ssn = interior->people.size();
-			person.lying_down = 1;
-			interior->people.push_back(person);
-			i->flags |= RO_FLAG_USED; // mark bed as occupied
-		} // for i
-	}
-	return 1;
+		}
+		else if (i->type == TYPE_OP_TABLE) {
+			if (rgen.rand_float() > 0.1) continue; // 25% chance
+			person.pos.assign(i->xc(), i->yc(), (i->z2() - 0.03*i->dz()));
+			person.pos[i->dim] += (i->dir ? 1.0 : -1.0)*0.05*i->get_length(); // move up a bit
+		}
+		else {continue;}
+		person.dir = vector_from_dim_dir(i->dim, (i->dir ^ (i->type != TYPE_HOSP_BED))); // hospital bed dir is backwards from bed/OR table
+		person.lying_down = 1;
+		add_person(person);
+		i->flags |= RO_FLAG_USED; // mark bed as occupied
+	} // for i
 }
 
 bool can_ai_follow_player(person_t const &person, bool allow_diff_building, bool allow_outside_room) {
@@ -2791,8 +2815,10 @@ void clamp_person_to_building_bcube(point &pos, cube_t bcube, float radius, floa
 int building_t::ai_room_update(person_t &person, float delta_dir, unsigned person_ix, rand_gen_t &rgen) {
 
 	if (person.speed == 0.0 || person.lying_down) {person.anim_time = 0.0; return AI_STOP;} // stopped
+	if (person.is_stationary && ai_follow_player()) {person.is_stationary = 0;} // no longer stationary in zombie gameplay mode
+	if (person.is_stationary) {person.idle_time += fticks; return AI_STOP;}
 	assert(interior);
-	if (!interior->room_geom && frame_counter < 60) {person.anim_time = 0.0; return AI_WAITING;} // wait until room geom is generated for this building
+	if (!interior->room_geom && frame_counter < 60) {return AI_WAITING;} // wait until room geom is generated for this building
 	float const radius(person.radius), coll_dist(COLL_RADIUS_SCALE*radius), floor_spacing(get_window_vspace()), fc_thick(get_fc_thickness());
 	float &wait_time(person.waiting_start); // reuse this field
 	float const base_speed_mult(is_house ? 1.0 : 1.2); // 20% faster in office buildings, if targeting the player, player last pos, or sound
