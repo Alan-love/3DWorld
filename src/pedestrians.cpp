@@ -1541,9 +1541,8 @@ void ped_manager_t::init(unsigned num_city) {
 
 void ped_manager_t::assign_ped_model(person_base_t &ped) { // Note: non-const, modifies rgen
 	if (ped_model_loader.num_models() == 0) {ped.model_id = 0; return;} // will be unused
-	bool const choose_zombie(in_building_gameplay_mode());
-	bool const is_new(ped.model_rand_seed == 0);
-	unsigned const pref_gender(is_new ? 2 : ped.is_female); // 0=male, 1=female, 2=no preference
+	bool const choose_zombie(in_building_gameplay_mode()), is_new(ped.model_rand_seed == 0);
+	unsigned const pref_gender(ped.is_female); // 0=male, 1=female, 2=no preference
 	if (is_new) {ped.model_rand_seed = rgen.rand();} // choose once and be consistent when switching between people and zombies
 	ped.model_id  = ped_model_loader.select_random_model(ped.model_rand_seed, choose_zombie, pref_gender, ped.is_prisoner);
 	city_model_t const &model(ped_model_loader.get_model(ped.model_id));

@@ -2249,6 +2249,9 @@ bool building_t::place_people_if_needed(unsigned building_ix, float radius) cons
 				person.pos = gen_xy_pos_in_area(room, radius, rgen, zval); // random XY point inside this room
 				if (!is_valid_ai_placement(person.pos, radius, 1)) continue; // skip_nocoll=1
 				person.ssn = interior->people.size();
+				room_type const rtype(room.get_room_type(cand.floor_ix));
+				if      (rtype == RTYPE_MENS  ) {person.is_female = 0;} // must be male
+				else if (rtype == RTYPE_WOMENS) {person.is_female = 1;} // must be female
 				interior->people.push_back(person); // other params will be filled in later
 				success = 1;
 				break; // done/success
