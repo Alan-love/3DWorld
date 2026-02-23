@@ -2185,7 +2185,7 @@ bool building_t::place_people_if_needed(unsigned building_ix, float radius) cons
 	rand_gen_t rgen;
 	rgen.set_state(building_ix+1, mat_ix); // should be canonical per building
 	rgen.rand_mix();
-	if (has_room_geom()) {place_stationary_people(radius, rgen);}
+	if (has_room_geom()) {place_stationary_people(radius, num_max, rgen);}
 	//unsigned const num_pre_placed_people(interior->people.size());
 	unsigned const num_people(num_min + (rgen.rand()%(num_max - num_min + 1)));
 	place_random_people(num_people, building_ix, radius, rgen);
@@ -2194,16 +2194,20 @@ bool building_t::place_people_if_needed(unsigned building_ix, float radius) cons
 	return !interior->people.empty();
 }
 
-void building_t::place_stationary_people(float radius, rand_gen_t &rgen) const {
-	// place people in fixed locations
-	if (is_restaurant()) {
-		// TODO
-	}
-	if (has_retail()) {
-		// TODO
-	}
-	if (has_mall()) {
-		// TODO
+void building_t::place_stationary_people(float radius, unsigned max_people, rand_gen_t &rgen) const {
+	assert(has_room_geom());
+	// restaurant entrances, retail checkouts, mall checkouts and food counters, and convenience stores
+	vector<person_place_t> cands(interior->room_geom->people_place); // deep copy so that we can modify it
+	if (cands.size() > max_people) {vector_random_shuffle(cands, rgen);} // too many cands, choose a random subset
+	unsigned num_added(0);
+
+	for (person_place_t const &pp : cands) {
+		person_t person(radius);
+		person.pos = pp.pos;
+		person.dir = pp.dir;
+		person.is_stationary = 1;
+		add_person(person);
+		if (++num_added == max_people) break;
 	}
 }
 
@@ -2291,6 +2295,7 @@ void building_t::place_random_people(unsigned num_people, unsigned building_ix, 
 }
 
 void building_t::place_people_in_beds(float radius, rand_gen_t &rgen) const {
+	assert(has_room_geom());
 	auto objs_end(interior->room_geom->get_placed_objs_end()); // skip buttons/stairs/elevators
 	person_t person(radius);
 

@@ -2194,8 +2194,10 @@ void ped_manager_t::gen_and_draw_people_in_building(ped_draw_vars_t const &pdv) 
 				p.pos.z += 0.35*p.get_hwidth(); // somewhat sunk into the bed; better than floating above it
 			}
 			else { // person standing/walking: assign a random direction and speed and shift up by radius
-				float const angle(rgen.rand_uniform(0.0, TWO_PI));
-				p.dir    = vector3d(cosf(angle), sinf(angle), 0.0);
+				if (p.dir == zero_vector) { // dir not yet set, select a random XY dir
+					float const angle(rgen.rand_uniform(0.0, TWO_PI));
+					p.dir = vector3d(cosf(angle), sinf(angle), 0.0);
+				}
 				p.speed  = (enable_building_people_ai() ? city_params.ped_speed*rgen.rand_uniform(0.5, 0.75) : 0.0f); // small range, slower than outdoor city pedestrians
 				p.pos.z += p.radius; // must be done after the model has been assigned, since men and women have different radii
 			}

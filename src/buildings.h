@@ -1290,6 +1290,12 @@ struct extb_room_t : public cube_t { // extended basement room candidate
 };
 typedef vector<extb_room_t> vect_extb_room_t;
 
+struct person_place_t {
+	point pos;
+	vector3d dir;
+	person_place_t(point const &p, vector3d const &d) : pos(p), dir(d) {}
+};
+
 struct building_room_geom_t {
 
 	bool has_pictures=0, has_garage_car=0, modified_by_player=0, have_clock=0, have_conv_belt=0, glass_floor_split=0, mall_geom_drawn=0, has_locker=0;
@@ -1310,6 +1316,7 @@ struct building_room_geom_t {
 	vector<obj_model_inst_t> obj_model_insts;
 	vector<door_handle_t> door_handles; // for 3D model drawing
 	vector<room_assignment_t> orig_assigned_rooms;
+	vector<person_place_t> people_place;
 	vector<unsigned> moved_obj_ids;
 	vect_rat_t    rats, sewer_rats, pet_rats;
 	vect_spider_t spiders, sewer_spiders;
@@ -2628,7 +2635,7 @@ struct building_t : public building_geom_t {
 	unsigned count_connected_room_components();
 	void add_person(person_t &person) const;
 	bool place_people_if_needed(unsigned building_ix, float radius) const;
-	void place_stationary_people(float radius, rand_gen_t &rgen) const;
+	void place_stationary_people(float radius, unsigned max_people, rand_gen_t &rgen) const;
 	void place_random_people(unsigned num_people, unsigned building_ix, float radius, rand_gen_t &rgen) const;
 	void place_people_in_beds(float radius, rand_gen_t &rgen) const;
 	void all_ai_room_update(rand_gen_t &rgen, float delta_dir);
@@ -3564,6 +3571,7 @@ float get_player_eye_height();
 cube_t get_stairs_bcube_expanded(stairwell_t const &s, float ends_clearance, float sides_clearance, float doorway_width);
 float get_door_open_dist();
 float get_lamp_width_scale();
+float get_ped_coll_radius();
 unsigned get_face_mask(unsigned dim, bool dir);
 unsigned get_skip_mask_for_xy(bool dim);
 // functions in building_room_obj_expand.cc

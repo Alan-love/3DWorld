@@ -6,6 +6,7 @@
 #include "city_model.h"
 
 extern object_model_loader_t building_obj_model_loader;
+extern building_params_t global_building_params;
 
 void create_wall(cube_t &wall, bool dim, float wall_pos, float fc_thick, float wall_half_thick, float wall_edge_spacing);
 float get_radius_for_square_model(unsigned model_id);
@@ -117,20 +118,36 @@ void building_t::add_restaurant_objs(rand_gen_t rgen, room_t const &room, float 
 			if      (dlo < 0.5*dhi) {tside = 1;} // door close to lo wall, put desk on hi side
 			else if (dhi < 0.5*dlo) {tside = 0;} // door close to hi wall, put desk on lo side
 			else {tside = rgen.rand_bool();} // door not near a wall, choose a random side
-			float const table_sz(0.12*floor_spacing);
+			float const table_sz(0.12*floor_spacing), ts_scale(tside ? 1.0 : -1.0), centerline(door_edge + (ddir ? 1.0 : -1.0)*1.5*table_sz);
 			cube_t table;
 			set_cube_zvals(table, zval, zval+0.4*floor_spacing);
-			set_wall_width(table, (door_edge + (ddir ? 1.0 : -1.0)*1.5*table_sz), table_sz, ddim);
-			set_wall_width(table, (bc.d[!ddim][tside] + (tside ? 1.0 : -1.0)*1.5*table_sz), table_sz, !ddim);
+			set_wall_width(table, centerline, table_sz, ddim);
+			set_wall_width(table, (bc.d[!ddim][tside] + ts_scale*1.5*table_sz), table_sz, !ddim);
 			objs.emplace_back(table, TYPE_TABLE, room_id, !ddim, !tside, 0, light_amt, SHAPE_TALL, WHITE); // wood
+			float place_edge(table.d[!ddim][tside]);
 
+			if (global_building_params.people_per_house_max > 0) { // place a person at the podium
+				float const radius(get_ped_coll_radius());
+				point pos(0.0, 0.0, zval);
+				pos[ ddim] = centerline;
+				pos[!ddim] = place_edge + ts_scale*0.5*radius;
+				cube_t person_area(place_area);
+				person_area.expand_in_dim(ddim, -1.05*radius);
+				person_area.clamp_pt_xy(pos); // place far enough from the wall
+				cube_t pbc; pbc.set_from_sphere(pos, radius);
+
+				if (place_area.contains_cube_xy(pbc)) {
+					place_edge += ts_scale*0.8*radius; // place chair behind the person
+					interior->room_geom->people_place.emplace_back(pos, vector_from_dim_dir(!ddim, !tside));
+				}
+			}
 			if (building_obj_model_loader.is_model_valid(OBJ_MODEL_BAR_STOOL)) { // add a stool
 				float const chair_height(0.45*floor_spacing), chair_hwidth(chair_height*get_radius_for_square_model(OBJ_MODEL_BAR_STOOL));
 				cube_t chair;
 				set_cube_zvals(chair, zval, (zval + chair_height));
-				set_wall_width(chair, table.get_center_dim(ddim), chair_hwidth, ddim);
-				set_wall_width(chair, (table.d[!ddim][tside] + (tside ? 1.0 : -1.0)*1.5*chair_hwidth), chair_hwidth, !ddim);
-				objs.emplace_back(chair, TYPE_BAR_STOOL, room_id, !ddim, !tside, 0, light_amt, SHAPE_CUBE);
+				set_wall_width(chair, centerline, chair_hwidth, ddim);
+				set_wall_width(chair, (place_edge + ts_scale*1.5*chair_hwidth), chair_hwidth, !ddim);
+				if (place_area.contains_cube(chair)) {objs.emplace_back(chair, TYPE_BAR_STOOL, room_id, !ddim, !tside, 0, light_amt, SHAPE_CUBE);}
 			}
 			added_desk = 1;
 		}
