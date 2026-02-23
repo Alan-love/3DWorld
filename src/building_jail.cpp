@@ -1455,7 +1455,7 @@ bool building_t::place_stairs_in_prison_room(cube_t &stairs, unsigned room_id, b
 	vect_cube_t cands;
 	get_prison_cell_block_cubes(room_id, cands, 0, 1); // inc_hallway=0, inc_non_cell_subrooms=1 (allow stairs in those subrooms)
 	if (cands.empty()) return 0; // room is full
-	if (cands.size() > 1) {std::shuffle(cands.begin(), cands.end(), rand_gen_wrap_t(rgen));}
+	if (cands.size() > 1) {vector_random_shuffle(cands, rgen);}
 	float const doorway_width(get_nominal_doorway_width()), wall_thickness(get_wall_thickness());
 	stairs.expand_in_dim(stairs_dim, -0.1*stairs.get_sz_dim(stairs_dim)); // make it smaller and more likely to fit
 	vector2d cut_sz(stairs.get_size_xy()), min_sz(cut_sz);

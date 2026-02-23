@@ -356,7 +356,7 @@ void building_t::add_industrial_ducts_and_hvac(rand_gen_t &rgen, room_t const &r
 			if (support.intersects(hvac_area)) {cand_pos.push_back(support.get_center_dim(edim));}
 		}
 		if (!cand_pos.empty()) { // should always be true
-			std::shuffle(cand_pos.begin(), cand_pos.end(), rand_gen_wrap_t(rgen));
+			vector_random_shuffle(cand_pos, rgen);
 			cube_t hvac;
 			set_wall_width(hvac, center_pos, 0.5*depth, !edim); // depth
 			set_wall_width(hvac, duct.zc(),  0.5*height, 2); // height

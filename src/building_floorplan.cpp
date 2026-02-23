@@ -2706,7 +2706,7 @@ void building_t::connect_stacked_parts_with_stairs(rand_gen_t &rgen, cube_t cons
 				if (!allow_clip_walls) { // select rooms above and below to constrain the place region
 					get_room_cands(interior->rooms, upper_part_ix, place_region, min_sz, check_private_rooms, room_cands[0]);
 					if (room_cands[0].empty()) continue; // no valid upper room
-					if (room_cands[0].size() > 1) {std::shuffle(room_cands[0].begin(), room_cands[0].end(), rand_gen_wrap_t(rgen));}
+					if (room_cands[0].size() > 1) {vector_random_shuffle(room_cands[0], rgen);}
 					bool success(0);
 
 					for (cube_with_ix_t &rc1 : room_cands[0]) {

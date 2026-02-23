@@ -4307,7 +4307,7 @@ void building_t::add_light_switches_to_room(rand_gen_t rgen, room_t const &room,
 			if (i->type == TYPE_FALSE_DOOR) {doorways.emplace_back(door_base_t(*i, i->dim, !i->dir), 0);}
 		}
 	}
-	std::shuffle(doorways.begin(), doorways.end(), rand_gen_wrap_t(rgen));
+	vector_random_shuffle(doorways, rgen);
 	unsigned const objs_end(objs.size());
 	bool const first_side(rgen.rand_bool());
 	vect_door_stack_t ext_doors; // not really door stacks, but we can fill in the data to treat them as such

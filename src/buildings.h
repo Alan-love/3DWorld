@@ -3415,6 +3415,7 @@ template<typename T> cube_t get_bcubes_union(vector<T> const &cubes) {
 inline void swap_cube_dims(cube_t &c, unsigned d1, unsigned d2) {
 	for (unsigned d = 0; d < 2; ++d) {swap(c.d[d1][d], c.d[d2][d]);}
 }
+template<typename T> void vector_random_shuffle(vector<T> &v, rand_gen_t &rgen) {std::shuffle(v.begin(), v.end(), rand_gen_wrap_t(rgen));}
 
 struct cube_by_sz { // sort cube by size in dim descending
 	bool dim;
