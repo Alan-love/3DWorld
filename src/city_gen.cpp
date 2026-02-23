@@ -16,7 +16,7 @@ float const CAR_LANE_OFFSET         = 0.15; // in units of road width
 float const CITY_LIGHT_FALLOFF      = 0.2; // smooth falloff for headlights, streetlights, and room lights
 
 
-bool had_building_interior_coll(0), city_lights_custom_bcube(0), has_transmission_lines(0), player_on_road(0), player_in_city(0);
+bool had_building_interior_coll(0), city_lights_custom_bcube(0), has_transmission_lines(0), player_on_road(0), player_in_city(0), drew_car_wash_water(0);
 unsigned num_cars_drawn(0), num_peds_drawn(0);
 vector2d actual_max_road_seg_len;
 city_params_t city_params;
@@ -3154,6 +3154,7 @@ public:
 			}
 			if (!reflection_pass && have_animations()) {enable_animations_for_shader(dstate.s);} // needed for birds
 			if (!shadow_only) {enable_dlight_bcubes |= city_lights_custom_bcube;}
+			if (!shadow_only) {drew_car_wash_water = 0;} // reset for this frame
 			bool const enable_reflect(enable_cube_map_city(nullptr) && !shadow_only); // only needed for commercial cities, but we're drawing them all here
 			dstate.pre_draw(xlate, use_dlights, shadow_only, 1, 1, enable_reflect); // always_setup_shader=1, enable_occlusion=1
 			assert(dstate.s.is_setup());

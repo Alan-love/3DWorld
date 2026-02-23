@@ -14,7 +14,7 @@ bool const DYNAMIC_HELICOPTERS = 1;
 bool const POLICE_LIGHT_SHADOW = 1;
 float const MIN_CAR_STOP_SEP   = 0.25; // in units of car lengths
 
-extern bool tt_fire_button_down, enable_hcopter_shadows, city_action_key, camera_in_building, player_in_walkway;
+extern bool tt_fire_button_down, enable_hcopter_shadows, city_action_key, camera_in_building, player_in_walkway, drew_car_wash_water;
 extern int display_mode, game_mode, map_mode, animate2, player_in_basement, player_in_closet, player_in_attic, camera_surf_collide;
 extern unsigned num_cars_drawn;
 extern float fticks, FAR_CLIP;
@@ -116,7 +116,7 @@ string car_t::label_str() const { // for query printout
 		<< TXT(dz) << TXTi(turn_dir) << TXTn(turn_val)
 		<< TXT(max_speed) << TXTn(cur_speed)
 		<< "sleep=" << is_sleeping() << " wait_time=" << get_wait_time_secs() << "\n" << TXTin(cur_road_type)
-		<< TXTn(stopped_at_light) << TXT(in_isect()) << TXTn(fuel_amt)
+		<< TXTn(stopped_at_light) << TXT(in_isect()) << TXT(fuel_amt) << TXTn(dirt_amt)
 		<< "cars_in_front=" << count_cars_in_front() << "\n" << TXT(dest_city) << TXTn(dest_isec);
 	//oss << "car=" << this << " car_in_front=" << car_in_front << endl; // debugging
 	return oss.str();
@@ -1722,7 +1722,7 @@ void car_manager_t::draw(int trans_op_mask, vector3d const &xlate, bool use_dlig
 		if (is_dlight_shadows && !city_params.car_shadows) return;
 		//timer_t timer(string("Draw Cars") + (shadow_only ? " Shadow" : "")); // 10K cars = 1.5ms / 2K cars = 0.33ms
 		bool const only_parked(shadow_only && !is_dlight_shadows); // sun/moon shadows are precomputed and cached, so only include static objects such as parked cars
-		bool const enable_dirt(1), enable_foam(enable_dirt);
+		bool const enable_dirt(1), enable_foam(enable_dirt && drew_car_wash_water); // only need to enable foam if a car wash is visible and has water
 		setup_occluders();
 		fgPushMatrix();
 		translate_to(xlate);

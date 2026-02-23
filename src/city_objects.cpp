@@ -6,7 +6,7 @@
 #include "lightmap.h" // for light_source
 #include "openal_wrap.h"
 
-extern bool player_in_walkway, player_in_ww_elevator, enable_hcopter_shadows, city_lights_custom_bcube;
+extern bool player_in_walkway, player_in_ww_elevator, enable_hcopter_shadows, city_lights_custom_bcube, drew_car_wash_water;
 extern int animate2, display_mode;
 extern float fticks, water_plane_z;
 extern double camera_zh;
@@ -2895,7 +2895,7 @@ void city_bldg_t::draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist_
 			if (!on_ground) {draw_circle_normal(hradius, tradius, ndiv, 0, bot, 0.0, 0.0);} // draw bottom surface of stacked tires
 		} // for tire
 	}
-	if (!shadow_only && btype == CITY_BLDG_CARWASH && lane_in_use && bcube.closest_dist_less_than(dstate.camera_bs, 0.1*dmax)) {
+	if (!shadow_only && btype == CITY_BLDG_CARWASH && lane_in_use && bcube.closest_dist_less_than(dstate.camera_bs, 0.16*dmax)) {
 		// at least one lane is in use; draw water
 		unsigned const num_lines = 100;
 		static vector<vert_norm_comp> water_verts;
@@ -2905,7 +2905,6 @@ void city_bldg_t::draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist_
 		select_no_texture();
 		bind_default_flat_normal_map();
 		dstate.s.set_cur_color(LT_BLUE);
-		//enable_blend(); // is this needed/does this help?
 
 		for (unsigned n = 0; n < num_lanes; ++n) {
 			if (!(lane_in_use & (1 << n))) continue;
@@ -2924,6 +2923,7 @@ void city_bldg_t::draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist_
 			} // for i
 		} // for n
 		draw_verts(water_verts, GL_LINES);
+		drew_car_wash_water = 1;
 	}
 }
 bool city_bldg_t::proc_sphere_coll(point &pos_, point const &p_last, float radius_, point const &xlate, vector3d *cnorm) const {
