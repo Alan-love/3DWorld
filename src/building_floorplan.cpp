@@ -953,7 +953,7 @@ void building_t::gen_interior_int(rand_gen_t &rgen, unsigned gen_index, bool has
 			if (no_walls) {add_room(*p, part_id, 1);} // add entire part as a room
 			else {to_split.emplace_back(*p);} // seed room is entire part, no door
 			bool is_first_split(1);
-			point part_door_open_dir_tp(p->get_cube_center()); // used to determine in which direction doors open; updated base on central hallway
+			point part_door_open_dir_tp(p->get_cube_center()); // used to determine in which direction doors open; updated based on central hallway
 			
 			if (first_part) { // reserve walls/rooms/doors - take a guess at the correct size
 				unsigned const num_doors_est(4*real_num_parts + has_basement());
@@ -983,7 +983,7 @@ void building_t::gen_interior_int(rand_gen_t &rgen, unsigned gen_index, bool has
 					add_room(c, part_id, 1);
 					continue; // not enough space to add a wall
 				}
-				// add central hallway if wall/hall len is at least enough to place 2-3 rooms; 50% chance if part is a basement; houses and small office buildings
+				// add central hallway if wall/hall len is at least enough to place at least 2 rooms; 50% chance if part is a basement; houses and small office buildings
 				bool const is_basement_room(has_basement() && part_id == (unsigned)basement_part_ix);
 				bool const add_hallway(is_first_split && csz[!wall_dim] > 1.5*min_split_len && (!is_basement_room || rgen.rand_bool()));
 
