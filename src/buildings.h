@@ -2491,6 +2491,7 @@ struct building_t : public building_geom_t {
 	void create_industrial_floorplan(unsigned part_id, float window_hspacing[2], float window_border, rand_gen_t &rgen);
 	void setup_industrial_wall_occluders();
 	void create_restaurant_floorplan(unsigned part_id, rand_gen_t &rgen);
+	void create_conv_store_floorplan(unsigned part_id, rand_gen_t &rgen);
 	bool maybe_assign_interior_garage(bool &gdim, bool &gdir);
 	void add_parking_garage_ramp(rand_gen_t &rgen);
 	bool add_machines_to_room(rand_gen_t rgen, room_t const &room, float &zval, unsigned room_id, float tot_light_amt, unsigned objs_start, bool less_clearance=0);
