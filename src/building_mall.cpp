@@ -1718,19 +1718,20 @@ unsigned building_t::add_mall_store_objs(rand_gen_t rgen, room_t &room, float zv
 	unsigned type_ix(is_retail ? (NUM_STORE_TYPES + item_category) : store_type);
 	type_mask |= (1U << type_ix);
 	cube_t doorway;
-	bool no_doorway(0);
+	bool no_doorway(0), store_is_closed(0);
 
-	if (store_type != STORE_FOOD) { // get doorway bcube; may have been removed for restaurants with no public access, so not needed for these stores
-		for (store_doorway_t const &d : interior->mall_info->store_doorways) {
-			if (d.room_id != room_id) continue;
-			assert(doorway.is_all_zeros()); // must be exactly one
-			doorway = d;
-		}
-		if (doorway.is_all_zeros()) { // must be found
-			cout << "Failed to find doorway for mall store in building " << name << " at " << bcube.str() << endl;
-			store_type = STORE_FOOD; // as a fallback, set to a food store (restaurant) to avoid asserting
-			no_doorway = 1;
-		}
+	// get doorway bcube and determine if store is closed
+	for (store_doorway_t const &d : interior->mall_info->store_doorways) {
+		if (d.room_id != room_id) continue;
+		assert(doorway.is_all_zeros()); // must be exactly one
+		doorway = d;
+		store_is_closed = d.closed;
+	}
+	// door may have been removed for restaurants with no public access, so not needed for these stores
+	if (store_type != STORE_FOOD && doorway.is_all_zeros()) { // must be found
+		cout << "Failed to find doorway for mall store in building " << name << " at " << bcube.str() << endl;
+		store_type = STORE_FOOD; // as a fallback, set to a food store (restaurant) to avoid asserting
+		no_doorway = 1;
 	}
 	// generate or select a store name
 	string store_name;
@@ -1794,7 +1795,7 @@ unsigned building_t::add_mall_store_objs(rand_gen_t rgen, room_t &room, float zv
 		if (checkout_area.get_sz_dim(!dim) > checkout_width) {checkout_area.d[!dim][side] = door_edge + (side ? 1.0 : -1.0)*checkout_width;} // reduce width if needed
 		checkout_area.expand_in_dim(!dim, -1.0*door_width); // add padding
 		checkout_area.d[dim][!dir] = room.get_center_dim(dim); // only add to the front half of the store
-		add_checkout_objs(checkout_area, zval, room_id, light_amt, objs_start, dim, side, (side ^ dim ^ 1));
+		add_checkout_objs(checkout_area, zval, room_id, light_amt, objs_start, dim, side, (side ^ dim), store_is_closed); // clerk is on the side facing away from the door
 		blocked = checkout_area;
 		blocked.expand_in_dim(!dim, 2.0*door_width); // add extra space to both sides
 	}

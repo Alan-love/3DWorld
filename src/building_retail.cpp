@@ -7,6 +7,7 @@
 
 
 extern object_model_loader_t building_obj_model_loader;
+extern building_params_t global_building_params;
 
 unsigned get_srack_num_shelves(room_object_t const &c);
 
@@ -420,7 +421,10 @@ void building_t::add_U_stair_landing_lights(stairwell_t const &s, unsigned room_
 	objs.back().obj_id = light_ix;
 }
 
-void building_t::add_checkout_objs(cube_t const &place_area, float zval, unsigned room_id, float tot_light_amt, unsigned objs_start, bool dim, bool dir, bool cr_dir) {
+// for ground floor retail or mall stores
+void building_t::add_checkout_objs(cube_t const &place_area, float zval, unsigned room_id, float tot_light_amt,
+	unsigned objs_start, bool dim, bool dir, bool cr_dir, bool store_is_closed)
+{
 	float const floor_spacing(get_window_vspace());
 	vect_room_object_t &objs(interior->room_geom->objs);
 	cube_t checkout(place_area);
@@ -442,7 +446,23 @@ void building_t::add_checkout_objs(cube_t const &place_area, float zval, unsigne
 			// check shelfracks; shouldn't need to check stairs or elevators
 			if (!check_for_overlap(cc, objs, objs_start, cr_space)) {to_add.push_back(cc);} // don't add directly as it may collide with the next checkout counter
 		}
+		unsigned const co_start(objs.size());
 		for (cube_t const &c : to_add) {objs.emplace_back(c, TYPE_CHECKOUT, room_id, dim, cr_dir, 0);}
+
+		if (!store_is_closed && global_building_params.people_per_office_max > 0) { // place people at the checkout counters if store is open
+			float const radius(get_ped_coll_radius());
+			point pos(0.0, 0.0, zval);
+			rand_gen_t rgen;
+			rgen.set_state(co_start, (4*mat_ix + 2*dim + dir + 1));
+
+			for (auto c = objs.begin()+co_start; c != objs.end(); ++c) {
+				if (rgen.rand_bool()) continue; // 50% chance
+				cube_t const co_bc(get_true_room_obj_bcube(*c));
+				pos[ dim] = co_bc.get_center_dim(dim);
+				pos[!dim] = co_bc.d[!dim][cr_dir] + (cr_dir ? 1.0 : -1.0)*0.5*radius;
+				interior->room_geom->people_place.emplace_back(pos, vector_from_dim_dir(!dim, !cr_dir));
+			} // for c
+		}
 	}
 	else if (checkout_len > 0.4*floor_spacing) { // add if large enough
 		checkout.expand_in_dim(dim, -0.1*(checkout_len - 0.4*floor_spacing)); // shrink slightly more if long
