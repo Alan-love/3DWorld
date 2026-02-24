@@ -2212,7 +2212,7 @@ unsigned building_t::add_mall_store_objs(rand_gen_t rgen, room_t &room, float zv
 		} // for row
 	}
 	else if (store_type == STORE_FOOD) { // restaurant, coffee shop, etc.
-		add_mall_restaurant_objs(rgen, room, zval, room_id, dim, dir, no_doorway, light_amt, div_wall, light_ix_assign);
+		add_mall_restaurant_objs(rgen, room, zval, room_id, dim, dir, no_doorway, store_is_closed, light_amt, div_wall, light_ix_assign);
 	}
 	else if (store_type == STORE_PETS) { // rats, snakes, birds, spiders, fish, etc.
 		// add fish tanks along walls
