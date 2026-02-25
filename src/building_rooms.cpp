@@ -328,11 +328,11 @@ void building_t::gen_room_details(rand_gen_t &rgen, unsigned building_ix) {
 				ny = max(1U, unsigned(ldensity*dy/window_vspacing));
 			}
 		}
-		else if (is_retail_room) { // more lights in the shorter dim
+		else if (is_retail_room) { // more lights in the shorter dim; at least 3 lights long for convenience stores
 			assert(retail_floor_levels > 0);
 			light_size *= 0.7*pow(double(retail_floor_levels), 0.4); // smaller; increase size for taller rooms
-			nx = max(1U, unsigned((room_dim ? 0.7 : 0.4)*dx/window_vspacing));
-			ny = max(1U, unsigned((room_dim ? 0.4 : 0.7)*dy/window_vspacing));
+			nx = max(3U, unsigned((room_dim ? 0.7 : 0.4)*dx/window_vspacing));
+			ny = max(3U, unsigned((room_dim ? 0.4 : 0.7)*dy/window_vspacing));
 		}
 		else if (is_mall_room) {
 			room_dim = !interior->extb_wall_dim; // always perpendicular to mall concourse, independent of aspect ratio

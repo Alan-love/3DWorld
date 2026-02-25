@@ -2182,6 +2182,7 @@ bool building_t::place_people_if_needed(unsigned building_ix, float radius) cons
 	unsigned num_max(treat_as_house ? global_building_params.people_per_house_max : global_building_params.people_per_office_max);
 	if (num_max < num_min) {swap(num_min, num_max);} // or error? if so, it should be checked during option processing
 	if (num_max == 0) return 0; // no people enabled
+	if (is_conv_store()) {num_max = 1; min_eq(num_min, num_max);} // at most 1 customer
 	rand_gen_t rgen;
 	rgen.set_state(building_ix+1, mat_ix); // should be canonical per building
 	rgen.rand_mix();

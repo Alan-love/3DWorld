@@ -22,6 +22,7 @@ bool building_t::get_retail_long_dim() const {
 	return (part.dx() < part.dy());
 }
 bool building_t::add_retail_room_objs(rand_gen_t rgen, room_t const &room, float zval, unsigned room_id, light_ix_assign_t &light_ix_assign) {
+	if (is_conv_store()) {return add_small_retail_room_objs(rgen, room, zval, room_id, 1.0);} // tot_light_amt=1.0
 	// Note: this room should occupy the entire floor, so walkable room bounds == room == part
 	assert(has_room_geom());
 	for (unsigned d = 0; d < 2; ++d) {interior->room_geom->shelf_rack_occluders[d].clear();}
@@ -344,16 +345,18 @@ void building_t::add_shopping_carts_to_room(rand_gen_t &rgen, room_t const &room
 
 bool building_t::add_small_retail_room_objs(rand_gen_t rgen, room_t const &room, float &zval, unsigned room_id, float light_amt) { // for prisons, etc.
 	// Note: simplified version of mall retail stores from building_t::add_mall_store_objs()
+	bool const conv_store(is_conv_store()); // else prison store
 	bool const dim(room.dx() < room.dy()); // long dim
 	float const window_vspace(get_window_vspace()), door_width(get_doorway_width());
-	cube_t const place_area(get_walkable_room_bounds(room));
-	float const dx(place_area.dx()), dy(place_area.dy()), spacing(0.8), nom_aisle_width(1.2*door_width);
+	cube_t place_area(get_walkable_room_bounds(room));
+	if (conv_store) {place_area.expand_by_xy(-0.4*door_width);} // add extra padding along the sides for doors
+	float const dx(place_area.dx()), dy(place_area.dy()), spacing(conv_store ? 1.1 : 0.8), nom_aisle_width(1.2*door_width);
 	unsigned const nx(max(1U, unsigned(spacing*dx/window_vspace))), ny(max(1U, unsigned(spacing*dy/window_vspace)));
-	float const length(dim ? dy : dx), width(dim ? dx : dy), max_rack_width(0.45*window_vspace);
+	float const length(dim ? dy : dx), width(dim ? dx : dy), max_rack_width((conv_store ? 0.35 : 0.45)*window_vspace);
 	unsigned const nrows((dim ? nx : ny)-1), nracks(max(2U, (dim ? ny : nx)/4));
 	if (width < 4.0*nom_aisle_width || nrows < 2) return 0; // can't fit at least two rows
 	unsigned const flooring_start(interior->room_geom->objs.size());
-	zval = add_flooring(room, zval, room_id, light_amt, FLOORING_LGTILE);
+	if (is_prison()) {zval = add_flooring(room, zval, room_id, light_amt, FLOORING_LGTILE);} // add tile over concrete
 	float row_aisle_width(nom_aisle_width), aisle_spacing((width - row_aisle_width)/nrows), rack_width(aisle_spacing - row_aisle_width);
 	assert(rack_width > 0.0);
 
@@ -378,7 +381,7 @@ bool building_t::add_small_retail_room_objs(rand_gen_t rgen, room_t const &room,
 			rack.d[dim][0] = start;
 			rack.d[dim][1] = start + rack_length;
 			cube_t test_cube(rack);
-			test_cube.expand_by_xy(0.6*door_width); // add extra padding
+			test_cube.expand_by_xy((conv_store ? 0.2 : 0.6)*door_width); // add extra padding
 			if (is_obj_placement_blocked(test_cube, room, 1, 1)) continue; // inc doors and check open_dir
 			add_shelf_rack(rack, dim, style_id, rack_id, room_id, 0, RETAIL_FOOD+1, 0, rgen); // add_occluders=0
 		} // for r
