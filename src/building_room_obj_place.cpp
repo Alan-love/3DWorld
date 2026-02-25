@@ -4845,6 +4845,7 @@ void building_t::try_place_light_on_ceiling(cube_t const &light, room_t const &r
 	bool allow_rot, bool allow_mult, unsigned nx, unsigned ny, unsigned check_coll_start, vect_cube_t &lights, rand_gen_t &rgen) const
 {
 	assert(has_room_geom());
+	assert(light.is_strictly_normalized());
 	float const window_vspacing(get_window_vspace());
 	int light_placed(0); // 0=no, 1=at center, 2=at alternate location
 

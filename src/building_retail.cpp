@@ -616,6 +616,7 @@ void building_t::create_conv_store_floorplan(unsigned part_id, rand_gen_t &rgen)
 	// TODO: counter with person and cash register, similar to mall restaurants
 	cube_t const &part(parts[part_id]);
 	cube_t main_room(part);
-	add_assigned_room(main_room, part_id, /*RTYPE_RETAIL*/RTYPE_OFFICE); // num_lights will be calculated later
+	add_assigned_room(main_room, part_id, RTYPE_RETAIL); // num_lights will be calculated later
+	retail_floor_levels = 1;
 }
 

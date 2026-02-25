@@ -272,7 +272,7 @@ void building_t::gen_room_details(rand_gen_t &rgen, unsigned building_ix) {
 		bool const is_parking_garage(init_rtype_f0 == RTYPE_PARKING   ); // all floors should be parking garage
 		bool const is_unfinished    (init_rtype_f0 == RTYPE_UNFINISHED); //  // unfinished room, for example in a non-cube shaped office building
 		bool const is_swim_pool_room(init_rtype_f0 == RTYPE_SWIM); // room with a swimming pool
-		bool const is_retail_room   (init_rtype_f0 == RTYPE_RETAIL);
+		bool const is_retail_room   (init_rtype_f0 == RTYPE_RETAIL); // ground floor office building retail or convenience store
 		bool const is_mall_store    (init_rtype_f0 == RTYPE_STORE);
 		bool const is_jail_room     (init_rtype_f0 == RTYPE_JAIL);
 		bool const is_jail_cell     (init_rtype_f0 == RTYPE_JAIL_CELL || r->get_room_type(1) == RTYPE_JAIL_CELL); // check second floor as well in case of ground floor door
@@ -329,6 +329,7 @@ void building_t::gen_room_details(rand_gen_t &rgen, unsigned building_ix) {
 			}
 		}
 		else if (is_retail_room) { // more lights in the shorter dim
+			assert(retail_floor_levels > 0);
 			light_size *= 0.7*pow(double(retail_floor_levels), 0.4); // smaller; increase size for taller rooms
 			nx = max(1U, unsigned((room_dim ? 0.7 : 0.4)*dx/window_vspacing));
 			ny = max(1U, unsigned((room_dim ? 0.4 : 0.7)*dy/window_vspacing));
@@ -384,6 +385,7 @@ void building_t::gen_room_details(rand_gen_t &rgen, unsigned building_ix) {
 			min_num_lights = 5; // 5+ lights, but slightly smaller
 			light_size    *= 0.75;
 		}
+		assert(light_size > 0.0);
 		float const light_val(22.0*light_size);
 		r->light_intensity = light_val*light_val/r->get_area_xy(); // average for room, unitless; light surface area divided by room surface area with some fudge constant
 		cube_t light;
@@ -508,6 +510,7 @@ void building_t::gen_room_details(rand_gen_t &rgen, unsigned building_ix) {
 			unsigned const lcheck_start_ix(is_backrooms ? floor_objs_start : (is_mall ? pillars_start : objs.size()));
 			set_cube_zvals(light, (light_z2 - light_thick), light_z2);
 			if (light_shape == SHAPE_SPHERE) {light.z1() = light.z2() - 0.5*(light.dx() + light.dy());} // make spherical
+			assert(light.is_strictly_normalized());
 			valid_lights.clear();
 
 			if (num_lights > 1 && !is_backrooms && !is_mall) { // r->is_hallway or ext basement
@@ -584,7 +587,7 @@ void building_t::gen_room_details(rand_gen_t &rgen, unsigned building_ix) {
 						cube_t cur_light(light);
 						cur_light.expand_by_xy(-shrink);
 						cur_light.translate_dim(!dim, (c.get_center_dim(!dim) - room_center[!dim])); // center of area in short dim
-						cur_light.translate_dim( dim, (c.d[dim][0] + 0.5*step - room_center[dim]));
+						cur_light.translate_dim( dim, (c.d[dim][0] + 0.5*step - room_center[ dim]));
 
 						for (unsigned n = 0; n < num; ++n) {
 							try_place_light_on_ceiling(cur_light, *r, room_id, room_dim, fc_thick, 0, 0, (dim ? 1 : num), (dim ? num : 1), lcheck_start_ix, valid_lights, rgen);
@@ -625,6 +628,7 @@ void building_t::gen_room_details(rand_gen_t &rgen, unsigned building_ix) {
 			unsigned num_broken(0);
 
 			for (cube_t const &l : valid_lights) {
+				assert(l.is_strictly_normalized());
 				bool dim(l.dx() < l.dy()), dir(0); // dir is only used for wall lights
 				unsigned l_flags(flags);
 				
