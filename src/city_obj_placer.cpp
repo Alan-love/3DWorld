@@ -155,12 +155,13 @@ bool city_obj_placer_t::maybe_place_gas_station(road_plot_t const &plot, unsigne
 		}
 	} // end car wash
 	if (1) { // maybe add a conveinence store at the back
-		float const cs_len(6.0*nom_car_size.y), cs_depth(2.0*nom_car_size.x), cs_height(0.2*city_params.road_width);
+		float const cs_len(6.0*nom_car_size.y), cs_min_depth(2.0*nom_car_size.x), cs_height(0.2*city_params.road_width);
+		float const depth_offset((ent_dir ? -1.0 : 1.0)*cs_min_depth);
 		float const bldg_start(gstation.pavement.d[!dim][!ent_dir]); // away from road
 		cube_t cs(gstation.pavement);
 		cs.z2() = plot.z1() + cs_height; // set roof height
 		cs.d[!dim][ ent_dir] = bldg_start;
-		cs.d[!dim][!ent_dir] = bldg_start - (ent_dir ? 1.0 : -1.0)*cs_depth; // set depth
+		cs.d[!dim][!ent_dir] = bldg_start + depth_offset; // set depth
 		float const len_delta(gstation.pavement.get_sz_dim(!dim) - cs_len);
 
 		if (len_delta > 0.0) { // shrink ends if building is shorter than gas station; should be true
@@ -168,6 +169,13 @@ bool city_obj_placer_t::maybe_place_gas_station(road_plot_t const &plot, unsigne
 			cs.d[dim][!dir] += dscale*0.25*len_delta;
 		}
 		if (!has_bcube_int_xy(cs, bcubes, pad_dist)) { // not too close to a building
+			// attempt to widen in incremental steps
+			for (unsigned n = 0; n < 5; ++n) {
+				cube_t cand(cs);
+				cand.d[!dim][!ent_dir] += 0.1*depth_offset;
+				if (has_bcube_int_xy(cand, bcubes, pad_dist)) break; // too wide
+				cs = cand;
+			}
 			building_t b;
 			b.is_house   = 0;
 			b.is_in_city = 1;
