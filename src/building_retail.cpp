@@ -347,15 +347,47 @@ bool building_t::add_small_retail_room_objs(rand_gen_t rgen, room_t const &room,
 	// Note: simplified version of mall retail stores from building_t::add_mall_store_objs()
 	bool const conv_store(is_conv_store()); // else prison store
 	bool const dim(room.dx() < room.dy()); // long dim
-	float const window_vspace(get_window_vspace()), door_width(get_doorway_width());
+	float const window_vspace(get_window_vspace()), door_width(get_doorway_width()), wall_thick(get_wall_thickness());
 	cube_t place_area(get_walkable_room_bounds(room));
-	if (conv_store) {place_area.expand_by_xy(-0.4*door_width);} // add extra padding along the sides for doors
+	vect_room_object_t &objs(interior->room_geom->objs);
+	
+	if (conv_store) {
+		if (place_area.get_sz_dim(!dim) > 4.0*door_width) { // add counter; should be true
+			bool const ext_lo(room.d[dim][0] == bcube.d[dim][0]), ext_hi(room.d[dim][1] == bcube.d[dim][1]);
+			bool const dir((ext_lo == ext_hi) ? rgen.rand_bool() : ext_hi); // along edge of building if only one side is
+			float const dscale(dir ? 1.0 : -1.0), wall_pos(place_area.d[dim][dir] - dscale*1.6*door_width);
+			cube_t wall(room);
+			set_cube_zvals(wall, zval, (zval + 0.35*window_vspace));
+			set_wall_width(wall, wall_pos, 0.5*wall_thick, dim);
+			wall.expand_in_dim(!dim, -2.2*door_width);
+			cube_t const counter(add_restaurant_counter(wall, dim, !dir, room_id, light_amt, 1, 1, 0, rgen)); // add_cash_registers=1, leave_end_gaps=1, store_is_closed=0
+			float const counter_front(counter.d[dim][!dir]);
+			// add vending machines to either side of the counter
+			bool const side(rgen.rand_bool());
+			unsigned const pref_orient(2*dim + !dir);
+			unsigned const vend_types[2] = {VEND_DRINK, VEND_SNACK}; // one of each type
+			
+			for (unsigned d = 0; d < 2; ++d) {
+				unsigned const vtype_id(vend_types[bool(d) ^ side]);
+				vending_info_t const &vtype(get_vending_type(vtype_id));
+				float const height(0.75*window_vspace*(vtype.size.z/72)); // normalized to 72"
+				cube_t vm(place_area);
+				set_cube_zvals(vm, zval, (zval + height));
+				vm.d[ dim][!dir] = place_area.d[ dim][dir] -           dscale*height*(vtype.size.y/vtype.size.z); // set depth
+				vm.d[!dim][!d  ] = place_area.d[!dim][d  ] - (d ? 1.0 : -1.0)*height*(vtype.size.x/vtype.size.z); // set width
+				objs.emplace_back(vm, TYPE_VENDING, room_id, dim, !dir, 0, light_amt, SHAPE_CUBE, vtype.color, vtype_id);
+			} // for d
+			// block off this area from shelf racks
+			place_area.d[dim][dir] = counter_front; // add a gap for shelf racks
+		}
+		place_area.expand_by_xy(-0.4*door_width); // add extra padding along the sides for doors
+	}
 	float const dx(place_area.dx()), dy(place_area.dy()), spacing(conv_store ? 1.1 : 0.8), nom_aisle_width(1.2*door_width);
 	unsigned const nx(max(1U, unsigned(spacing*dx/window_vspace))), ny(max(1U, unsigned(spacing*dy/window_vspace)));
 	float const length(dim ? dy : dx), width(dim ? dx : dy), max_rack_width((conv_store ? 0.35 : 0.45)*window_vspace);
 	unsigned const nrows((dim ? nx : ny)-1), nracks(max(2U, (dim ? ny : nx)/4));
 	if (width < 4.0*nom_aisle_width || nrows < 2) return 0; // can't fit at least two rows
-	unsigned const flooring_start(interior->room_geom->objs.size());
+	unsigned const flooring_start(objs.size());
 	if (is_prison()) {zval = add_flooring(room, zval, room_id, light_amt, FLOORING_LGTILE);} // add tile over concrete
 	float row_aisle_width(nom_aisle_width), aisle_spacing((width - row_aisle_width)/nrows), rack_width(aisle_spacing - row_aisle_width);
 	assert(rack_width > 0.0);
@@ -387,10 +419,10 @@ bool building_t::add_small_retail_room_objs(rand_gen_t rgen, room_t const &room,
 		} // for r
 	} // for n
 	if (rack_id == 0) { // no racks were added
-		interior->room_geom->objs.resize(flooring_start); // remove flooring
+		objs.resize(flooring_start); // remove flooring (if added)
 		return 0;
 	}
-	// add cash register/checkout counter?
+	// add cash register/checkout counter for prison store?
 	add_door_sign("Store", room, zval, room_id);
 	return 1;
 }
@@ -612,14 +644,14 @@ unsigned escalator_t::get_all_cubes(cube_t cubes[7]) const { // {lo left wall, l
 	return 7;
 }
 
-// conveinence stores; move to a separate file if/when large enough
+// conveinence stores
 
 void building_t::create_conv_store_floorplan(unsigned part_id, rand_gen_t &rgen) {
-	// TODO: large main retail area with smaller bathroom and storage room, similar to restaurants
-	// TODO: counter with person and cash register, similar to mall restaurants
 	cube_t const &part(parts[part_id]);
 	cube_t main_room(part);
 	add_assigned_room(main_room, part_id, RTYPE_RETAIL); // num_lights will be calculated later
 	retail_floor_levels = 1;
+	// add bathroom and storage room
+	// TODO
 }
 

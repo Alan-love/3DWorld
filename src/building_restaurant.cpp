@@ -347,9 +347,11 @@ void building_t::add_mall_restaurant_objs(rand_gen_t &rgen, room_t const &room, 
 cube_t building_t::add_restaurant_counter(cube_t const &wall, bool dim, bool dir, unsigned room_id, float light_amt,
 	bool leave_end_gaps, bool add_cash_registers, bool store_is_closed, rand_gen_t &rgen)
 {
+	bool const conv_store(is_conv_store()); // convenience store counter rather than mall restaurant counter
 	float const window_vspace(get_window_vspace()), wall_thickness(get_wall_thickness()), clearance(get_min_front_clearance_inc_people());
+	colorRGBA const color((conv_store || !has_mall()) ? WHITE : interior->mall_info->mall_wall_color);
 	vect_room_object_t &objs(interior->room_geom->objs);
-	add_short_wall_with_trim(wall, dim, room_id, light_amt, interior->mall_info->mall_wall_color); // bottom wall
+	add_short_wall_with_trim(wall, dim, room_id, light_amt, color); // bottom wall
 	cube_t counter(wall);
 	set_cube_zvals(counter, wall.z2(), (wall.z2() + 0.6*wall_thickness));
 	counter.expand_in_dim(dim, 2.5*wall_thickness);
@@ -368,7 +370,7 @@ cube_t building_t::add_restaurant_counter(cube_t const &wall, bool dim, bool dir
 	
 	if (add_cash_registers && building_obj_model_loader.is_model_valid(OBJ_MODEL_CASHREG)) {
 		// add cash registers
-		unsigned const num_cr(2 + (rgen.rand()%3)); // 2-4
+		unsigned const num_cr(conv_store ? 1 : (2 + (rgen.rand()%3))); // 1 for convenience store, 2-4 for mall food store
 		vector3d const sz(building_obj_model_loader.get_model_world_space_size(OBJ_MODEL_CASHREG)); // D, W, H
 		float const height(0.1*window_vspace), hwidth(0.5*height*sz.y/sz.z), hdepth(0.5*height*sz.x/sz.z), edge_space(1.5*hwidth);
 
@@ -410,7 +412,7 @@ cube_t building_t::add_restaurant_counter(cube_t const &wall, bool dim, bool dir
 		}
 	}
 	// place other items between cash registers
-	unsigned const num_cont  (rgen.rand() % 6); // 0-5
+	unsigned const num_cont  (conv_store ? 0 : (rgen.rand() % 6)); // 0-5
 	unsigned const num_pizza (rgen.rand() % 4); // 0-3
 	unsigned const num_drinks(add_cash_registers ? (rgen.rand() % 9) : 0); // 0-8
 	unsigned const num_fruit (add_cash_registers ? (rgen.rand() % 7) : 0); // 0-6

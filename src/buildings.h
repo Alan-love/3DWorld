@@ -2962,7 +2962,7 @@ private:
 	bool add_vending_machine (rand_gen_t &rgen, room_t const &room, float zval, unsigned room_id, float tot_light_amt, unsigned objs_start,
 		cube_t const &place_area, unsigned max_type=NUM_VEND_TYPES);
 	bool add_vending_machine_type(rand_gen_t &rgen, room_t const &room, float zval, unsigned room_id, float tot_light_amt, unsigned objs_start,
-		cube_t const &place_area, unsigned vtype_id);
+		cube_t const &place_area, unsigned vtype_id, unsigned pref_orient=4);
 	bool add_wall_tv(rand_gen_t &rgen, room_t const &room, float zval, unsigned room_id, float tot_light_amt, unsigned objs_start, float height_scale=1.0);
 	void add_pan_on_grill(room_object_t const &grill, rand_gen_t &rgen);
 	void add_pan_on_stove(room_object_t const &stove, rand_gen_t &rgen);

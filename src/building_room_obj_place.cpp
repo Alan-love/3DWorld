@@ -1019,13 +1019,13 @@ bool building_t::add_vending_machine(rand_gen_t &rgen, room_t const &room, float
 	return 0;
 }
 bool building_t::add_vending_machine_type(rand_gen_t &rgen, room_t const &room, float zval, unsigned room_id, float tot_light_amt, unsigned objs_start,
-	cube_t const &place_area, unsigned vtype_id)
+	cube_t const &place_area, unsigned vtype_id, unsigned pref_orient)
 {
 	assert(vtype_id < NUM_VEND_TYPES);
 	unsigned const obj_id(interior->room_geom->objs.size());
 	vending_info_t const &vtype(get_vending_type(vtype_id));
 	float const floor_spacing(get_window_vspace()), height(0.75*floor_spacing*(vtype.size.z/72)); // normalized to 72"
-	if (!place_obj_along_wall(TYPE_VENDING, room, height, vtype.size, rgen, zval, room_id, tot_light_amt, place_area, objs_start, 1.0, 0, 4, 0, vtype.color, 1)) return 0;
+	if (!place_obj_along_wall(TYPE_VENDING, room, height, vtype.size, rgen, zval, room_id, tot_light_amt, place_area, objs_start, 1.0, 0, pref_orient, 0, vtype.color, 1)) return 0;
 	room_object_t &vm(interior->room_geom->objs[obj_id]);
 	vm.item_flags = vtype_id;
 
