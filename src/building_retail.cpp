@@ -366,15 +366,17 @@ bool building_t::add_small_retail_room_objs(rand_gen_t rgen, room_t const &room,
 			bool const side(rgen.rand_bool());
 			unsigned const pref_orient(2*dim + !dir);
 			unsigned const vend_types[2] = {VEND_DRINK, VEND_SNACK}; // one of each type
+			cube_t vm_area(place_area);
+			vm_area.expand_by_xy(-get_trim_thickness());
 			
 			for (unsigned d = 0; d < 2; ++d) {
 				unsigned const vtype_id(vend_types[bool(d) ^ side]);
 				vending_info_t const &vtype(get_vending_type(vtype_id));
 				float const height(0.75*window_vspace*(vtype.size.z/72)); // normalized to 72"
-				cube_t vm(place_area);
+				cube_t vm(vm_area);
 				set_cube_zvals(vm, zval, (zval + height));
-				vm.d[ dim][!dir] = place_area.d[ dim][dir] -           dscale*height*(vtype.size.y/vtype.size.z); // set depth
-				vm.d[!dim][!d  ] = place_area.d[!dim][d  ] - (d ? 1.0 : -1.0)*height*(vtype.size.x/vtype.size.z); // set width
+				vm.d[ dim][!dir] = vm_area.d[ dim][dir] -           dscale*height*(vtype.size.y/vtype.size.z); // set depth
+				vm.d[!dim][!d  ] = vm_area.d[!dim][d  ] - (d ? 1.0 : -1.0)*height*(vtype.size.x/vtype.size.z); // set width
 				objs.emplace_back(vm, TYPE_VENDING, room_id, dim, !dir, 0, light_amt, SHAPE_CUBE, vtype.color, vtype_id);
 			} // for d
 			// block off this area from shelf racks
