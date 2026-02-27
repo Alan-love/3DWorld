@@ -304,7 +304,7 @@ bool building_t::add_bathroom_objs(rand_gen_t rgen, room_t &room, float &zval, u
 		bounds.expand_by(-0.01*wall_thickness); // shrink slightly to prevent Z-figthing
 		place_model_along_wall(OBJ_MODEL_URINAL, TYPE_URINAL, room, 0.4, rgen, urinal_zval, room_id, tot_light_amt, bounds, objs_start, 2.0, 4, 0, WHITE, 0, 0, 0, 0, 0.0, 1);
 	}
-	if (room.is_office && !room.is_nested()) {add_door_sign("Restroom", room, zval, room_id);} // add office bathroom sign; not for hospital rooms
+	if ((room.is_office || is_conv_store()) && !room.is_nested()) {add_door_sign("Restroom", room, zval, room_id);} // add office/store bathroom sign; not for hospital rooms
 	return placed_obj;
 }
 
@@ -745,8 +745,8 @@ void building_t::add_bathroom_window(cube_t const &window, bool dim, bool dir, u
 	if (!has_int_windows()) return; // no interior (or exterior) drawn windows
 	room_t const &room(get_room(room_id));
 	// exterior looks odd to have window block walls at the corner of a building,
-	// so only enable this for single exterior walls, or when there are no exterior windows, or when there are stalls, or for industrial bathrooms (which look odd without it)
-	if (!is_industrial() && has_windows() && !room.has_br_stalls() && count_ext_walls_for_room(room, window.z1()) != 1) return;
+	// so only enable this for single exterior walls, when there are no exterior windows, when there are stalls, or for industrial/rest/conv bathrooms (which look odd without it)
+	if (!is_industrial() && !is_restaurant() && !is_conv_store() && has_windows() && !room.has_br_stalls() && count_ext_walls_for_room(room, window.z1()) != 1) return;
 	vect_room_object_t &objs(interior->room_geom->objs);
 	cube_t c(window);
 	c.translate_dim(dim, (dir ? 1.0 : -1.0)*0.5*get_trim_thickness()); // half the previous translate to prevent Z-fighting in mirror reflections

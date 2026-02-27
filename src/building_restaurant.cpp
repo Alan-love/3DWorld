@@ -8,7 +8,6 @@
 extern object_model_loader_t building_obj_model_loader;
 extern building_params_t global_building_params;
 
-void create_wall(cube_t &wall, bool dim, float wall_pos, float fc_thick, float wall_half_thick, float wall_edge_spacing);
 float get_radius_for_square_model(unsigned model_id);
 colorRGBA get_stain_color(rand_gen_t &rgen, bool is_food=0);
 

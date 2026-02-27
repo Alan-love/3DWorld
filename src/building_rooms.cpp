@@ -916,7 +916,12 @@ void building_t::gen_room_details(rand_gen_t &rgen, unsigned building_ix) {
 					added_obj = is_storage = add_storage_objs(rgen, *r, room_center.z, room_id, tot_light_amt, objs_start, is_basement, has_stairs);
 				}
 			}
-			if (r->get_room_type(f) == RTYPE_CONF) { // already assigned to a conference room
+			else if (is_conv_store()) {
+				if (init_rtype_f0 == RTYPE_STORAGE) {
+					added_obj = is_storage = add_storage_objs(rgen, *r, room_center.z, room_id, tot_light_amt, objs_start, is_basement, has_stairs);
+				}
+			}
+			else if (r->get_room_type(f) == RTYPE_CONF) { // already assigned to a conference room
 				if (add_conference_objs(rgen, *r, room_center.z, room_id, tot_light_amt, objs_start, f)) {added_obj = can_place_onto = 1;}
 				else if (f < NUM_RTYPE_SLOTS) { // failed, maybe because stairs were added to the room
 					r->assign_to(RTYPE_OFFICE, f); // if room is on a lower floor where we can assign a type, re-assign to an office
@@ -3061,8 +3066,8 @@ void building_t::add_window_coverings(cube_t const &window, bool dim, bool dir) 
 
 	switch (get_room_type_and_floor(room_id, window.zc(), floor_ix)) {
 	case RTYPE_BED : case RTYPE_MASTER_BED: case RTYPE_HOS_BED: add_window_blinds(window, dim, dir, room_id, floor_ix); break; // bedroom
-	case RTYPE_BATH: case RTYPE_MENS: case RTYPE_WOMENS: add_bathroom_window(window, dim, dir, room_id, floor_ix); break; // bathroom
-	case RTYPE_JAIL: case RTYPE_JAIL_CELL: add_window_bars(window, dim, dir, room_id); break; // prison jail cell
+	case RTYPE_BATH: case RTYPE_MENS: case RTYPE_WOMENS:      add_bathroom_window(window, dim, dir, room_id, floor_ix); break; // bathroom
+	case RTYPE_JAIL: case RTYPE_JAIL_CELL:                        add_window_bars(window, dim, dir, room_id); break; // prison jail cell
 	} // end switch
 }
 

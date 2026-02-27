@@ -2250,6 +2250,7 @@ struct building_t : public building_geom_t {
 	building_type_t btype=BTYPE_UNSET;
 	bool is_house=0, has_garage=0, has_shed=0, has_int_garage=0, has_courtyard=0, has_complex_floorplan=0, has_helipad=0, has_ac=0, has_fake_roof_door=0;
 	bool has_tline_conn=0, has_smokestack=0, has_antenna=0, has_radiators=0, was_custom_placed=0;
+	bool street_side=0; // for convenience stores
 	mutable bool has_attic_window=0; // make mutable so that drawing code can update/cache this value
 	bool multi_family=0; // apartments, multi-family house, duplex, etc. - split by floor
 	bool has_int_fplace=0, has_parking_garage=0, has_small_part=0, has_basement_door=0, has_basement_pipes=0, parts_generated=0, is_in_city=0, has_skylight_light=0;
@@ -2331,7 +2332,7 @@ struct building_t : public building_geom_t {
 	bool can_extend_stairs_to_pg(unsigned &stairs_ix) const;
 	bool is_basement(vect_cube_t::const_iterator it) const {return (int(it - parts.begin()) == basement_part_ix);}
 	bool is_pos_in_basement(point const &pos) const {return ((has_basement() && parts[basement_part_ix].contains_pt(pos)) || point_in_extended_basement(pos));}
-	bool room_inc_half_walls(room_t const &room) const {return ((is_restaurant() && room.z1() >= ground_floor_z1) || room.inc_half_walls());}
+	bool room_inc_half_walls(room_t const &room) const {return (((is_restaurant() || is_conv_store()) && room.z1() >= ground_floor_z1) || room.inc_half_walls());}
 	bool maybe_has_ext_door_this_floor(float part_z1, unsigned floor_ix) const;
 	void get_garage_dim_dir(cube_t const &garage, bool &dim, bool &dir) const;
 	bool get_street_dim () const {return (street_dir ? ((street_dir-1) >> 1) : 0);}
@@ -3102,7 +3103,7 @@ private:
 		unsigned objs_start, bool dim, bool dir, bool cr_dir, bool store_is_closed=0);
 	void add_shelves(cube_t const &c, bool dim, bool dir, unsigned room_id, float tot_light_amt, unsigned flags, unsigned item_flags, rand_gen_t &rgen);
 	cube_t add_shelf_rack(cube_t const &c, bool dim, unsigned style_id, unsigned &rack_id, unsigned room_id,
-		unsigned extra_flags, unsigned item_category, bool add_occluders, rand_gen_t &rgen);
+		unsigned extra_flags, unsigned item_category, bool add_occluders, rand_gen_t &rgen, bool make_nonempty=0);
 	bool maybe_add_walkway_room_objs(rand_gen_t rgen, room_t const &room, float zval, unsigned room_id, float tot_light_amt, light_ix_assign_t &light_ix_assign);
 	void add_clock(cube_t const &clock, unsigned room_id, float tot_light_amt, bool dim, bool dir, bool digital);
 	void add_clock_to_cube(cube_t const &c, float zval, unsigned room_id, float tot_light_amt, bool dim, bool dir, bool digital);
@@ -3515,6 +3516,7 @@ void add_building_interior_lights(point const &xlate, cube_t &lights_bcube, bool
 unsigned calc_num_floors(cube_t const &c, float window_vspacing, float floor_thickness);
 unsigned calc_num_floors_room(room_t const &r, float window_vspacing, float floor_thickness);
 void set_wall_width(cube_t &wall, float pos, float half_thick, unsigned dim);
+void create_wall(cube_t &wall, bool dim, float wall_pos, float fc_thick, float wall_half_thick, float wall_edge_spacing);
 void resize_around_center_xy(cube_t &c, float radius);
 void clip_wall_to_ceil_floor(cube_t &wall, float fc_thick);
 bool is_val_inside_window(cube_t const &c, bool dim, float val, float window_spacing, float window_border);

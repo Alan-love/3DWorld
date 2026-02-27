@@ -346,16 +346,18 @@ void building_t::add_shopping_carts_to_room(rand_gen_t &rgen, room_t const &room
 bool building_t::add_small_retail_room_objs(rand_gen_t rgen, room_t const &room, float &zval, unsigned room_id, float light_amt) { // for prisons, etc.
 	// Note: simplified version of mall retail stores from building_t::add_mall_store_objs()
 	bool const conv_store(is_conv_store()); // else prison store
-	bool const dim(room.dx() < room.dy()); // long dim
+	bool dim(room.dx() < room.dy()); // long dim
 	float const window_vspace(get_window_vspace()), door_width(get_doorway_width()), wall_thick(get_wall_thickness());
 	cube_t place_area(get_walkable_room_bounds(room));
 	vect_room_object_t &objs(interior->room_geom->objs);
 	
 	if (conv_store) {
 		if (place_area.get_sz_dim(!dim) > 4.0*door_width) { // add counter; should be true
+			cube_t const &part(parts[room.part_id]);
+			dim = (part.dx() < part.dy()); // long dim of part
 			bool const ext_lo(room.d[dim][0] == bcube.d[dim][0]), ext_hi(room.d[dim][1] == bcube.d[dim][1]);
 			bool const dir((ext_lo == ext_hi) ? rgen.rand_bool() : ext_hi); // along edge of building if only one side is
-			float const dscale(dir ? 1.0 : -1.0), wall_pos(place_area.d[dim][dir] - dscale*1.6*door_width);
+			float const dscale(dir ? 1.0 : -1.0), wall_pos(place_area.d[dim][dir] - dscale*1.5*door_width);
 			cube_t wall(room);
 			set_cube_zvals(wall, zval, (zval + 0.35*window_vspace));
 			set_wall_width(wall, wall_pos, 0.5*wall_thick, dim);
@@ -387,7 +389,7 @@ bool building_t::add_small_retail_room_objs(rand_gen_t rgen, room_t const &room,
 	float const dx(place_area.dx()), dy(place_area.dy()), spacing(conv_store ? 1.1 : 0.8), nom_aisle_width(1.2*door_width);
 	unsigned const nx(max(1U, unsigned(spacing*dx/window_vspace))), ny(max(1U, unsigned(spacing*dy/window_vspace)));
 	float const length(dim ? dy : dx), width(dim ? dx : dy), max_rack_width((conv_store ? 0.35 : 0.45)*window_vspace);
-	unsigned const nrows((dim ? nx : ny)-1), nracks(max(2U, (dim ? ny : nx)/4));
+	unsigned const nrows((dim ? nx : ny)-1), nracks(max((conv_store ? 1U : 2U), (dim ? ny : nx)/4));
 	if (width < 4.0*nom_aisle_width || nrows < 2) return 0; // can't fit at least two rows
 	unsigned const flooring_start(objs.size());
 	if (is_prison()) {zval = add_flooring(room, zval, room_id, light_amt, FLOORING_LGTILE);} // add tile over concrete
@@ -417,7 +419,7 @@ bool building_t::add_small_retail_room_objs(rand_gen_t rgen, room_t const &room,
 			cube_t test_cube(rack);
 			test_cube.expand_by_xy((conv_store ? 0.2 : 0.6)*door_width); // add extra padding
 			if (is_obj_placement_blocked(test_cube, room, 1, 1)) continue; // inc doors and check open_dir
-			add_shelf_rack(rack, dim, style_id, rack_id, room_id, 0, RETAIL_FOOD+1, 0, rgen); // add_occluders=0
+			add_shelf_rack(rack, dim, style_id, rack_id, room_id, 0, RETAIL_FOOD+1, 0, rgen, 1); // add_occluders=0, make_nonempty=1
 		} // for r
 	} // for n
 	if (rack_id == 0) { // no racks were added
@@ -425,7 +427,7 @@ bool building_t::add_small_retail_room_objs(rand_gen_t rgen, room_t const &room,
 		return 0;
 	}
 	// add cash register/checkout counter for prison store?
-	add_door_sign("Store", room, zval, room_id);
+	if (is_prison()) {add_door_sign("Store", room, zval, room_id);}
 	return 1;
 }
 
@@ -521,9 +523,9 @@ void building_t::add_checkout_objs(cube_t const &place_area, float zval, unsigne
 }
 
 cube_t building_t::add_shelf_rack(cube_t const &c, bool dim, unsigned style_id, unsigned &rack_id, unsigned room_id,
-	unsigned extra_flags, unsigned item_category, bool add_occluders, rand_gen_t &rgen)
+	unsigned extra_flags, unsigned item_category, bool add_occluders, rand_gen_t &rgen, bool make_nonempty)
 {
-	bool const is_empty(rgen.rand_float() < 0.05); // 5% empty
+	bool const is_empty(!make_nonempty && rgen.rand_float() < 0.05); // 5% empty
 	unsigned flags(extra_flags | (is_empty ? 0 : RO_FLAG_NONEMPTY));
 	unsigned const max_num_shelves((item_category == RETAIL_ELECTRONICS+1) ? 3 : 5); // Note: mall item_category has +1 added
 	if (is_school() || is_prison()) {flags |= RO_FLAG_ADJ_HI;} // flag as no_alcohol
@@ -650,10 +652,40 @@ unsigned escalator_t::get_all_cubes(cube_t cubes[7]) const { // {lo left wall, l
 
 void building_t::create_conv_store_floorplan(unsigned part_id, rand_gen_t &rgen) {
 	cube_t const &part(parts[part_id]);
-	cube_t main_room(part);
-	add_assigned_room(main_room, part_id, RTYPE_RETAIL); // num_lights will be calculated later
+	vector2d const part_sz(part.get_size_xy());
+	bool const dim(part_sz.x < part_sz.y), dir(!street_side), br_side(rgen.rand_bool());
+	int const num_side_windows(get_num_windows_on_side(part,  dim)); // num windows in long  dim
+	int const num_end_windows (get_num_windows_on_side(part, !dim)); // num windows in short dim
+	if (num_side_windows < 2 || num_end_windows < 2) return; // too small to split into rooms; shouldn't happen
+	float const part_wind_factor(((num_side_windows <= 3) ? -1.0 : 1.0)*0.7*get_window_h_border()); // target ~30% of the building length
+	float const wall_pos(part.d[dim][dir] - (dir ? 1.0 : -1.0)*(1.0 + part_wind_factor)*part_sz[dim]/num_side_windows); // one window from the exterior wall
+	float split_pos(part.get_center_dim(!dim));
+	if (num_end_windows & 1) {split_pos += 0.5*(br_side ? 1.0 : -1.0)*part_sz[!dim]/num_end_windows;} // odd number of windows; make bathroom smaller than storage
+	// add rooms
+	cube_t main_room(part), end_rooms(part);
+	main_room.d[dim][dir] = end_rooms.d[dim][!dir] = wall_pos;
+	cube_t bathroom(end_rooms), storage(end_rooms);
+	bathroom.d[!dim][!br_side] = storage.d[!dim][br_side] = split_pos;
+	add_assigned_room(main_room, part_id, RTYPE_RETAIL ); // num_lights will be calculated later
+	add_assigned_room(bathroom,  part_id, RTYPE_BATH   );
+	add_assigned_room(storage,   part_id, RTYPE_STORAGE);
 	retail_floor_levels = 1;
-	// add bathroom and storage room
-	// TODO
+	// add walls and doors
+	float const wall_thick(get_wall_thickness()), wall_hthick(0.5*wall_thick), wall_edge_spacing(0.05*wall_thick), fc_thick(get_fc_thickness());
+	float const doorway_width(get_nominal_doorway_width()), doorway_hwidth(0.5*doorway_width), edge_pad(doorway_hwidth + wall_thick);
+	cube_t main_wall(part), split_wall(part);
+	create_wall(main_wall,   dim, wall_pos,  fc_thick, wall_hthick, wall_edge_spacing);
+	create_wall(split_wall, !dim, split_pos, fc_thick, wall_hthick, wall_edge_spacing);
+	split_wall.d[dim][!dir] = main_wall.d[dim][dir];
+
+	for (unsigned is_br = 0; is_br < 2; ++is_br) {
+		cube_t const &r(is_br ? bathroom : storage);
+		assert(r.is_strictly_normalized());
+		assert(r.get_sz_dim(!dim) > 2.0*edge_pad);
+		float const door_pos(rgen.rand_uniform(r.d[!dim][0]+edge_pad, r.d[!dim][1]-edge_pad));
+		insert_door_in_wall_and_add_seg(main_wall, (door_pos - doorway_hwidth), (door_pos + doorway_hwidth), !dim, dir, br_side, is_br, 1); // opens into room; unlocked
+	}
+	interior->walls[ dim].push_back(main_wall );
+	interior->walls[!dim].push_back(split_wall);
 }
 

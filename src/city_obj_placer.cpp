@@ -155,7 +155,7 @@ bool city_obj_placer_t::maybe_place_gas_station(road_plot_t const &plot, unsigne
 		}
 	} // end car wash
 	if (1) { // maybe add a conveinence store at the back
-		float const cs_len(6.0*nom_car_size.y), cs_min_depth(2.0*nom_car_size.x), cs_height(0.2*city_params.road_width);
+		float const cs_len(6.2*nom_car_size.y), cs_min_depth(2.0*nom_car_size.x), cs_height(0.2*city_params.road_width);
 		float const depth_offset((ent_dir ? -1.0 : 1.0)*cs_min_depth);
 		float const bldg_start(gstation.pavement.d[!dim][!ent_dir]); // away from road
 		cube_t cs(gstation.pavement);
@@ -183,6 +183,7 @@ bool city_obj_placer_t::maybe_place_gas_station(road_plot_t const &plot, unsigne
 			b.bcube      = cs; // copy XY; zvals set below
 			b.num_sides  = 4; // simple cube
 			b.street_dir = 2*(!dim) + ent_dir + 1; // facing gas station
+			b.street_side= dir;
 			b.btype      = BTYPE_CONV_STORE;
 			b.mat_ix     = global_building_params.choose_rand_mat(rgen, 0, 1, 0); // use brick or concrete: city_only=0, non_city_only=1, residential=0
 			b.roof_type  = ROOF_TYPE_PEAK;

@@ -1502,7 +1502,7 @@ void try_expand_into_xy(cube_t &c1, cube_t const &c2) {
 bool building_t::can_have_basement() const {
 	if (!is_cube())          return 0; // simple cube shaped buildings only
 	if (!interior_enabled()) return 0; // if there's no interior, there's no point in adding a basement
-	//if (is_restaurant())     return 0; // should work now
+	if (is_conv_store())     return 0;
 	return 1;
 }
 
