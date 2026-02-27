@@ -952,11 +952,13 @@ unsigned get_shelves_for_object(room_object_t const &c, cube_t shelves[MAX_SHELV
 	return num_shelves;
 }
 
-void building_room_geom_t::get_shelf_objects(room_object_t const &c_in, cube_t const shelves[MAX_SHELVES], unsigned num_shelves, vect_room_object_t &objects, bool add_models_mode) {
+/*static*/ void building_room_geom_t::get_shelf_objects(room_object_t const &c_in, cube_t const shelves[MAX_SHELVES],
+	unsigned num_shelves, vect_room_object_t &objects, bool add_models_mode)
+{
 	if (!c_in.is_nonempty()) return; // empty - no objects
 	room_object_t c(c_in); // deep copy so that we can set flags and don't invalidate the reference
 	if (!add_models_mode) {c.flags |= RO_FLAG_WAS_EXP;} // only expand for non-models mode
-	bool const dim(c.dim), dir(c.dir), is_house(c.is_house()), in_mall(c.in_mall());
+	bool const dim(c.dim), dir(c.dir), is_house(c.is_house()), in_mall(c.in_mall()); // Note: is_house includes restaurants and convenience stores
 	bool const in_warehouse(c.in_warehouse()), on_warehouse_floor(c.on_warehouse_floor());
 	vector3d const c_sz(c.get_size());
 	float const dz(c_sz.z), width(c_sz[dim]), thickness(0.02*dz), bracket_thickness(0.75*thickness), floor_spacing(1.1*dz);
@@ -1164,38 +1166,40 @@ void building_room_geom_t::get_shelf_objects(room_object_t const &c_in, cube_t c
 		}
 		if (in_warehouse) continue; // done placing objects
 
-		// add computers; what about monitors?
-		float const cheight(0.75*h_val), cwidth(0.44*cheight), cdepth(0.9*cheight); // fixed AR=0.44 to match the texture
-		sz[ dim] = 0.5*cdepth;
-		sz[!dim] = 0.5*cwidth;
+		if (c.item_flags != STORE_RETAIL) { // no computers or monitors in restaurants or convenience stores
+			// add computers; what about monitors?
+			float const cheight(0.75*h_val), cwidth(0.44*cheight), cdepth(0.9*cheight); // fixed AR=0.44 to match the texture
+			sz[ dim] = 0.5*cdepth;
+			sz[!dim] = 0.5*cwidth;
 
-		if (2.1*sz.x < s_sz.x && 2.1*sz.y < s_sz.y && (top_shelf || cheight < shelf_clearance)) { // if it fits in all dims
-			unsigned const num_comps(rgen.rand() % (is_house ? 3 : 6)); // 0-5
-			C.dim    = dim; C.dir = !dir; // reset dim, flip dir
-			C.type   = TYPE_COMPUTER;
-			C.shape  = SHAPE_CUBE;
-			C.flags |= RO_FLAG_BROKEN; // flag as old
+			if (2.1*sz.x < s_sz.x && 2.1*sz.y < s_sz.y && (top_shelf || cheight < shelf_clearance)) { // if it fits in all dims
+				unsigned const num_comps(rgen.rand() % (is_house ? 3 : 6)); // 0-5
+				C.dim    = dim; C.dir = !dir; // reset dim, flip dir
+				C.type   = TYPE_COMPUTER;
+				C.shape  = SHAPE_CUBE;
+				C.flags |= RO_FLAG_BROKEN; // flag as old
 
-			for (unsigned n = 0; n < num_comps; ++n) {
-				gen_xy_pos_for_cube_obj(C, S, sz, cheight, rgen);
-				add_if_not_intersecting(C, objects, cubes);
+				for (unsigned n = 0; n < num_comps; ++n) {
+					gen_xy_pos_for_cube_obj(C, S, sz, cheight, rgen);
+					add_if_not_intersecting(C, objects, cubes);
+				}
+				C.flags &= ~RO_FLAG_BROKEN; // unset old flag
 			}
-			C.flags &= ~RO_FLAG_BROKEN; // unset old flag
-		}
-		// add keyboards
-		float const kbd_hwidth(0.7*0.5*1.1*2.0*h_val), kbd_depth(0.6*kbd_hwidth), kbd_height(0.06*kbd_hwidth);
-		sz[ dim] = 0.5*kbd_depth;
-		sz[!dim] = kbd_hwidth;
+			// add keyboards
+			float const kbd_hwidth(0.7*0.5*1.1*2.0*h_val), kbd_depth(0.6*kbd_hwidth), kbd_height(0.06*kbd_hwidth);
+			sz[ dim] = 0.5*kbd_depth;
+			sz[!dim] = kbd_hwidth;
 
-		if (2.1*sz.x < s_sz.x && 2.1*sz.y < s_sz.y && (top_shelf || kbd_height < shelf_clearance)) { // if it fits in all dims
-			unsigned const num_kbds(rgen.rand() % 5); // 0-4
-			C.type  = TYPE_KEYBOARD;
-			C.shape = SHAPE_CUBE;
+			if (2.1*sz.x < s_sz.x && 2.1*sz.y < s_sz.y && (top_shelf || kbd_height < shelf_clearance)) { // if it fits in all dims
+				unsigned const num_kbds(rgen.rand() % 5); // 0-4
+				C.type  = TYPE_KEYBOARD;
+				C.shape = SHAPE_CUBE;
 
-			for (unsigned n = 0; n < num_kbds; ++n) {
-				gen_xy_pos_for_cube_obj(C, S, sz, kbd_height, rgen);
-				C.dir = rgen.rand_bool();
-				add_if_not_intersecting(C, objects, cubes);
+				for (unsigned n = 0; n < num_kbds; ++n) {
+					gen_xy_pos_for_cube_obj(C, S, sz, kbd_height, rgen);
+					C.dir = rgen.rand_bool();
+					add_if_not_intersecting(C, objects, cubes);
+				}
 			}
 		}
 		// add bottles
@@ -1242,7 +1246,7 @@ void building_room_geom_t::get_shelf_objects(room_object_t const &c_in, cube_t c
 			}
 		}
 		// add large balls to houses
-		if (is_house) {
+		if (is_house && c.item_flags != STORE_RETAIL) {
 			unsigned const num_balls(rgen.rand() % 3); // 0-2
 			C.color = WHITE;
 			C.type  = TYPE_LG_BALL;

@@ -1997,8 +1997,9 @@ void gen_crate_sz(vector3d &sz, rand_gen_t &rgen, float window_vspacing) {
 
 bool building_t::add_storage_objs(rand_gen_t rgen, room_t const &room, float zval, unsigned room_id, float tot_light_amt, unsigned objs_start, bool is_basement, bool has_stairs) {
 	bool const is_garage_or_shed(room.is_garage_or_shed(0)), is_int_garage(room.get_room_type(0) == RTYPE_GARAGE);
+	bool const is_house_like(is_restaurant() || is_conv_store());
 	float const window_vspacing(get_window_vspace()), wall_thickness(get_wall_thickness()), floor_thickness(get_floor_thickness());
-	float const ceil_zval(zval + window_vspacing - floor_thickness), shelf_depth((is_house ? (is_basement ? 0.18 : 0.15) : 0.2)*window_vspacing);
+	float const ceil_zval(zval + window_vspacing - floor_thickness), shelf_depth(((is_house || is_house_like) ? (is_basement ? 0.18 : 0.15) : 0.2)*window_vspacing);
 	float shelf_shorten(shelf_depth + 1.0f*wall_thickness);
 	// increase shelf shorten for interior garages to account for approx width of exterior door when opened
 	if (is_int_garage) {max_eq(shelf_shorten, 0.36f*window_vspacing);}
@@ -2047,6 +2048,7 @@ bool building_t::add_storage_objs(rand_gen_t rgen, room_t const &room, float zva
 	// add shelves on walls (avoiding any door(s)), and have crates avoid them
 	bool const has_bike(is_int_garage && objs.size() >= 2 && objs[objs.size()-2].type == TYPE_GBIKE); // previously added bike, then blocker
 	unsigned const rgen_mod(is_int_garage ? (has_bike ? 5 : 3) : 2); // 50% of the walls, 67% for interior garages, 80% if there's a bike
+	unsigned const item_flags(is_house_like ? STORE_RETAIL : 0); // tag restaurants and conv stores as "retail" to avoid placing computers, keyboards, and balls
 
 	for (unsigned dim = 0; dim < 2; ++dim) {
 		if (room_bounds.get_sz_dim( dim) < 6.0*shelf_depth  ) continue; // too narrow to add shelves in this dim
@@ -2081,14 +2083,14 @@ bool building_t::add_storage_objs(rand_gen_t rgen, room_t const &room, float zva
 				if (has_bcube_int(cand, exclude)) continue; // too close to a doorway
 				if (!is_garage_or_shed && interior->is_blocked_by_stairs_or_elevator(cand)) continue;
 				if (overlaps_other_room_obj(cand, objs_start)) continue; // can be blocked by bookcase, etc.
-				bool const is_empty(rgen.rand_float() < 0.05); // 5% empty
+				bool const is_empty(!is_house_like && rgen.rand_float() < 0.05); // 5% empty
 				unsigned shelf_flags(0);
 				bool at_window(is_garage_or_shed);
-				if (is_restaurant() && !is_basement) {at_window |= (room.d[dim][dir] == parts[room.part_id].d[dim][dir]);}
-				if (is_house  ) {shelf_flags |= RO_FLAG_IS_HOUSE;}
+				if (is_house_like && !is_basement) {at_window |= (room.d[dim][dir] == parts[room.part_id].d[dim][dir]);} // allowed at windows but must flag
+				if (is_house || is_house_like) {shelf_flags |= RO_FLAG_IS_HOUSE;}
 				if (!is_empty ) {shelf_flags |= RO_FLAG_NONEMPTY;}
 				if (!at_window) {shelf_flags |= RO_FLAG_INTERIOR;} // will draw support brackets
-				add_shelves(cand, dim, dir, room_id, tot_light_amt, shelf_flags, 0, rgen); // item_flags=0
+				add_shelves(cand, dim, dir, room_id, tot_light_amt, shelf_flags, item_flags, rgen);
 				break; // done
 			} // for n
 		} // for dir
@@ -2096,7 +2098,7 @@ bool building_t::add_storage_objs(rand_gen_t rgen, room_t const &room, float zva
 	if (is_garage_or_shed) return 1; // no chair, crates, or boxes in garages or sheds
 
 	// add a random office chair if there's space
-	if (!is_house && !is_restaurant() && min(crate_bounds.dx(), crate_bounds.dy()) > 1.2*window_vspacing && has_office_chair_model()) {
+	if (!is_house && !is_house_like && min(crate_bounds.dx(), crate_bounds.dy()) > 1.2*window_vspacing && has_office_chair_model()) {
 		vector3d const chair_sz(get_office_chair_size());
 		float const chair_height(chair_sz.z), chair_radius(chair_sz.x);
 		point const pos(gen_xy_pos_in_area(crate_bounds, chair_radius, rgen, zval));
@@ -2126,11 +2128,11 @@ bool building_t::add_storage_objs(rand_gen_t rgen, room_t const &room, float zva
 			}
 		} // for n
 	}
-	unsigned const num_max(is_house ? (is_basement ? 12 : 5) : 30); // 4-33 for offices, 4-8 for houses, 4-16 for house basements
+	unsigned const num_max(is_house ? (is_basement ? 12 : 5) : (is_house_like ? 10 : 30)); // 4-33 for offices, 4-8 for houses, 4-16 for house basements
 	add_boxes_and_crates(rgen, room, zval, room_id, tot_light_amt, objs_start, num_max, is_basement, room_bounds, crate_bounds, exclude);
 	// add a ladder leaning against the wall if storage room is on the ground floor or basement
 	if (zval < ground_floor_z1 + window_vspacing && rgen.rand_bool()) {add_ladder_to_room(rgen, room, zval, room_id, tot_light_amt, objs_start);}
-	if (is_restaurant()) {add_buckets_to_room(rgen, room_bounds, zval, room_id, tot_light_amt, objs_start, 2);} // add up to 2 buckets to restaurant storage
+	if (is_house_like) {add_buckets_to_room(rgen, room_bounds, zval, room_id, tot_light_amt, objs_start, 2);} // add up to 2 buckets to restaurant/conv store storage
 	// add office building storage room sign, in a hallway, basement, etc.
 	if (!is_house) {add_door_sign((has_stairs ? "Stairs" : "Storage"), room, zval, room_id);}
 	return 1; // it's always a storage room, even if it's empty
@@ -2225,7 +2227,7 @@ bool building_t::add_ladder_to_room(rand_gen_t &rgen, room_t const &room, float 
 	float const ladder_height(rgen.rand_uniform(0.77, 0.95)*get_floor_ceil_gap());
 	vector3d const ladder_sz(0.25, rgen.rand_uniform(0.2, 0.22), 1.0); // D, W, H
 	cube_t const place_area(get_room_wall_bounds(room));
-	return place_obj_along_wall(TYPE_INT_LADDER, room, ladder_height, ladder_sz, rgen, zval, room_id, tot_light_amt, place_area, objs_start, 0.0, 1, 4, 0);
+	return place_obj_along_wall(TYPE_INT_LADDER, room, ladder_height, ladder_sz, rgen, zval, room_id, tot_light_amt, place_area, objs_start, 0.0, 1, 4, 0, WHITE, 1); // not at window
 }
 
 bool building_t::add_interrogation_objs(rand_gen_t rgen, room_t const &room, float zval, unsigned room_id, float tot_light_amt, unsigned objs_start) {
