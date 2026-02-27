@@ -185,17 +185,19 @@ void building_t::gen_room_details(rand_gen_t &rgen, unsigned building_ix) {
 	//highres_timer_t timer("Gen Room Details");
 	// Note: people move from room to room, so using their current positions for room object generation is both nondeterministic and unnecessary
 	vect_cube_t blockers, valid_lights, segs; // blockers are used for fireplaces and office pillars
+	building_room_geom_t &room_geom(*interior->room_geom);
 	vect_room_object_t &objs(interior->room_geom->objs);
 	vector<room_t> &rooms(interior->rooms);
 	float const window_vspacing(get_window_vspace()), floor_thickness(get_floor_thickness()), fc_thick(0.5*floor_thickness), wall_thickness(get_wall_thickness());
 	float const light_thick(0.025*window_vspacing), def_light_size(0.1*window_vspacing), doorway_width(get_doorway_width());
-	interior->room_geom->obj_scale = window_vspacing; // used to scale room object textures
-	interior->room_geom->orig_assigned_rooms.reserve(rooms.size());
+	room_geom.obj_scale = window_vspacing; // used to scale room object textures
+	room_geom.orig_assigned_rooms.reserve(rooms.size());
+	//room_geom.has_computers = (is_house || is_office_bldg() || is_school() || is_hospital() || is_police_stat());
 	unsigned tot_num_rooms(0), num_bathrooms(0), num_bedrooms(0), num_storage_rooms(0);
 	
 	for (room_t &r : rooms) {
 		tot_num_rooms += calc_num_floors_room(r, window_vspacing, floor_thickness);
-		interior->room_geom->orig_assigned_rooms.push_back(r);
+		room_geom.orig_assigned_rooms.push_back(r);
 	}
 	++interior->gen_room_details_pass;
 	objs.reserve(tot_num_rooms); // placeholder - there will be more than this many
@@ -253,7 +255,7 @@ void building_t::gen_room_details(rand_gen_t &rgen, unsigned building_ix) {
 			else if (has_shed) {r->assign_all_to(RTYPE_SHED  );}
 		}
 		if (is_mall && !saw_mall) { // first mall rooom
-			interior->room_geom->first_mall_obj_ix = objs.size();
+			room_geom.first_mall_obj_ix = objs.size();
 			saw_mall = 1;
 		}
 		// determine lit/inner area of room (for prisons)
@@ -624,7 +626,7 @@ void building_t::gen_room_details(rand_gen_t &rgen, unsigned building_ix) {
 			rand_gen_t rgen_lights(rgen); // copy state so that we don't modify rgen
 			unsigned const objs_start_inc_lights(objs.size());
 			bool const walls_not_shared(is_backrooms); // multi-floor backrooms have different walls and can't share the light stack
-			if (is_retail_room) {interior->room_geom->retail_start = objs_start_inc_lights;}
+			if (is_retail_room) {room_geom.retail_start = objs_start_inc_lights;}
 			unsigned num_broken(0);
 
 			for (cube_t const &l : valid_lights) {
@@ -1285,7 +1287,7 @@ void building_t::gen_room_details(rand_gen_t &rgen, unsigned building_ix) {
 		}
 	} // for r (room)
 #if 0
-	vector<room_t> const &r1(interior->prev_rooms), &r2(interior->rooms);
+	vector<room_t> const &r1(interior->prev_rooms), &r2(rooms);
 	vect_room_object_t const &o1(interior->prev_objs), &o2(objs);
 	if (!r1.empty() && (r1 != r2 || o1 != o2)) { // check if previous values agree
 		cout << TXT(name) << TXT(r1.size()) << TXT(r2.size()) << TXT(o1.size()) << TXT(o2.size()) << endl;
@@ -1303,7 +1305,7 @@ void building_t::gen_room_details(rand_gen_t &rgen, unsigned building_ix) {
 		}
 	}
 	interior->prev_objs  = objs;
-	interior->prev_rooms = interior->rooms;
+	interior->prev_rooms = rooms;
 #endif
 	// check if rseed1 differs from previous value
 	if (interior->room_geom_rseed == 0) {interior->room_geom_rseed = rgen.rseed1;}
@@ -1312,7 +1314,7 @@ void building_t::gen_room_details(rand_gen_t &rgen, unsigned building_ix) {
 		cout << TXT(has_basement()) << TXT(has_ext_basement()) << TXT(has_mall()) << endl;
 	}
 	if (has_mall()) {add_mall_store_door_objs();};
-	if (saw_mall) {interior->room_geom->last_mall_obj_ix = objs.size();}
+	if (saw_mall) {room_geom.last_mall_obj_ix = objs.size();}
 	if (is_house) {interior->assign_master_bedroom(window_vspacing, floor_thickness);}
 	add_ceiling_tile_objects(rgen);
 	add_missing_wall_objects(rgen);
@@ -1353,9 +1355,9 @@ void building_t::gen_room_details(rand_gen_t &rgen, unsigned building_ix) {
 	add_stairs_and_elevators(rgen); // the room objects - stairs and elevators have already been placed within a room
 	if (interior->has_backrooms) {add_backrooms_droplet_spawners(rgen);}
 	objs.shrink_to_fit(); // Note: currently up to around 15K objs max for large office buildings
-	interior->room_geom->light_bcubes.resize(light_ix_assign.get_next_ix()); // allocate but don't fill un until needed
+	room_geom.light_bcubes.resize(light_ix_assign.get_next_ix()); // allocate but don't fill un until needed
 	// randomly vary wood color for this building
-	colorRGBA &wood_color(interior->room_geom->wood_color);
+	colorRGBA &wood_color(room_geom.wood_color);
 	float const luminance(rgen.rand_uniform(0.4, 1.6));
 	for (unsigned i = 0; i < 3; ++i) {wood_color[i] = luminance*WOOD_COLOR[i]*rgen.rand_uniform(0.9, 1.1);}
 	wood_color.set_valid_color();
