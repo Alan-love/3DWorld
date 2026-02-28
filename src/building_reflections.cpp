@@ -12,7 +12,7 @@ cube_t reflection_clip_cube, reflection_light_cube;
 room_object_t cur_room_mirror;
 shader_t reflection_shader;
 
-extern int display_mode, window_width, window_height, frame_counter;
+extern int display_mode, window_width, window_height, frame_counter, animate2;
 extern float CAMERA_RADIUS, NEAR_CLIP, perspective_fovy, light_factor;
 extern double camera_zh;
 extern point surface_pos;
@@ -359,6 +359,7 @@ class cube_map_reflection_manager_t {
 	}
 	bool has_reflected_person(building_t const &building, pos_dir_up const &pdu, cube_t const &clip_cube) {
 		assert(building.interior);
+		if (!animate2) return 0; // no reflection update when paused
 
 		for (person_t const &p : building.interior->people) {
 			if (!p.is_waiting_or_stopped() && clip_cube.contains_pt(p.pos) && pdu.point_visible_test(p.pos)) return 1;
