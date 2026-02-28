@@ -1169,10 +1169,12 @@ public:
 			add_light_jobs(b, target);
 
 			if (light_queue.empty()) { // no lights to update
-				//if (timer_val) {register_timing_value("lighting update", (GET_TIME_MS() - timer_val));}
-				timer_val = 0; // prevent printout from re-triggering until more lights are processed
+				if (timer_val) { // lighting changed since we last got here
+					//register_timing_value("lighting update", (GET_TIME_MS() - timer_val));
+					register_reflection_update();
+					timer_val = 0; // prevent printout from re-triggering until more lights are processed
+				}
 				// update cube map reflections on lighting change; should be done per-light, but may be too slow with the added per-frame lighting work
-				register_reflection_update();
 				return; // no work to do; done
 			}
 			if (!timer_val) {timer_val = GET_TIME_MS();} // start a new block of lights

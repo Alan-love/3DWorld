@@ -126,7 +126,7 @@ bool is_grass_enabled     () {return ((display_mode & 0x02) && gen_grass_map());
 bool clouds_enabled       () {return ((display_mode & 0x40) == 0 && atmosphere > 0.0);}
 bool cloud_shadows_enabled() {return (ground_effects_level >= 2 && clouds_enabled());}
 bool mesh_shadows_enabled () {return (ground_effects_level >= 1);}
-bool is_distance_mode     () {return ((display_mode & 0x10) != 0);}
+bool is_distance_mode     () {return ((display_mode & 0x10) != 0 && !have_buildings());} // option conflicts with building indir lighting
 bool nonunif_fog_enabled  () {return (show_fog && is_distance_mode());}
 bool enable_ocean_waves   () {return ((display_mode & 0x0100) != 0 && wind.mag() > TOLERANCE);}
 bool draw_distant_water   () {return (is_water_enabled() && is_distance_mode() && far_clip_ratio > 1.1);}
