@@ -1808,7 +1808,7 @@ bool is_obj_in_or_on_obj(room_object_t const &parent, room_object_t const &child
 	if (parent.type == TYPE_COAT_RACK && parent.intersects(child))                        return 1; // top hat on coat rack
 	if (parent.type == TYPE_TROLLEY   && parent.intersects(child))                        return 1; // plates on trolley
 	// check for object on the mattress of a bed, excluding stacked bunk bed
-	if (parent.type == TYPE_BED   && child.type != TYPE_BED && child.z1() <= parent.z2() && child.z1() > parent.zc() && child.intersects_xy(parent)) return 1;
+	if (parent.type == TYPE_BED && child.type != TYPE_BED && child.z1() <= parent.z2() && child.z1() > parent.zc() && child.intersects_xy(parent)) return 1;
 	if ((parent.type == TYPE_FOOD_TRAY || parent.type == TYPE_PLATE) && child.z1() >= parent.z1() && parent.intersects(child)) return 1; // tray or plate with food
 	
 	if (parent.type == TYPE_POOL_TABLE && child.type == TYPE_POOL_CUE) { // handle pool cue leaning against pool table
@@ -1986,7 +1986,7 @@ int building_room_geom_t::find_nearest_pickup_object(building_t const &building,
 			if (type == TYPE_MIRROR  && !i->is_house() && !i->in_mall()) continue; // can only pick up mirrors from houses and clothing stores, not office buildings
 			if (type == TYPE_TABLE   && i->shape == SHAPE_CUBE) continue; // can only pick up short (TV) tables and cylindrical tables
 			if (type == TYPE_BED     && i->taken_level > 2)     continue; // can only take pillow, sheets, and mattress - not the frame
-			if (type == TYPE_BED     && i->is_used())           continue; // can't take pillow/sheets/mattress from an occupied bed
+			if (type == TYPE_BED     && i->is_used())           continue; // can't take pillow/sheets/mattress from an occupied bed, but can take the blanket
 			if (type == TYPE_SHELVES && i->obj_expanded())      continue; // shelves are   already expanded, can no longer select this object
 			if (type == TYPE_MED_CAB && i->is_open())           continue; // can't take medicine cabinet until it's closed
 			if (type == TYPE_LIGHT   && !i->is_visible())       continue; // can't take light attached to a ceiling fan as a separate object

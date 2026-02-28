@@ -268,7 +268,7 @@ bool building_t::add_retail_room_objs(rand_gen_t rgen, room_t const &room, float
 								set_cube_zvals(beam, beam_z1, metal_frame_z2); // below the floor spanning to slightly above
 								beam.d[fdim][!fdir] = edge - (fdir ? 1.0 : -1.0)*0.4*wall_thickness; // interior - cover most of the door gap at the floor
 								beam.d[fdim][ fdir] = edge + (fdir ? 1.0 : -1.0)*beam_frame_depth; // exterior
-								beam.expand_in_dim(!fdim, beam_frame_depth); // cover the corners
+								beam.expand_in_dim(!bool(fdim), beam_frame_depth); // cover the corners
 								unsigned const item_flags(get_skip_mask_for_xy(!fdim) | ~get_face_mask(fdim, !fdir)); // skip ends and side facing elevator
 								objs.emplace_back(beam, TYPE_METAL_BAR, room_id, fdim, fdir, RO_FLAG_NOCOLL, 1.0, SHAPE_CUBE, BLACK, item_flags);
 							} // for fdir
@@ -366,7 +366,6 @@ bool building_t::add_small_retail_room_objs(rand_gen_t rgen, room_t const &room,
 			float const counter_front(counter.d[dim][!dir]);
 			// add vending machines to either side of the counter
 			bool const side(rgen.rand_bool());
-			unsigned const pref_orient(2*dim + !dir);
 			unsigned const vend_types[2] = {VEND_DRINK, VEND_SNACK}; // one of each type
 			cube_t vm_area(place_area);
 			vm_area.expand_by_xy(-get_trim_thickness());
