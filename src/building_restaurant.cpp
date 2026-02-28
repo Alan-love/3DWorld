@@ -111,7 +111,7 @@ void building_t::add_restaurant_objs(rand_gen_t rgen, room_t const &room, float 
 		bool const ddim(bc.dy() < bc.dx()), ddir(bc.get_center_dim(ddim) < room.get_center_dim(ddim)); // dir into room
 		float const door_edge(bc.d[ddim][ddir]);
 
-		if (!added_desk) { // place a small desk/table/podium by the front (first) door
+		if (!added_desk) { // place a small desk/table/podium with phone and chair by the front (first) door
 			float const dlo(bc.d[!ddim][0] - room.d[!ddim][0]), dhi(room.d[!ddim][1] - bc.d[!ddim][1]);
 			bool tside(0);
 			if      (dlo < 0.5*dhi) {tside = 1;} // door close to lo wall, put desk on hi side
@@ -123,6 +123,7 @@ void building_t::add_restaurant_objs(rand_gen_t rgen, room_t const &room, float 
 			set_wall_width(table, centerline, table_sz, ddim);
 			set_wall_width(table, (bc.d[!ddim][tside] + ts_scale*1.5*table_sz), table_sz, !ddim);
 			objs.emplace_back(table, TYPE_TABLE, room_id, !ddim, !tside, 0, light_amt, SHAPE_TALL, WHITE); // wood
+			place_phone_on_obj(rgen, table, room_id, light_amt, !ddim, tside);
 			float place_edge(table.d[!ddim][tside]);
 
 			if (global_building_params.people_per_house_max > 0) { // place a person at the podium
@@ -409,6 +410,11 @@ cube_t building_t::add_restaurant_counter(cube_t const &wall, bool dim, bool dir
 				}
 			}
 		}
+	}
+	// add a phone if there are also cash registers
+	if (add_cash_registers && place_phone_on_obj(rgen, place_area, room_id, light_amt, dim, !dir)) {
+		if (has_bcube_int(objs.back(), avoid)) {objs.pop_back();} // remove phone if it intersects a cash register
+		else {avoid.push_back(objs.back());}
 	}
 	// place other items between cash registers
 	unsigned const num_cont  (conv_store ? 0 : (rgen.rand() % 6)); // 0-5
