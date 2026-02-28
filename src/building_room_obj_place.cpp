@@ -4517,17 +4517,25 @@ void building_t::add_outlets_to_room(rand_gen_t rgen, room_t const &room, float 
 		// place outlets on sides of elevators for retail, parking garage, backrooms, etc.; may be inside an elevator equipment room
 		for (elevator_t const &e : interior->elevators) {
 			if (!room.contains_cube_xy(e))                  continue; // not fully contained in this room
-			if (e.adj_pair_ix == 2)                         continue; // only use first elevator in a pair
+			if (e.adj_pair_ix == 2)                         continue; // only use first elevator in a pair; should be connected back-to-back and not occluding the side
 			if (e.get_sz_dim(e.dim) < 2.1*min_wall_spacing) continue; // too narrow; shouldn't happen
-			bool const dim(!e.dim), dir(rgen.rand_bool());
-			float const wall_face(e.d[dim][!dir]), wall_pos(rgen.rand_uniform((e.d[!dim][0] + min_wall_spacing), (e.d[!dim][1] - min_wall_spacing)));
+			// Note: can't check e.has_equip_room because it hasn't been set yet
+			bool const add_in_both_sides(is_basement && has_parking_garage && outlet_z1 < room.z1() + 0.5*floor_spacing); // lowest floor
+			bool const dim(!e.dim), pri_dir(add_in_both_sides ? 0 : rgen.rand_bool());
+			float const wall_pos(rgen.rand_uniform((e.d[!dim][0] + min_wall_spacing), (e.d[!dim][1] - min_wall_spacing)));
 			cube_t c;
 			set_cube_zvals(c, outlet_z1, (outlet_z1 + plate_height));
 			set_wall_width(c, wall_pos, plate_hwidth, !dim);
-			c.d[dim][ dir] = wall_face; // flush with wall
-			c.d[dim][!dir] = wall_face + (dir ? -1.0 : 1.0)*plate_thickness; // expand out a bit
-			objs.emplace_back(c, TYPE_OUTLET, room_id, dim, dir, RO_FLAG_NOCOLL, 1.0);
+
+			for (unsigned dir = 0; dir < 2; ++dir) {
+				if (!add_in_both_sides && bool(dir) != pri_dir) continue; // outlet only on one side, unless there's an elevator equipment room
+				float const wall_face(e.d[dim][!dir]);
+				c.d[dim][ dir] = wall_face; // flush with wall
+				c.d[dim][!dir] = wall_face + (dir ? -1.0 : 1.0)*plate_thickness; // expand out a bit
+				objs.emplace_back(c, TYPE_OUTLET, room_id, dim, dir, RO_FLAG_NOCOLL, 1.0);
+			}
 		} // for e
+		// what about stairs with walled sides?
 	}
 }
 

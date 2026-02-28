@@ -447,7 +447,7 @@ void building_t::add_parking_garage_objs(rand_gen_t rgen, room_t const &room, fl
 	}
 	// add equipment room for first elevator extending to parking garage, only on the lowest floor
 	if (in_basement && floor_ix == 0) {
-		for (elevator_t const &e : interior->elevators) {
+		for (elevator_t &e : interior->elevators) {
 			if (e.z1() > zval || !room.contains_cube_xy(e)) continue;
 			bool const dim(!e.dim);
 			float const door_width(get_doorway_width()), room_len(max(1.25f*e.get_sz_dim(dim), 1.0f*e.get_sz_dim(!dim)));
@@ -526,6 +526,7 @@ void building_t::add_parking_garage_objs(rand_gen_t rgen, room_t const &room, fl
 				} // d
 				add_blocker(avoid, obstacles, obstacles_exp, obstacles_ps); // avoid equipment room
 				interior->elevator_equip_room = sub_room; // needed for parking garage light placement, and may be useful in other situations
+				e.has_equip_room = 1;
 				added = 1;
 				break; // done
 			}
