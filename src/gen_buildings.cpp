@@ -145,6 +145,7 @@ void tid_nm_pair_t::set_gl(tid_nm_pair_dstate_t &state) const {
 	if (refract_ix > 1.0) {state.s.set_refract_ix(refract_ix);}
 	if (metalness  > 0.0 && has_normal_map) {state.s.add_uniform_float("cube_map_normal_map_scale", 1.0);} // enable normal map for cube map metal reflections
 	if (no_cracks && state.crack_weight > 0.0) {state.s.add_uniform_float("crack_weight", 0.0);}
+	if (transparent) {glDepthMask(GL_FALSE);} // disable depth writing
 }
 void tid_nm_pair_t::unset_gl(tid_nm_pair_dstate_t &state) const {
 	if (tid == REFLECTION_TEXTURE_ID && room_mirror_ref_tid != 0) {state.s.make_current(); return;}
@@ -158,6 +159,7 @@ void tid_nm_pair_t::unset_gl(tid_nm_pair_dstate_t &state) const {
 	if (refract_ix > 1.0) {state.s.set_refract_ix(1.0);} // clear IOR
 	if (metalness  > 0.0 && has_normal_map) {state.s.add_uniform_float("cube_map_normal_map_scale", 0.0);} // reset to 0
 	if (no_cracks && state.crack_weight > 0.0) {state.s.add_uniform_float("crack_weight", state.crack_weight);} // restore original value
+	if (transparent) {glDepthMask(GL_TRUE);}
 }
 void tid_nm_pair_t::toggle_transparent_windows_mode() { // hack
 	if      (tid == BLDG_WINDOW_TEX    ) {tid = BLDG_WIND_TRANS_TEX;}
@@ -4095,7 +4097,7 @@ public:
 		vector<point> pts;
 		static brg_batch_draw_t bbd; // allocated memory is reused across building interiors
 		assert(!bbd.has_ext_geom());
-		bool const defer_people_draw_for_player_building(global_building_params.people_min_alpha > 0.0);
+		bool const defer_people_draw_player_bldg(global_building_params.people_min_alpha > 0.0);
 		vis_conn_bldg = nullptr;
 
 		// draw building interiors with standard shader and no shadow maps; must be drawn first before windows depth pass
@@ -4310,8 +4312,9 @@ public:
 							}
 							continue;
 						}
-						// when player is in the building (not attic or ext basement), draw people later so that alpha blending of hair against ext walls and windows works properly
-						if (defer_people_draw_for_player_building && player_in_building_bcube && b.has_people() && b.check_point_or_cylin_contained(camera_bs, 0.0, points, 0, 0, 0)) {
+						// if player is in the building (not attic or ext basement), draw people later so that alpha blend of hair against ext walls and windows works properly;
+						// it's important that this not be done for malls because interior windows must be drawn after people
+						if (defer_people_draw_player_bldg && player_in_building_bcube && b.has_people() && b.check_point_or_cylin_contained(camera_bs, 0.0, points, 0, 0, 0)) {
 							defer_ped_draw_vars.assign(&b, *i, bi.ix);
 						}
 						else {gen_and_draw_people_in_building(ped_draw_vars_t(b, oc, s, xlate, bi.ix, 0, reflection_pass));} // draw people in this building

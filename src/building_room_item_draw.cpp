@@ -2258,13 +2258,10 @@ void building_room_geom_t::draw(brg_batch_draw_t *bbd, shader_t &s, shader_t &am
 		if (!building.is_factory()) {particle_manager.draw(s, xlate);} // factory smoke is drawn later
 		fire_manager.draw(s, xlate);
 	}
-	if (!shadow_only && (!mats_alpha.empty() || (inc_small && !mats_alpha_sm.empty()))) { // draw last; not shadow casters; for shower glass, etc.
-		enable_blend();
-		glDepthMask(GL_FALSE); // disable depth writing
-		mats_alpha.draw(bbd, s, shadow_only, reflection_pass);
-		if (inc_small && !cube_map_ref) {mats_alpha_sm.draw(bbd, s, shadow_only, reflection_pass);} // bottles, fishtanks, etc.
-		glDepthMask(GL_TRUE);
-		disable_blend();
+	if (!shadow_only) { // draw last; not shadow casters
+		// for shower glass, interior windows, etc.; always use bbd so that these are drawn after people
+		mats_alpha.draw(bbd_in, s, shadow_only, reflection_pass);
+		if (inc_small && !cube_map_ref) {mats_alpha_sm.draw(bbd_in, s, shadow_only, reflection_pass);} // bottles, fishtanks, etc.
 		indexed_vao_manager_with_shadow_t::post_render();
 	}
 	draw_bcube_xlate = zero_vector;

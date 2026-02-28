@@ -2257,7 +2257,7 @@ void building_room_geom_t::add_bottle(room_object_t const &c, bool add_bottom, f
 	colorRGBA const color(apply_light_color(c));
 	colorRGBA const cap_colors[2] = {LT_GRAY, GOLD}, cap_spec_colors[2] = {WHITE, GOLD};
 	// setup the untextured plastic/glass material
-	tid_nm_pair_t tex(-1, 1.0, mat_shadow, 0, 1); // no_reflect=1
+	tid_nm_pair_t tex(-1, 1.0, mat_shadow, transparent, 1); // no_reflect=1
 	tex.set_specular(0.5, 80.0);
 	if (transparent) {tex.refract_ix = GLASS_IOR;} // plastic uses glass IOR
 	rgeom_mat_t &mat(get_material(tex, mat_shadow, 0, 1, transparent)); // dynamic=0, small=1
