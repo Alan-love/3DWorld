@@ -1770,7 +1770,7 @@ void check_for_dynamic_shadow_casters(building_t const &b, vect_cube_with_ix_t &
 	if (check_people && animate2) { // update shadow_caster_hash for moving people, but not for lamps, because their light points toward the floor
 		if (ped_bcubes.empty()) { // get all cubes on first light
 			for (person_t const &p : b.interior->people) {
-				if (p.lying_down) continue; // people who are lying down don't cast dynamic shadows
+				if (p.lying_down || p.is_stationary) continue; // people who are lying down or stationary don't cast dynamic shadows as an optimization (even if idle anim)
 				// if this person is waiting and their location isn't changing,
 				// assume they have an idle animation playing and use the frame counter to make sure their shadows are updated each frame
 				unsigned const ix((some_person_has_idle_animation && p.waiting_start > 0) ? frame_counter : 0);
