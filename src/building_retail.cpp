@@ -382,6 +382,21 @@ bool building_t::add_small_retail_room_objs(rand_gen_t rgen, room_t const &room,
 			} // for d
 			// block off this area from shelf racks
 			place_area.d[dim][dir] = counter_front; // add a gap for shelf racks
+
+			if (1) { // add a clock on the wall behind the counter
+				bool const digital(1); // fits better above the window
+				float const place_pos(room.get_center_dim(!dim)), clock_z1(zval + 0.78*window_vspace);
+				float const clock_height(0.08*window_vspace), clock_width(4.0*clock_height), clock_depth(0.04*clock_width);
+				cube_t clock;
+				set_cube_zvals(clock, clock_z1, clock_z1+clock_height);
+				set_wall_width(clock, place_pos, 0.5*clock_width, !dim);
+				float const wall_pos(room.d[dim][dir]);
+				clock.d[dim][ dir] = wall_pos;
+				clock.d[dim][!dir] = wall_pos + (dir ? -1.0 : 1.0)*clock_depth;
+				add_clock(clock, room_id, light_amt, dim, !dir, digital);
+			}
+			// TODO: TYPE_TCAN, TYPE_PALLET, TYPE_HANDGUN, TYPE_MILK, coffee machine?
+			//add_trashcan_to_room(rgen, room, zval, room_id, light_amt, objs_start, 0); // check_last_obj=0
 		}
 		place_area.expand_by_xy(-0.4*door_width); // add extra padding along the sides for doors
 	}
