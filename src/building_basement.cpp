@@ -948,6 +948,7 @@ void building_t::add_basement_electrical(vect_cube_t &obstacles, vect_cube_t con
 			c.d[dim][!dir] = wall_pos + dir_sign*2.0*bp_hdepth; // extend outward from wall
 			cube_t test_cube(c);
 			test_cube.d[dim][!dir] += dir_sign*2.0*bp_hwidth; // add a width worth of clearance in the front so that the door can be opened
+			test_cube.expand_in_dim(!dim, 0.5*bp_hdepth); // add space for the door to open to the sides
 			test_cube.z2() = ceil_zval; // extend up to ceiling to ensure space for the conduit
 			if (has_bcube_int(test_cube, obstacles) || has_bcube_int(test_cube, walls) || has_bcube_int(test_cube, beams)) continue; // bad breaker box or conduit position
 			if (is_cube_close_to_doorway(test_cube, basement, 0.0, 1)) continue; // needed for ext basement doorways; inc_open=1
