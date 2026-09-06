@@ -3770,7 +3770,7 @@ void building_t::add_stairs_and_elevators(rand_gen_t &rgen) {
 						set_wall_width(railing, railing.d[dim][!dir], wall_hw, dim);
 						railing.z1()  = wall.z1(); // down to the floor
 						railing.z2() -= 0.22*dz;
-						objs.emplace_back(railing, TYPE_METAL_BAR, 0, 0, 1, RO_FLAG_NOCOLL, 1.0, SHAPE_CYLIN, railing_color); // vertical
+						objs.emplace_back(railing, TYPE_METAL_BAR, 0, 0, 1, (base_rflags | RO_FLAG_NOCOLL), 1.0, SHAPE_CYLIN, railing_color); // vertical
 					}
 				}
 			}

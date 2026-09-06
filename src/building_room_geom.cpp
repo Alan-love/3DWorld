@@ -3285,20 +3285,23 @@ cylinder_3dw get_railing_cylinder(room_object_t const &c) {
 	}
 	return cylinder_3dw(p[0], p[1], radius, radius);
 }
+tid_nm_pair_t get_maybe_dirty_metal_tex(room_object_t const &c, bool shadowed, unsigned tex_sel_ix) {
+	bool const is_dirty(c.is_broken()), tex_sel(tex_sel_ix & 1); // consistent texture per building
+	tid_nm_pair_t tex((is_dirty ? get_texture_by_name(tex_sel ? "metals/65_Painted_dirty_metal.jpg" : "metals/67_rusty_dirty_metal.jpg") : -1), 1.0, 1); // shadowed
+	tex.metalness = (is_dirty ? (tex_sel ? 0.25 : 0.0) : 1.0); // for now, metalness only applies to untexture materials
+	tex.set_specular_color(((c.color == BLACK) ? WHITE : c.color), (is_dirty ? 0.3 : 0.7), (is_dirty ? 30.0 : 70.0)); // use a non-white metal specular color unless black
+	return tex;
+}
 void building_room_geom_t::add_railing(room_object_t const &c) {
 	cylinder_3dw const railing(get_railing_cylinder(c));
 	bool const is_u_stairs(c.flags & (RO_FLAG_ADJ_LO | RO_FLAG_ADJ_HI)), is_top_railing(c.flags & RO_FLAG_TOS), is_L_seg(c.state_flags > 0); // L-railings have num_stairs set
 	bool const draw_ends(!(c.flags & RO_FLAG_ADJ_BOT)), is_exterior(c.is_exterior()), is_dirty(c.is_broken());
 	float const pole_radius(0.75*railing.r1), length(c.get_length()), height(get_railing_height(c));
 	unsigned const num_floors(c.item_flags + 1), ndiv(N_CYL_SIDES);
-	colorRGBA const &color(c.color);
-	bool const tex_sel(buttons_start & 1); // consistent per building
-	tid_nm_pair_t tex((is_dirty ? get_texture_by_name(tex_sel ? "metals/65_Painted_dirty_metal.jpg" : "metals/67_rusty_dirty_metal.jpg") : -1), 1.0, 1); // shadowed
-	tex.metalness = (is_dirty ? (tex_sel ? 0.25 : 0.0) : 1.0); // for now, metalness only applies to untexture materials
-	tex.set_specular_color(((color == BLACK) ? WHITE : color), (is_dirty ? 0.3 : 0.7), (is_dirty ? 30.0 : 70.0)); // use a non-white metal specular color unless black
+	tid_nm_pair_t const tex(get_maybe_dirty_metal_tex(c, 1, buttons_start));
 	rgeom_mat_t &mat(get_material(tex, 0, !is_exterior, 0, is_exterior)); // dynamic=0, small|exterior
 	float const side_tscale(is_dirty ? 0.1*length/railing.r1 : 1.0), v_side_tscale(is_dirty ? 0.1*height/railing.r1 : 1.0);
-	mat.add_cylin_to_verts(railing.p1, railing.p2, railing.r1, railing.r2, color, draw_ends, draw_ends, 0, 0, 1.0, 1.0, 0, ndiv, 0.0, 0, side_tscale); // draw sloped railing
+	mat.add_cylin_to_verts(railing.p1, railing.p2, railing.r1, railing.r2, c.color, draw_ends, draw_ends, 0, 0, 1.0, 1.0, 0, ndiv, 0.0, 0, side_tscale); // draw sloped railing
 
 	if (!is_u_stairs && !(c.flags & RO_FLAG_ADJ_TOP)) {
 		for (unsigned d = 0; d < 2; ++d) { // add the two vertical poles
@@ -3309,7 +3312,7 @@ void building_room_geom_t::add_railing(room_object_t const &c) {
 			float const hscale((d && !is_top_railing && !is_L_seg) ? 1.25 : 1.0); // shorten for lower end, which rests on the step (unless top railing or L-segment)
 			point const p1(pt - vector3d(0, 0, hscale*height)), p2(pt - vector3d(0, 0, (is_top_railing ? 0.0 : num_floors*0.02*(d ? 1.0 : -1.0)*height)));
 			bool const draw_bot(is_L_seg && d == 1); // only draw bottom of L-shaped stairs railing upper end (needed for landing)
-			mat.add_cylin_to_verts(p1, p2, pole_radius, pole_radius, color, draw_bot, 0, 0, 0, 1.0, 1.0, 0, ndiv, 0.0, 0, v_side_tscale); // no top
+			mat.add_cylin_to_verts(p1, p2, pole_radius, pole_radius, c.color, draw_bot, 0, 0, 0, 1.0, 1.0, 0, ndiv, 0.0, 0, v_side_tscale); // no top
 		} // for d
 	}
 	if (!is_u_stairs && c.is_open()) { // add balusters
@@ -3322,9 +3325,9 @@ void building_room_geom_t::add_railing(room_object_t const &c) {
 		for (unsigned n = 0; n < num; ++n) {
 			float const t((n+1)*step_sz);
 			point const pt(t*railing.p1 + (1.0 - t)*railing.p2);
-			mat.add_cylin_to_verts((pt + delta), pt, radius, radius, color, 0, 0, 0, 0, 1.0, 1.0, 0, ndiv/2, 0.0, 0, v_side_tscale); // only 16 sides, no top or bottom
+			mat.add_cylin_to_verts((pt + delta), pt, radius, radius, c.color, 0, 0, 0, 0, 1.0, 1.0, 0, ndiv/2, 0.0, 0, v_side_tscale); // only 16 sides, no top or bottom
 		}
-		mat.add_cylin_to_verts((railing.p1 + delta), (railing.p2 + delta), bot_radius, bot_radius, color, 1, 1, 0, 0, 1.0, 1.0, 0, ndiv, 0.0, 0, side_tscale); // bot bar with both ends
+		mat.add_cylin_to_verts((railing.p1 + delta), (railing.p2 + delta), bot_radius, bot_radius, c.color, 1, 1, 0, 0, 1.0, 1.0, 0, ndiv, 0.0, 0, side_tscale); // bot bar with ends
 	}
 }
 
@@ -7217,7 +7220,8 @@ void building_room_geom_t::add_metal_bar(room_object_t const &c) {
 	colorRGBA const color(apply_light_color(c)), spec_color((color.R == color.G && color.R == color.B) ? WHITE : color);
 	// untextured, shadowed, small, half metal; add an option to make it scratched?
 	float const spec_mag(is_painted ? 0.5 : 0.8), shine(is_painted ? 50.0 : 60.0), metalness(extra_shiny ? 1.0 : 0.5);
-	rgeom_mat_t &mat(non_reflective ? get_untextured_material(1, 0, 1) : get_metal_material(1, 0, 1, 0, 0, spec_color, spec_mag, shine, metalness));
+	rgeom_mat_t &mat(non_reflective ? get_untextured_material(1, 0, 1) :
+		(c.is_broken() ? get_material(get_maybe_dirty_metal_tex(c, 1, buttons_start), 0, 1) : get_metal_material(1, 0, 1, 0, 0, spec_color, spec_mag, shine, metalness)));
 
 	if (c.shape == SHAPE_CUBE) {
 		mat.add_cube_to_verts_untextured(c, color, c.item_flags); // skip_faces is stored in item_flags
