@@ -3759,18 +3759,29 @@ void building_t::add_stairs_and_elevators(rand_gen_t &rgen) {
 					railing.z1() += 0.20*dz;
 					railing.z2() -= 0.06*dz;
 					if (hi_side) {railing.translate_dim(2, 0.17*dz);}
-					railing.d[dim][dir] -= (dir ? 1.0 : -1.0)*0.4*railing.get_sz_dim(dim); // shorten the length
+					railing.d[dim][dir] -= dsign*0.4*railing.get_sz_dim(dim); // shorten the length
 					set_wall_width(railing, i->get_center_dim(!dim), wall_hw, !dim);
-					if (hi_side && i->is_at_top && !i->roof_access) {railing.d[dim][!dir] -= (dir ? 1.0 : -1.0)*1.5*wall_hw;} // move slightly to meet the top railing
+					if (hi_side && i->is_at_top && !i->roof_access) {railing.d[dim][!dir] -= dsign*1.5*wall_hw;} // move slightly to meet the top railing
 					flags &= ~RO_FLAG_NOCOLL; // do collide with this railing
 					if (hi_side) {flags &= ~(RO_FLAG_ADJ_LO | RO_FLAG_ADJ_HI);} // only need vertical poles on one half
 					objs.emplace_back(railing, TYPE_RAILING, 0, dim, railing_dir, flags, 1.0, SHAPE_CUBE, railing_color);
 
 					if (!hi_side && i->floor_ix <= 1) { // bottom floor needs a single vertical bar
-						set_wall_width(railing, railing.d[dim][!dir], wall_hw, dim);
-						railing.z1()  = wall.z1(); // down to the floor
-						railing.z2() -= 0.22*dz;
-						objs.emplace_back(railing, TYPE_METAL_BAR, 0, 0, 1, (base_rflags | RO_FLAG_NOCOLL), 1.0, SHAPE_CYLIN, railing_color); // vertical
+						bool has_landing_below(0);
+
+						for (auto j = interior->landings.begin(); j != interior->landings.end(); ++j) {
+							if (j == i || j->for_elevator || j->for_ramp) continue; // skip self and non-stairs landings
+							if (j->x1() != i->x1() || j->y1() != i->y1() || j->z1() >= i->z1() || j->z1() < i->z1() - 1.5*floor_spacing) continue; // not directly below
+							has_landing_below = 1; break;
+						}
+						if (!has_landing_below) {
+							float const pole_radius(0.75*wall_hw);
+							set_wall_width(railing, (railing.d[dim][!dir] + dsign*pole_radius), pole_radius, dim);
+							railing.expand_in_dim(!dim, (pole_radius - wall_hw)); // shrink in the other dim as well
+							railing.z1()  = wall.z1(); // down to the floor
+							railing.z2() -= 0.22*dz;
+							objs.emplace_back(railing, TYPE_METAL_BAR, 0, 0, 1, (base_rflags | RO_FLAG_NOCOLL), 1.0, SHAPE_CYLIN, railing_color); // vertical
+						}
 					}
 				}
 			}
