@@ -582,8 +582,10 @@ void city_obj_placer_t::place_trees_in_plot(road_plot_t const &plot, vect_cube_t
 	vector<point> &tree_pos, vect_cube_t const &plot_cuts, rand_gen_t &rgen, unsigned buildings_end)
 {
 	if (city_params.max_trees_per_plot == 0) return;
+	// allow tighter packing for inner plots because people generally don't walk through these
 	float const radius(city_params.tree_spacing*city_params.get_nom_car_size().x); // in multiples of car length
-	float const spacing(max(radius, get_min_obj_spacing())), radius_exp(2.0*spacing);
+	float const spacing(plot.is_res_inner ? 0.5*radius : max(radius, get_min_obj_spacing()));
+	float const radius_exp((plot.is_res_inner ? 1.0 : 2.0)*spacing);
 	if (min(plot.dx(), plot.dy()) < 2.0*radius_exp) return; // plot is too small for trees of this size
 	unsigned num_trees(city_params.max_trees_per_plot);
 	if (plot.is_park) {num_trees += (rgen.rand() % city_params.max_trees_per_plot);} // allow up to twice as many trees in parks
@@ -593,11 +595,13 @@ void city_obj_placer_t::place_trees_in_plot(road_plot_t const &plot, vect_cube_t
 	float const non_buildings_overlap(0.7*radius);
 	resize_blockers_for_trees(blockers, buildings_end, input_blockers_end, -non_buildings_overlap);
 	bool const has_planter(plot.is_commercial()); // only commercial trees
+	bool is_sm_tree(0);
+	if (plot.is_res_inner) {is_sm_tree = ((rgen.rand()%3) == 0);} // 33% of the time is a pine tree; set per-plot
 
 	for (unsigned n = 0; n < num_trees; ++n) {
-		bool const is_sm_tree((rgen.rand()%3) == 0); // 33% of the time is a pine/palm tree
+		if (!plot.is_res_inner) {is_sm_tree = ((rgen.rand()%3) == 0);} // 33% of the time is a pine/palm tree
 		int ttype(-1); // Note: okay to leave at -1; also, don't have to set to a valid tree type
-		if (is_sm_tree) {ttype = (plot.is_park ? (rgen.rand()&1) : 2);} // pine/short pine in parks, palm in city blocks
+		if (is_sm_tree) {ttype = (plot.is_res_inner ? 0 : (plot.is_park ? (rgen.rand()&1) : 2));} // pine in residential inner, pine/short pine in parks, palm in city blocks
 		else {ttype = rgen.rand()%100;} // random type
 		bool const is_palm(is_sm_tree && ttype == 2);
 		bool const allow_bush(plot.is_park && max_unique_trees == 0); // can't place bushes if tree instances are enabled (generally true) because bushes may be instanced in non-parks
@@ -1726,12 +1730,12 @@ bool check_valid_house_obj_place(point const &pos, float height, float radius, f
 }
 
 void city_obj_placer_t::place_residential_plot_objects(road_plot_t const &plot, vect_cube_t &blockers, vect_cube_t &colliders, vector<road_t> const &roads,
-	vect_cube_t const &pool_blockers, unsigned driveways_start, unsigned plot_ix, unsigned city_ix, rand_gen_t &rgen)
+	vect_cube_t const &pool_blockers, unsigned driveways_start, unsigned plot_ix, unsigned city_ix, cube_t &inner_space, rand_gen_t &rgen)
 {
 	assert(plot_subdiv_sz > 0.0);
 	sub_plots.clear();
 	if (plot.is_park) return; // no dividers in parks
-	subdivide_plot_for_residential(plot, roads, plot_subdiv_sz, 0, city_ix, sub_plots); // parent_plot_ix=0, not needed
+	if (!subdivide_plot_for_residential(plot, roads, plot_subdiv_sz, 0, city_ix, sub_plots, inner_space)) return; // parent_plot_ix=0, not needed
 	if (sub_plots.size() <= 1) return; // nothing to divide
 	has_residential_plots = 1;
 	if (rgen.rand_bool()) {std::reverse(sub_plots.begin(), sub_plots.end());} // reverse half the time so that we don't prefer a divider in one side or the other
@@ -2037,6 +2041,9 @@ void city_obj_placer_t::place_residential_plot_objects(road_plot_t const &plot, 
 			} // for n
 		}
 	} // for i (sub_plots)
+	if (!inner_space.is_all_zeros()) {
+		// does anything go in these interior spaces?
+	}
 	bool const has_mailbox(building_obj_model_loader.is_model_valid(OBJ_MODEL_MAILBOX));
 	bool const has_bb_hoop(building_obj_model_loader.is_model_valid(OBJ_MODEL_BB_HOOP));
 
@@ -2660,6 +2667,7 @@ void city_obj_placer_t::gen_parking_and_place_objects(vector<road_plot_t> &plots
 		if (add_parking_lots && !i->is_park) {i->has_parking = gen_parking_lots_for_plot(*i, cars, city_id, plot_id, blockers, colliders, plot_cuts, rgen, have_cars);}
 		unsigned const driveways_start(driveways.size());
 		/*if (is_residential)*/ {add_building_driveways(*i, temp_cubes, detail_rgen, plot_id);} // driveways always added now that cities have parking structures
+		cube_t inner_space;
 
 		// driveways become blockers for other placed objects; make sure they extend into the road so that they intersect any placed streetlights or fire hydrants
 		for (auto j = driveways.begin()+driveways_start; j != driveways.end(); ++j) {
@@ -2670,7 +2678,14 @@ void city_obj_placer_t::gen_parking_and_place_objects(vector<road_plot_t> &plots
 			if (i->intersects_xy(c)) {blockers.push_back(c);}
 		}
 		if (city_params.assign_house_plots && plot_subdiv_sz > 0.0) {
-			place_residential_plot_objects(*i, blockers, colliders, roads, underground_blockers, driveways_start, plot_id, city_id, detail_rgen); // before placing trees
+			place_residential_plot_objects(*i, blockers, colliders, roads, underground_blockers, driveways_start, plot_id, city_id, inner_space, detail_rgen); // before placing trees
+
+			if (!inner_space.is_all_zeros()) { // place extra trees in the empty space between house yards
+				road_plot_t place_area(*i);
+				place_area.copy_from(inner_space);
+				place_area.is_park = place_area.is_res_inner = 1; // treated like a park: more trees, no palm trees, allow bushes
+				place_trees_in_plot(place_area, blockers, colliders, tree_pos, plot_cuts, detail_rgen, buildings_end);
+			}
 		}
 		place_trees_in_plot  (*i, blockers, colliders, tree_pos, plot_cuts, detail_rgen, buildings_end);
 		place_detail_objects (*i, blockers, colliders, tree_pos, underground_blockers, plot_cuts, city_id, plot_id, plot_id_offset, detail_rgen, have_streetlights);
@@ -2785,7 +2800,7 @@ void city_obj_placer_t::add_objs_on_buildings(road_plot_t const &plot, vect_cube
 }
 
 /*static*/ bool city_obj_placer_t::subdivide_plot_for_residential(cube_t const &plot, vector<road_t> const &roads,
-	float plot_subdiv_sz, unsigned parent_plot_ix, unsigned city_ix, vect_city_zone_t &sub_plots)
+	float plot_subdiv_sz, unsigned parent_plot_ix, unsigned city_ix, vect_city_zone_t &sub_plots, cube_t &inner_space)
 {
 	if (min(plot.dx(), plot.dy()) < city_params.road_width) return 0; // plot is too small to divide
 	assert(plot_subdiv_sz > 0.0);
@@ -2805,9 +2820,13 @@ void city_obj_placer_t::add_objs_on_buildings(road_plot_t const &plot, vect_cube
 		float const y1(plot.y1() + spacing[1]*y), y2((y+1 == ndiv[1]) ? plot.y2() : (y1 + spacing[1])); // last sub-plot must end exactly at plot y2
 
 		for (unsigned x = 0; x < ndiv[0]; ++x) {
-			if (x > 0 && y > 0 && x+1 < ndiv[0] && y+1 < ndiv[1]) continue; // interior plot, no road access, skip
 			float const x1(plot.x1() + spacing[0]*x), x2((x+1 == ndiv[0]) ? plot.x2() : (x1 + spacing[0])); // last sub-plot must end exactly at plot x2
 			cube_t const c(x1, x2, y1, y2, plot.z1(), plot.z2());
+
+			if (x > 0 && y > 0 && x+1 < ndiv[0] && y+1 < ndiv[1]) { // interior plot, no road access
+				inner_space.assign_or_union_with_cube(c);
+				continue; // skip - not a sub-plot
+			}
 			unsigned const street_dir(get_street_dir(c, plot)); // will favor x-dim for corner plots
 			sub_plots.emplace_back(c, 0.0, 0, 1, street_dir, 1, parent_plot_ix, city_ix, max_floors); // cube, zval, park, res, sdir, capacity, ppix, cix, nf
 

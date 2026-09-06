@@ -976,7 +976,7 @@ private:
 	void place_detail_objects(road_plot_t &plot, vect_cube_t &blockers, vect_cube_t &colliders, vector<point> &tree_pos, vect_cube_t const &pond_blockers,
 		vect_cube_t const &plot_cuts, unsigned city_id, unsigned plot_ix, unsigned plot_id_offset, rand_gen_t &rgen, bool have_streetlights);
 	void place_residential_plot_objects(road_plot_t const &plot, vect_cube_t &blockers, vect_cube_t &colliders, vector<road_t> const &roads,
-		vect_cube_t const &pool_blockers, unsigned driveways_start, unsigned plot_ix, unsigned city_ix, rand_gen_t &rgen);
+		vect_cube_t const &pool_blockers, unsigned driveways_start, unsigned plot_ix, unsigned city_ix, cube_t &inner_space, rand_gen_t &rgen);
 	bool place_swimming_pool(road_plot_t const &plot, city_zone_t const &yard, cube_with_ix_t const &house, bool dim, bool dir, bool shrink_dim,
 		unsigned prev_blockers_end, unsigned plot_ix, unsigned city_ix, float divider_hwidth, float const translate_dist[2],
 		vect_cube_t const &pool_blockers, vect_cube_t &blockers, vect_cube_t &colliders, rand_gen_t &rgen);
@@ -1013,8 +1013,8 @@ public:
 	void finalize_streetlights_power_grass_blockers(streetlights_t &sl, vector<vect_cube_t> &plot_colliders);
 	void add_manhole(point const &pos, float radius, bool is_over_road);
 	void add_city_ug_elevator_entrances(vect_ug_elev_info_t const &uges);
-	static bool subdivide_plot_for_residential(cube_t const &plot, vector<road_t> const &roads,
-		float plot_subdiv_sz, unsigned parent_plot_ix, unsigned city_ix, vect_city_zone_t &sub_plots);
+	static bool subdivide_plot_for_residential(cube_t const &plot, vector<road_t> const &roads, float plot_subdiv_sz,
+		unsigned parent_plot_ix, unsigned city_ix, vect_city_zone_t &sub_plots, cube_t &inner_space);
 	void draw_detail_objects(draw_state_t &dstate, bool shadow_only, bool reflection_pass);
 	void draw_transparent_objects(draw_state_t &dstate);
 	void add_lights(vector3d const &xlate, cube_t &lights_bcube) const;
