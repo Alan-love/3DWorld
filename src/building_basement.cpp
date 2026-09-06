@@ -767,9 +767,9 @@ void building_t::add_parking_garage_objs(rand_gen_t rgen, room_t const &room, fl
 				while ((row_left_edge  - space_width) > room.d[dim][0]) {row_left_edge  -= space_width; ++num_spaces_per_row;} // add rows to the left
 				while ((row_right_edge + space_width) < room.d[dim][1]) {row_right_edge += space_width; ++num_spaces_per_row;} // add rows to the right
 			}
-			float const d_sign(d ? 1.0 : -1.0);
+			float const dsign(d ? 1.0 : -1.0);
 			cube_t space(row);
-			space.d[!dim][!d] += d_sign*space_shrink; // shrink
+			space.d[!dim][!d] += dsign*space_shrink; // shrink
 			space.d[ dim][0]   = row_left_edge;
 			float const space_center_len(space.get_center_dim(!dim));
 			bool last_was_space(0);
@@ -809,10 +809,41 @@ void building_t::add_parking_garage_objs(rand_gen_t rgen, room_t const &room, fl
 						cube_t hc_area(space);
 						hc_area.expand_by(hcap_dist);
 						if (!no_sep_wall && !is_parking_str) {hc_area.intersect_with_cube_xy(row);} // keep within the current row if there are walls in between rows
+						bool is_handicap(0);
 
 						for (elevator_t const &e : interior->elevators) {
 							if (e.z1() > space.z2()) continue; // doesn't extend down to this level
-							if (e.intersects_xy(hc_area)) {flags |= RO_FLAG_IS_ACTIVE; ++num_handicap_spots; break;}
+							if (e.intersects_xy(hc_area)) {is_handicap = 1; break;}
+						}
+						if (is_handicap) {
+							flags |= RO_FLAG_IS_ACTIVE;
+							++num_handicap_spots;
+							// add handicap sign on the back wall
+							float const sign_sz(0.2*window_vspacing), sign_z1(zval + 0.38*window_vspacing);
+							float const wall_pos(at_either_ext_wall ? room.d[!dim][d] : (space.d[!dim][d] + dsign*0.5*wall_half_gap));
+							cube_t sign;
+							set_cube_zvals(sign, sign_z1, sign_z1+sign_sz);
+							set_wall_width(sign, space.get_center_dim(dim), 0.5*sign_sz, dim);
+							sign.d[!dim][ d] = wall_pos; // back
+							sign.d[!dim][!d] = wall_pos - dsign*0.05*sign_sz; // front
+
+							if (!has_bcube_int(sign, pillars) && !has_bcube_int(sign, obstacles) && !is_obj_placement_blocked(sign, room, 1, 1)) {
+								bool on_wall(0);
+
+								if (at_either_ext_wall) {on_wall = 1;} // next to exterior wall
+								else { // check for separator wall
+									cube_t sign_ext(sign);
+									sign_ext.d[!dim][d] += dsign*wall_thickness; // extend to intersect the wall
+
+									for (cube_t const &w : sep_walls) {
+										if (w.intersects(sign_ext) && w.d[dim][0] < sign.d[dim][0] && w.d[dim][1] > sign.d[dim][1]) {on_wall = 1; break;}
+									}
+								}
+								if (on_wall) {
+									objs.emplace_back(sign, TYPE_SIGN, room_id, !dim, !d, RO_FLAG_NOCOLL);
+									objs.back().obj_id = register_sign_text("Handicap");
+								}
+							}
 						}
 					}
 					room_object_t pspace(space, TYPE_PARK_SPACE, room_id, !dim, d, flags, tot_light_amt, SHAPE_CUBE, wall_color); // floor_color?
@@ -828,8 +859,8 @@ void building_t::add_parking_garage_objs(rand_gen_t rgen, room_t const &room, fl
 						float const curb_height(0.04*window_vspacing), curb_width(1.5*curb_height);
 						cube_t curb(space);
 						curb.z2() += curb_height; // set height
-						curb.d[!dim][!d] += d_sign*(space.get_sz_dim(!dim) - curb_width);   // shrink to the correct width
-						curb.translate_dim(!dim, -d_sign*(0.5*pillar_hwidth + curb_width)); // move inward to avoid pillars and walls
+						curb.d[!dim][!d] += dsign*(space.get_sz_dim(!dim)  - curb_width);   // shrink to the correct width
+						curb.translate_dim(!dim, -dsign*(0.5*pillar_hwidth + curb_width)); // move inward to avoid pillars and walls
 						curb.expand_in_dim(dim, -0.2*space_width);
 						objs.emplace_back(curb, TYPE_CURB, room_id, dim, 0, 0, 1.0, SHAPE_CUBE, colorRGBA(1.0, 0.8, 0.3)); // dir=0
 					}
