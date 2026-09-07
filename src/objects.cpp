@@ -666,11 +666,13 @@ void get_torus_triangles(vector<vert_wrap_t> &verts, point const &center, vector
 	vector<float> const &sin_cos(gen_torus_sin_cos_vals(ndiv));
 	vector3d vab[2];
 	get_ortho_vectors(dir, vab);
+	float sin_s(0.0), cos_s(1.0);
 	
 	for (unsigned s = 0; s < (unsigned)ndiv; ++s) { // outer
-		float const theta(s*ds), ct(cos(theta)), st(sin(theta)), ct2(ct*cds - st*sds), st2(st*cds + ct*sds);
+		float const st(sin_s), ct(cos_s), st2(st*cds + ct*sds), ct2(ct*cds - st*sds);
 		point const pos [2] = {(vab[0]*ct + vab[1]*st), (vab[0]*ct2 + vab[1]*st2)};
 		point const vpos[2] = {(center + pos[0]*ro), (center + pos[1]*ro)};
+		sin_s = st2; cos_s = ct2;
 
 		for (unsigned t = 0; t <= (unsigned)ndiv; ++t) { // inner
 			unsigned const t_((t == (unsigned)ndiv) ? 0 : t);

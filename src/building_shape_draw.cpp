@@ -378,15 +378,16 @@ void rgeom_mat_t::add_vert_torus_to_verts(point const &center, float r_inner, fl
 	float const ts_tt(tscale/ndivi), ds(TWO_PI/ndivo), cds(cos(ds)), sds(sin(ds));
 	vector<float> const &sin_cos(gen_torus_sin_cos_vals(ndivi));
 	color_wrapper const cw(color);
-	float zval(0.0);
 	s_offset *= TWO_PI;
 	if (is_offset) {spiral_offset /= (ndivo*r_outer);}
+	float zval(0.0), sin_s(sin(s_offset)), cos_s(cos(s_offset));
 
 	for (unsigned s = 0; s < s_end; ++s) { // outer
-		float const theta(s*ds + s_offset), ct(cos(theta)), st(sin(theta)), ct2(ct*cds - st*sds), st2(st*cds + ct*sds);
+		float const st(sin_s), ct(cos_s), st2(st*cds + ct*sds), ct2(ct*cds - st*sds);
 		point const pos [2] = {point(ct, st, zval), point(ct2, st2, (zval + spiral_offset))};
 		point const vpos[2] = {(center + pos[0]*r_outer), (center + pos[1]*r_outer)};
 		unsigned const tri_ix_start(itri_verts.size()), ixs_start(indices.size());
+		sin_s = st2; cos_s = ct2;
 
 		// Note: drawn as one triangle strip
 		for (unsigned t = 0; t <= t_end; ++t) { // inner
