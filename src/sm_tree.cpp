@@ -301,10 +301,10 @@ void small_tree_group::draw_pine_leaves(shader_t &s, bool shadow_only, bool low_
 		assert(!low_detail);
 		vector<pair<float, unsigned> > to_draw;
 		get_back_to_front_ordering(to_draw, xlate);
-		for (unsigned i = 0; i < to_draw.size(); ++i) {operator[](to_draw[i].second).draw_pine_leaves(vbomgr, xlate);}
+		for (unsigned i = 0; i < to_draw.size(); ++i) {operator[](to_draw[i].second).draw_pine_leaves(vbomgr, xlate, 1);} // no_vis_check=1
 	}
 	else {
-		for (const_iterator i = begin(); i != end(); ++i) {i->draw_pine_leaves(vbomgr, xlate);}
+		for (const_iterator i = begin(); i != end(); ++i) {i->draw_pine_leaves(vbomgr, xlate, 0);} // no_vis_check=0
 	}
 	vbomgr.end_render();
 }
@@ -1006,8 +1006,8 @@ bool small_tree::are_leaves_visible(vector3d const &xlate) const {
 	}
 }
 
-void small_tree::draw_pine_leaves(vbo_vnc_block_manager_t const &vbo_manager, vector3d const &xlate) const {
-	if (is_pine_tree() && are_leaves_visible(xlate)) {draw_pine(vbo_manager);}
+void small_tree::draw_pine_leaves(vbo_vnc_block_manager_t const &vbo_manager, vector3d const &xlate, bool no_vis_check) const {
+	if (is_pine_tree() && (no_vis_check || are_leaves_visible(xlate))) {draw_pine(vbo_manager);}
 }
 
 // trunk vertex calls, used for buildings
