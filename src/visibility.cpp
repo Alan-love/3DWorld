@@ -407,18 +407,16 @@ class mesh_shadow_gen {
 	int xsize, ysize;
 	vector3d dir;
 
-	void trace_shadow_path(point v1) {
+	template<bool dim> void trace_shadow_path(point v1) {
 		point v2(v1 + vector3d(dir.x*dist, dir.y*dist, 0.0));
 		float const d[3][2] = {{-X_SCENE_SIZE, get_xval(xsize)}, {-Y_SCENE_SIZE, get_yval(ysize)}, {zmin, zmax}};
 		if (!do_line_clip(v1, v2, d)) return; // edge case ([zmin, zmax] should contain 0.0)
 		int const xa(get_xpos(v1.x)), ya(get_ypos(v1.y)), xb(get_xpos(v2.x)), yb(get_ypos(v2.y)), dx(xb - xa), dy(yb - ya);
-		bool const dim(fabs(dir.x) < fabs(dir.y));
 		double const dir_ratio(dir.z/dir[dim]);
 		bool inited(0);
 		point cur;
 		// Bresenham's line drawing algorithm
-		int x(xa), y(ya);
-		int dx1(0), dy1(0), dx2(0), dy2(0);
+		int x(xa), y(ya), dx1(0), dy1(0), dx2(0), dy2(0);
 		if (dx < 0) {dx1 = -1; dx2 = -1;} else if (dx > 0) {dx1 = 1; dx2 = 1;}
 		if (dy < 0) {dy1 = -1;} else if (dy > 0) {dy1 = 1;}
 		int longest(abs(dx)), shortest(abs(dy));
@@ -466,13 +464,13 @@ class mesh_shadow_gen {
 			}
 		} // for i
 	}
-	void run_x() {
+	template<bool dim> void run_x() {
 		float const xval(get_xval((dir.x > 0) ? 0 : xsize));
-		for (int y = 0; y < 2*ysize; ++y) {trace_shadow_path(point(xval, (-Y_SCENE_SIZE + 0.5*DY_VAL*y), 0.0));} // half increments
+		for (int y = 0; y < 2*ysize; ++y) {trace_shadow_path<dim>(point(xval, (-Y_SCENE_SIZE + 0.5*DY_VAL*y), 0.0));} // half increments
 	}
-	void run_y() {
+	template<bool dim> void run_y() {
 		float const yval(get_yval((dir.y > 0) ? 0 : ysize));
-		for (int x = 0; x < 2*xsize; ++x) {trace_shadow_path(point((-X_SCENE_SIZE + 0.5*DX_VAL*x), yval, 0.0));} // half increments
+		for (int x = 0; x < 2*xsize; ++x) {trace_shadow_path<dim>(point((-X_SCENE_SIZE + 0.5*DX_VAL*x), yval, 0.0));} // half increments
 	}
 public:
 	mesh_shadow_gen(float const *const h, unsigned char *sm, int xsz, int ysz, float const *shix, float const *shiy, float *shox, float *shoy)
@@ -480,16 +478,17 @@ public:
 		assert(mh != NULL && smask != NULL);
 	}
 	void run(point const &lpos) { // assumes light source directional/at infinity
-		//timer_t timer("Shadow Gen");
+		//highres_timer_t timer("Shadow Gen"); // 12366 1090.97 1.2671 0.0882233
 		assert(smask != NULL);
 		dir  = -lpos.get_norm();
 		dist = 2.0*XY_SUM_SIZE/sqrt(dir.x*dir.x + dir.y*dir.y);
+		bool const dim(fabs(dir.x) < fabs(dir.y));
 #pragma omp parallel sections num_threads(2)
 		{ // run with 2 threads for X vs. Y
 #pragma omp section
-			run_x();
+			if (dim) {run_x<1>();} else {run_x<0>();}
 #pragma omp section
-			run_y();
+			if (dim) {run_y<1>();} else {run_y<0>();}
 		}
 	}
 };
