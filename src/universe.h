@@ -526,7 +526,6 @@ class universe_t : protected cell_block {
 public:
 	void init();
 	void shift_cells(int dx, int dy, int dz);
-	void free_context();
 	void draw_all_cells(s_object const &clobj, bool skip_closest, bool no_move, int no_distant, bool gen_only, bool no_asteroid_dust);
 	int get_closest_object(s_object &result, point pos, int max_level, bool include_asteroids, bool offset, float expand,
 		bool get_destroyed=0, float g_expand=1.0, float r_add=0.0, int galaxy_hint=-1) const;

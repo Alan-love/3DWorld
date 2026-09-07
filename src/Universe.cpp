@@ -2115,7 +2115,6 @@ void uobj_solid::get_colors(unsigned char ca[3], unsigned char cb[3]) const {
 
 
 unsigned get_texture_size(float psize) {
-
 	unsigned i;
 	unsigned const ps2(unsigned(2.0*psize));
 
@@ -2123,35 +2122,6 @@ unsigned get_texture_size(float psize) {
 		if (ps2 < i) return i;
 	}
 	return i;
-}
-
-
-void universe_t::free_context() { // should be OK even if universe isn't setup; unused
-
-	for (unsigned z = 0; z < U_BLOCKS; ++z) { // z
-		for (unsigned y = 0; y < U_BLOCKS; ++y) { // y
-			for (unsigned x = 0; x < U_BLOCKS; ++x) { // x
-				ucell &cell(cells[z][y][x]);
-				cell.free_context();
-				if (cell.galaxies == NULL) continue;
-				
-				for (unsigned i = 0; i < cell.galaxies->size(); ++i) {
-					ugalaxy &galaxy((*cell.galaxies)[i]);
-					
-					for (unsigned j = 0; j < galaxy.sols.size(); ++j) {
-						ussystem &sol(galaxy.sols[j]);
-						
-						for (unsigned k = 0; k < sol.planets.size(); ++k) {
-							uplanet &planet(sol.planets[k]);
-							planet.free_texture();
-							for (unsigned l = 0; l < planet.moons.size(); ++l) {planet.moons[l].free_texture();}
-						}
-					}
-				}
-			}
-		}
-	}
-	planet_manager.clear();
 }
 
 
