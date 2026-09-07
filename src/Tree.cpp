@@ -27,7 +27,6 @@ float const REL_LEAF_SIZE    = 3.5;
 float const LEAF_4TH_SCALE   = 0.4;
 int const TREE_4TH_LEAVES    = 1;
 int const DISABLE_LEAVES     = 0;
-int const EN_REDUCE_LEAVES   = 1;
 int const TLEAF_START_TUID   = 8; // trees use texture units 8-12
 bool const FORCE_TREE_TYPE   = 1;
 unsigned const CYLINS_PER_ROOT     = 3;
@@ -58,7 +57,7 @@ tree_cont_t t_trees(tree_data_manager);
 tree_placer_t tree_placer;
 
 
-extern bool has_snow, no_sun_lpos_update, has_dl_sources, gen_tree_roots, tt_lightning_enabled, tree_indir_lighting, begin_motion, enable_grass_fire, rotate_trees;
+extern bool has_snow, has_dl_sources, gen_tree_roots, tt_lightning_enabled, tree_indir_lighting, begin_motion, enable_grass_fire, rotate_trees, enable_reduce_leaves;
 extern int num_trees, do_zoom, display_mode, animate2, iticks, draw_model, frame_counter;
 extern int xoff2, yoff2, rand_gen_index, leaf_color_changed, scrolling, dx_scroll, dy_scroll, window_width, window_height;
 extern unsigned smoke_tid;
@@ -1126,7 +1125,7 @@ void tree_data_t::ensure_leaf_vbo() {
 void tree_data_t::draw_leaves(float size_scale) {
 	ensure_leaf_vbo();
 	unsigned nl(leaves.size());
-	if (EN_REDUCE_LEAVES && size_scale > 0.0) {nl = min(nl, max((nl/8), unsigned(4.0*nl*size_scale*get_size_scale_mult())));} // leaf LOD
+	if (enable_reduce_leaves && size_scale > 0.0) {nl = min(nl, max((nl/8), unsigned(4.0*nl*size_scale*get_size_scale_mult())));} // leaf LOD
 	draw_leaf_quads_from_vbo(nl);
 }
 

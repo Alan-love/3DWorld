@@ -68,6 +68,7 @@ sm_tree_density 0.5
 init_tree_mode 3 # both large and small trees
 tree_lod_scale 0.20 0.16 0.20 0.16 # higher values reduce transition distance
 tt_grass_scale_factor 0.25
+enable_reduce_leaves 0
 add_city_grass 2 # 0=none, 1=parks only, 2=parks + residential
 num_bflies_per_tile 2
 
