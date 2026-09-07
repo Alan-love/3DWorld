@@ -2384,7 +2384,7 @@ float tile_draw_t::update(float &min_camera_dist) { // view-independent updates;
 		for (tile_map::const_iterator i = tiles.begin(); i != tiles.end(); ++i) {i->second->clear_shadow_map(&smap_manager);}
 		invalidate_tt_shadows = 0;
 	}
-	if (mesh_shadows_enabled() && (sun_change || moon_change) && shadow_recomp_queue.empty()) { // light source change
+	if (mesh_shadows_enabled() && (sun_change || moon_change) && shadow_recomp_queue.empty()) { // light source change; update mesh shadow map textures
 		if (auto_time_adv && !moon_change) { // auto time advance shadow map update for sun change only - triger a shadow recompute
 			for (auto i = tiles.begin(); i != tiles.end(); ++i) { // triger a shadow recompute
 				shadow_recomp_queue.emplace_back(-p2p_dist(sun_pos, i->second->get_center()), i->second->get_tile_xy_pair());
@@ -3515,8 +3515,8 @@ bool tile_draw_t::line_intersect_mesh(point const &v1, point const &v2, float &t
 	return 0;
 }
 
-tile_draw_t terrain_tile_draw;
 
+tile_draw_t terrain_tile_draw;
 
 void update_tiled_grass_length_width(float lscale, float wscale) {
 	grass_tile_manager.scale_grass(lscale, wscale);
@@ -3526,14 +3526,15 @@ void update_tiled_grass_length_width(float lscale, float wscale) {
 void tile_smap_data_t::render_scene_shadow_pass(point const &lpos) {
 	terrain_tile_draw.draw_shadow_pass(lpos, tile);
 }
-
 bool tile_smap_data_t::needs_update(point const &lpos) {
-	//return smap_data_t::needs_update(lpos);
 	// Note: it would be better if we could just translate the shadow map when the scene shifts, but this seems fairly complex to track and get right
 	int const new_dxoff(xoff - xoff2), new_dyoff(yoff - yoff2);
 	bool const new_off(new_dxoff != dxoff || new_dyoff != dyoff);
 	dxoff = new_dxoff; dyoff = new_dyoff;
-	return (smap_data_t::needs_update(lpos) || new_off);
+	if (new_off || !is_allocated()) return 1; // camera origin shift or new allocation
+	// only update every 8 frames; should stagger tile updates across frames and improve framerate; skip if lpos was reset (new tile)
+	if (auto_time_adv && last_lpos != all_zeros && ((fbo_id + frame_counter) & 7) != 0) return 0;
+	return smap_data_t::needs_update(lpos);
 }
 
 
