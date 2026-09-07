@@ -1241,6 +1241,12 @@ void add_cylin_as_tris(vector<vert_norm_tc_color> &verts, point const ce[2], flo
 		}
 	} // for i
 }
+void add_cylin_as_tris(vector<vert_norm_tc_color> &verts, point const &p1, point const &p2, float r1, float r2, color_wrapper const &cw,
+	unsigned ndiv, unsigned draw_top_bot, float tst=1.0, float tss=1.0, bool swap_ts_tt=0)
+{
+	point const ce[2] = {p1, p2};
+	add_cylin_as_tris(verts, ce, r1, r2, cw, ndiv, draw_top_bot, tst, tss, swap_ts_tt);
+}
 void draw_wire(point const *const pts, float radius, color_wrapper const &cw, quad_batch_draw &untex_qbd, unsigned ndiv=4) { // pts is size 2
 	vector_point_norm const &vpn(gen_cylinder_data(pts, radius, radius, ndiv));
 
@@ -1268,9 +1274,8 @@ void draw_standoff_geom(point const ce[2], float radius, float dmax, point const
 	else { // multiple truncated cones
 		unsigned const num_segs = 4;
 		vector3d const step_delta((ce[1] - ce[0])/num_segs);
-		point const ce_part[2] = {ce[0], ce[0]+step_delta};
 		unsigned const verts_start(untex_qbd.verts.size());
-		add_cylin_as_tris(untex_qbd.verts, ce_part, radius, 0.75*radius, cw, 16, 3); // truncated cone with top and bottom
+		add_cylin_as_tris(untex_qbd.verts, ce[0], ce[0]+step_delta, radius, 0.75*radius, cw, 16, 3); // truncated cone with top and bottom
 		unsigned const verts_end(untex_qbd.verts.size());
 	
 		for (unsigned n = 1; n < num_segs; ++n) {
@@ -1338,9 +1343,8 @@ void power_pole_t::draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist
 			if (!residential && ndiv > 4) { // draw conduit for wires that go into the ground
 				float const cradius(3.5*wire_radius);
 				conduit_top.assign(base.x, (base.y + y_sign*(0.5f*cradius + pole_radius)), (base.z + 0.6*pole_height)); // below the transformer
-				point const cce[2] = {point(conduit_top.x, conduit_top.y, base.z), conduit_top};
 				bool const draw_top(ndiv > 8 && camera_bs.z > conduit_top.z);
-				add_cylin_as_tris(s_qbd.verts, cce, cradius, cradius, gray, min(ndiv, 16U), (draw_top ? 2 : 0)); // specular
+				add_cylin_as_tris(s_qbd.verts, point(conduit_top.x, conduit_top.y, base.z), conduit_top, cradius, cradius, gray, min(ndiv, 16U), (draw_top ? 2 : 0)); // specular
 			}
 			// draw traffic camera
 			float const pole_dist(pole_radius/SQRT2);
@@ -1785,7 +1789,6 @@ void sculpture_t::draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist_
 	unsigned const num_colors = 4;
 	colorRGBA const colors[num_colors] = {LT_GRAY, DK_GRAY, BKGRAY, BRASS_C};
 	colorRGBA const &base_color(colors[rgen.rand() % num_colors]);
-	dstate.s.set_cur_color(base_color);
 	cube_t base(bcube);
 	base.z2() = bcube.z1() + 0.025*bcsz.z;
 	base.expand_by_xy(-0.25*bcsz); // shrink
@@ -1794,26 +1797,28 @@ void sculpture_t::draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist_
 	if (!shadow_only) { // set specular/metal parameters
 		dstate.s.set_specular_color(get_specular_color(base_color), 60.0);
 		dstate.s.set_metalness(0.5); // painted metal
-		qbds.untex_qbd.draw_and_clear(); // must draw now with the correct specular values
 	}
 	float const cylin_radius(rmin*rgen.rand_uniform(0.15, 0.2));
 	unsigned const cylin_ndiv(max(4U, ndiv/2));
-	draw_fast_cylinder(point(pos.x, pos.y, base.z2()), point(pos.x, pos.y, zmax+cylin_radius), cylin_radius, cylin_radius, cylin_ndiv, 0, 4); // untextured, sides and top
+	add_cylin_as_tris(qbds.untex_qbd.verts, point(pos.x, pos.y, base.z2()), point(pos.x, pos.y, zmax+cylin_radius), cylin_radius, cylin_radius, base_color, cylin_ndiv, 2); // with top
 
 	if (add_torus) { // horizontal bar connecting torus
 		bool const dim(rgen.rand_bool());
 		float const cylin_radius2(cylin_radius*rgen.rand_uniform(0.4, 0.6));
 		point p1(tc), p2(tc);
 		p1[dim] -= ro; p2[dim] += ro;
-		draw_fast_cylinder(p1, p2, cylin_radius2, cylin_radius2, cylin_ndiv, 0, 4); // untextured, sides only
+		add_cylin_as_tris(qbds.untex_qbd.verts, p1, p2, cylin_radius2, cylin_radius2, base_color, cylin_ndiv, 0); // sides only
 	}
 	for (unsigned n = 0; n < num_spheres; ++n) { // add horizontal bars conecting floating spheres
 		point const &p1(spheres[n].pos);
 		if (dist_xy_less_than(p1, pos, spheres[n].radius)) continue;
 		float const cylin_radius2(cylin_radius*rgen.rand_uniform(0.3, 0.5));
-		draw_fast_cylinder(p1, point(pos.x, pos.y, p1.z), cylin_radius2, cylin_radius2, cylin_ndiv, 0, 4); // untextured, sides only
+		add_cylin_as_tris(qbds.untex_qbd.verts, p1, point(pos.x, pos.y, p1.z), cylin_radius2, cylin_radius2, base_color, cylin_ndiv, 0); // sides only
 	}
-	if (!shadow_only) {dstate.s.clear_specular_and_metalness();}
+	if (!shadow_only) {
+		qbds.untex_qbd.draw_and_clear(); // must draw now with the correct specular values
+		dstate.s.clear_specular_and_metalness();
+	}
 }
 
 // bike racks
