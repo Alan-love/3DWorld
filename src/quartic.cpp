@@ -25,8 +25,7 @@ inline double cbrt(double val) {
 #define TOO_CLOSE 0.00001
 #define SAMESIGN(a,b) ( ((a)>=0) ^ ((b)<0) )
 
-int solve_linear(const double *poly,double *roots)
-{
+int solve_linear(const double *poly,double *roots) {
 	if( poly[1] != 0.0 ) {
 		roots[0] = - poly[0] / poly[1] ;
 		return 1;
@@ -34,8 +33,7 @@ int solve_linear(const double *poly,double *roots)
 	return 0;
 }
 
-int solve_quadratic(const double *poly,double *roots)
-{
+int solve_quadratic(const double *poly,double *roots) {
 	double t, b,c;
 	if( poly[2] == 0.0 ) return solve_linear(poly,roots);
 	b = poly[1] / poly[2] / 2.0;
@@ -53,8 +51,7 @@ int solve_quadratic(const double *poly,double *roots)
 	return 2;
 }
 
-int solve_cubic(const double *poly,double *roots)
-{
+int solve_cubic(const double *poly,double *roots) {
 	double a0,a1,a2,q,r,d;
 	if( poly[3] == 0.0 ) return solve_quadratic(poly,roots);
 	a0 = poly[0] / poly[3];
@@ -77,7 +74,6 @@ int solve_cubic(const double *poly,double *roots)
 			return 3;
 		}
 	}
-
 	// Now we get on with normal cases.
 	d = q*q*q + r*r;
 
@@ -88,7 +84,6 @@ int solve_cubic(const double *poly,double *roots)
 		roots[1] = -r - a2;
 		return 2;
 	}
-
 	// One real and two complex.
 	if( d > 0.0 ) {
 		double s1,s2;
@@ -98,7 +93,6 @@ int solve_cubic(const double *poly,double *roots)
 		roots[0] = s1 + s2 - a2;
 		return 1;
 	}
-
 	// Three real, surprisingly this is the most difficult one.
 	d = sqrt(-d);
 	q = atan2(d,r) / 3.0;
@@ -114,8 +108,7 @@ int solve_cubic(const double *poly,double *roots)
 	}
 }
 
-int solve_quartic(const double *poly,double *roots)
-{
+int solve_quartic(const double *poly,double *roots) {
 	double a3,a2,a1,a0;
 	double resolvant[4];
 	double resolvant_roots[3];

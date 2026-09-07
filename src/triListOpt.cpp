@@ -24,7 +24,6 @@
 
 namespace TriListOpt
 {
-
 	void OptimizeTriangleOrdering(const dsize_t numVerts, const dsize_t numIndices, const U32 *indices, IndexType *outIndices)
 	{
 		assert(numVerts > 0 && numIndices > 0);
@@ -382,7 +381,5 @@ namespace TriListOpt
 
 			return Score;
 		}
-
 	} // namspace FindVertexScore
-
 } // namespace TriListOpt

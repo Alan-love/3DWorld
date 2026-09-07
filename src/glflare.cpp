@@ -5,13 +5,11 @@
 
 
 struct Flare {
-
 	int type; // flare texture index, 0..5
 	float loc, scale;
 	colorRGBA color;
 
-	Flare(int type_, float loc_, float scale_, colorRGBA const &color_)
-		: type(type_), loc(loc_), scale(scale_), color(color_) {}
+	Flare(int type_, float loc_, float scale_, colorRGBA const &color_) : type(type_), loc(loc_), scale(scale_), color(color_) {}
 };
 
 
@@ -20,12 +18,10 @@ unsigned const NUM_SHINE = 1;
 int const num_flares     = 8;
 int const num_flare_tex  = NUM_FLARE + NUM_SHINE;
 
-
 bool tex_loaded(0);
 GLuint flareTex[NUM_FLARE], shineTex[NUM_SHINE];
 unsigned char *ft_buf[num_flare_tex];
 int ft_width[num_flare_tex], ft_height[num_flare_tex], ft_components[num_flare_tex];
-
 
 extern int display_mode, is_cloudy;
 extern float brightness;
@@ -43,11 +39,9 @@ Flare flare[num_flares] = {
 	Flare(0,  0.035, 0.01,   colorRGBA(0.2, 0.08, 0.0)),
 };
 
-
 unsigned char *load_luminance(std::string const &filename, int *width, int *height, int *components);
 void setup_cloud_plane_uniforms(shader_t &s, float cloud_cover_factor, bool match_cloud_layer);
 vector3d get_cloud_offset(float rel_vel_scale);
-
 
 
 void DoFlares(point const &from, point const &at, point const &light, float near_clip, float size, float intensity, int start_ix) {
@@ -82,14 +76,11 @@ void DoFlares(point const &from, point const &at, point const &light, float near
 
 	// view_dir = normalize(at-from)
 	vector3d const view_dir(vector3d(at, from).get_norm());
-
 	// center = from + near_clip * view_dir
 	point center(view_dir*near_clip + from);
-
 	// axis = light - center
 	vector3d const axis(light, center), dx2(axis.get_norm());
 	vector3d const dx(vector3d(1.0, 1.0, -(dx2[0] + dx2[1])/dx2[2]).get_norm());
-
 	// dy = cross(dx,view_dir)
 	vector3d const dy(cross_product(dx2, dx).get_norm());
 	float const cscale(intensity*pow((double)max(mod_brightness, 0.6f), 1.5));
@@ -122,18 +113,14 @@ void DoFlares(point const &from, point const &at, point const &light, float near
 	s.end_shader();
 }
 
-
 void gen_texture(std::string const &filename, GLuint &tid, int &id, bool init) {
-
 	if (init) ft_buf[id] = load_luminance(filename, &ft_width[id], &ft_height[id], &ft_components[id]);
 	setup_texture(tid, 0, 0, 0);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, ft_width[id], ft_height[id], 0, GL_RED, GL_UNSIGNED_BYTE, ft_buf[id]);
 	id++;
 }
 
-
 void load_flare_textures() {
-
 	int id(0);
 	static bool init(1);
 	for (unsigned i = 0; i < NUM_SHINE; i++) {gen_texture(("Shine" + std::to_string(i+1) + ".bw"), shineTex[i], id, init);}

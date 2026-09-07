@@ -15,7 +15,6 @@ void checked_fclose(FILE *fp);
 
 
 struct ImageRec {
-
 	unsigned short imagic, type, dim, xsize, ysize, zsize;
 	unsigned min, max, wasteBytes;
 	char name[MAX_IR_CHARS];
@@ -27,9 +26,7 @@ struct ImageRec {
 	int *rowSize;
 };
 
-
 static void ConvertShort(unsigned short *array, unsigned length) {
-
 	unsigned char *ptr = (unsigned char *) array;
 
 	while (length--) {
@@ -38,10 +35,7 @@ static void ConvertShort(unsigned short *array, unsigned length) {
 		*array++ = (b1 << 8) | (b2);
 	}
 }
-
-
 static void ConvertUint(unsigned *array, unsigned length) {
-
 	unsigned char *ptr = (unsigned char *) array;
 
 	while (length--) {
@@ -52,7 +46,6 @@ static void ConvertUint(unsigned *array, unsigned length) {
 		*array++ = (b1 << 24) | (b2 << 16) | (b3 << 8) | (b4);
 	}
 }
-
 
 static ImageRec *ImageOpen(std::string const &filename) {
 
@@ -94,16 +87,13 @@ static ImageRec *ImageOpen(std::string const &filename) {
 	return image;
 }
 
-
 static void ImageClose(ImageRec * image) {
-
 	checked_fclose(image->file);
 	delete [] image->rowStart;
 	delete [] image->rowSize;
 	delete [] image->tmp;
 	delete image;
 }
-
 
 static void ImageGetRow(ImageRec * image, unsigned char *buf, int y, int z) {
 
