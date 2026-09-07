@@ -535,14 +535,14 @@ void texture_t::calc_color() { // incorrect in is_16_bit_gray mode
 	else {
 		unsigned icolors[3] = {};
 
-		if (ncolors == 1) { // grayscale luminance
-			for (unsigned i = 0; i < size; ++i) {icolors[0] += data[i];}
+		if (ncolors <= 2) { // grayscale luminance or alpha luminance
+			for (unsigned i = 0; i < size; ++i) {icolors[0] += data[ncolors*i];}
 			icolors[1] = icolors[2] = icolors[0]; // set G and B to the calculated value of R
 		}
-		else { // RGB
-			assert(ncolors == 3);
+		else if (ncolors == 3) { // RGB
 			for (unsigned i = 0; i < size; ++i) {UNROLL_3X(icolors[i_] += data[3*i+i_];);}
 		}
+		else {assert(0);}
 		UNROLL_3X(color[i_] = icolors[i_]/(255.0*size);) // all weights are 1.0
 		color.alpha = 1.0;
 	}
