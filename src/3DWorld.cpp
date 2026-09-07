@@ -2029,7 +2029,7 @@ int load_config(string const &config_file) {
 		else if (str == "force_tree_class") {
 			if (!read_int(fp, force_tree_class) || force_tree_class >= NUM_TREE_CLASSES) cfg_err("force_tree_class", error);
 		}
-		else if (str == "tree_lod_scale") {
+		else if (str == "tree_lod_scale") { // branch_start, branch_end, leaf_start, leaf_end
 			for (unsigned i = 0; i < 4; ++i) {
 				if (!read_non_neg_float(fp, tree_lod_scales[i])) cfg_err("tree_lod_scale", error);
 			}

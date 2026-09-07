@@ -27,7 +27,7 @@ float const REL_LEAF_SIZE    = 3.5;
 float const LEAF_4TH_SCALE   = 0.4;
 int const TREE_4TH_LEAVES    = 1;
 int const DISABLE_LEAVES     = 0;
-int const ENABLE_CLIP_LEAVES = 1;
+int const EN_REDUCE_LEAVES   = 1;
 int const TLEAF_START_TUID   = 8; // trees use texture units 8-12
 bool const FORCE_TREE_TYPE   = 1;
 unsigned const CYLINS_PER_ROOT     = 3;
@@ -1000,7 +1000,7 @@ void tree::draw_leaves_top(shader_t &s, tree_lod_render_t &lod_renderer, bool sh
 		s.set_uniform_vector4d(wsoff_loc, vector4d((tree_xlate - get_camera_coord_space_xlate()), rot_angle));
 	}
 	s.set_uniform_int(tex0_off, TLEAF_START_TUID+type); // what about texture color mod?
-	td.draw_leaves(size_scale);
+	td.draw_leaves(lod_renderer.is_enabled() ? 0.0 : size_scale); // disable dynamic leaf reduction when lod_renderer is enabled
 	post_transform();
 }
 
@@ -1126,7 +1126,7 @@ void tree_data_t::ensure_leaf_vbo() {
 void tree_data_t::draw_leaves(float size_scale) {
 	ensure_leaf_vbo();
 	unsigned nl(leaves.size());
-	if (ENABLE_CLIP_LEAVES && size_scale > 0.0) {nl = min(nl, max((nl/8), unsigned(4.0*nl*size_scale*get_size_scale_mult())));} // leaf LOD
+	if (EN_REDUCE_LEAVES && size_scale > 0.0) {nl = min(nl, max((nl/8), unsigned(4.0*nl*size_scale*get_size_scale_mult())));} // leaf LOD
 	draw_leaf_quads_from_vbo(nl);
 }
 

@@ -4,7 +4,7 @@ rotate_trees 0 # rotate not needed because all trees are unique, but may still b
 tree_4th_branches 0
 nleaves_scale 1.0
 tree_branch_radius 0.75
-tree_lod_scale 0.35 0.3 0.35 0.3
+tree_lod_scale 0.35 0.3 0.35 0.3 # higher values reduce transition distance
 tree_coll_level 0
 
 nsmileys 6
