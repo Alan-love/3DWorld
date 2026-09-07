@@ -230,7 +230,7 @@ void pre_rt_bvh_build_hook () {expand_or_unexpand_update_light_platform_cobjs(0)
 void post_rt_bvh_build_hook() {expand_or_unexpand_update_light_platform_cobjs(1);}
 
 
-bool coll_obj::clip_in_2d(float const bb[2][2], float &val, int d1, int d2, int dir) const {
+bool coll_obj::clip_in_2d(float const bb[2][2], float &val, int d1, int d2, int dir) const { // Note: only called with d1=0, d2=1 (clip in Z)
 
 	assert(d1 >= 0 && d1 <= 3 && d2 >= 0 && d2 <= 3 && d1 != d2 && (dir == 0 || dir == 1));
 	int d3(0);
@@ -254,18 +254,6 @@ bool coll_obj::clip_in_2d(float const bb[2][2], float &val, int d1, int d2, int 
 		return 1;
 	}
 	case COLL_CYLINDER:
-		if (d3 == 2) {
-			val = d[d3][dir]; // can be inaccurate, especially if radius1 != radius2 (cone, etc.)
-		}
-		else { // unused, untested
-			int const bb_z((d1 == 2) ? d1 : d2);
-			float const z(0.5f*(bb[bb_z][0] + bb[bb_z][1]));
-			float const t((z - points[0].z)/(points[1].x - points[0].z));
-			float const r(radius + t*(radius2 - radius));
-			val = points[0][d3] + sqrt(PI/4.0)*(dir ? r : -r); // approximate with a square of the same cross sectional area
-		}
-		return 1;
-
 	case COLL_CYLINDER_ROT:
 	case COLL_TORUS:
 	case COLL_CAPSULE:
@@ -277,14 +265,10 @@ bool coll_obj::clip_in_2d(float const bb[2][2], float &val, int d1, int d2, int 
 		bool in_poly(0);
 
 		for (unsigned i = 0; i < (unsigned)npoints && !in_poly; ++i) {
-			if (points[i][d1] > bb[0][0] && points[i][d1] < bb[0][1] && points[i][d2] > bb[1][0] && points[i][d2] < bb[1][1]) {
-				in_poly = 1; // polygon has a point inside bb
-			}
+			in_poly = (points[i][d1] > bb[0][0] && points[i][d1] < bb[0][1] && points[i][d2] > bb[1][0] && points[i][d2] < bb[1][1]); // polygon has a point inside bb
 		}
 		for (unsigned i = 0; i < 4 && !in_poly; ++i) {
-			if (point_in_polygon_2d(bb[0][i>>1], bb[1][i&&(i<3)], points, npoints, d1, d2)) {
-				in_poly = 1; // bb has a point inside polygon
-			}
+			in_poly = point_in_polygon_2d(bb[0][i>>1], bb[1][i&&(i<3)], points, npoints, d1, d2); // bb has a point inside polygon
 		}
 		if (!in_poly) return 0;
 		val = d[d3][dir];
@@ -302,7 +286,6 @@ bool coll_obj::clip_in_2d(float const bb[2][2], float &val, int d1, int d2, int 
 }
 
 void coll_obj::set_npoints() {
-
 	switch (type) {
 	case COLL_CUBE:         npoints = 1; break;
 	case COLL_SPHERE:       npoints = 1; break;
