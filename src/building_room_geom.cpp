@@ -5748,13 +5748,12 @@ void building_room_geom_t::add_sign(room_object_t const &c, bool inc_back, bool 
 				mat.add_cube_to_verts_untextured(side, frame_color, (skip_faces_frame | EF_Z12));
 			} // for d
 		}
+		if (is_handicap) { // image, not text
+			rgeom_mat_t &mat2(get_material(tid_nm_pair_t(get_texture_by_name("roads/handicap_parking.jpg"), 0.0), 0, small)); // unshadowed
+			mat2.add_cube_to_verts(c, c.color, c.get_llc(), get_face_mask(c.dim, c.dir), !c.dim, (c.dim ^ c.dir ^ 1));
+		}
 	}
-	if (is_handicap) { // image, not text
-		rgeom_mat_t &mat2(get_material(tid_nm_pair_t(get_texture_by_name("roads/handicap_parking.jpg"), 0.0), 0, small)); // unshadowed
-		mat2.add_cube_to_verts(c, c.color, c.get_llc(), get_face_mask(c.dim, c.dir), !c.dim, (c.dim ^ c.dir ^ 1));
-		return;
-	}
-	if (!inc_text) return;
+	if (!inc_text || is_handicap) return;
 	// add sign text
 	tid_nm_pair_t tex(FONT_TEXTURE_ID); // no_reflect=0
 	if (c.flags & RO_FLAG_EMISSIVE) {tex.emissive = 1.0;}
