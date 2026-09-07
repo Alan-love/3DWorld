@@ -1340,46 +1340,47 @@ void power_pole_t::draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist
 			tf_bcube.set_from_points(ce, 2);
 			tf_bcube.expand_by_xy(tf_radius);
 
-			if (!residential && ndiv > 4) { // draw conduit for wires that go into the ground
+			if (!shadow_only && !residential && ndiv > 4) { // draw conduit for wires that go into the ground
 				float const cradius(3.5*wire_radius);
 				conduit_top.assign(base.x, (base.y + y_sign*(0.5f*cradius + pole_radius)), (base.z + 0.6*pole_height)); // below the transformer
 				bool const draw_top(ndiv > 8 && camera_bs.z > conduit_top.z);
 				add_cylin_as_tris(s_qbd.verts, point(conduit_top.x, conduit_top.y, base.z), conduit_top, cradius, cradius, gray, min(ndiv, 16U), (draw_top ? 2 : 0)); // specular
 			}
-			// draw traffic camera
-			float const pole_dist(pole_radius/SQRT2);
-			point const attach_pt((base.x + pole_dist), (base.y + pole_dist), (base.z + 0.5*pole_height));
-			cube_t bc_test;
-			bc_test.set_from_sphere(attach_pt, 2.5*pole_radius); // conservative
+			if (!shadow_only) { // draw traffic camera; too small to cast a shadow
+				float const pole_dist(pole_radius/SQRT2);
+				point const attach_pt((base.x + pole_dist), (base.y + pole_dist), (base.z + 0.5*pole_height));
+				cube_t bc_test;
+				bc_test.set_from_sphere(attach_pt, 2.5*pole_radius); // conservative
 
-			if (dstate.check_cube_visible(bc_test, 0.25*dist_scale)) {
-				float const length(1.8*pole_radius), hwidth(0.32*pole_radius), hheight(0.24*pole_radius), shroud_thick(0.04*hwidth);
-				cube_t tcam;
-				tcam.set_from_point(attach_pt);
-				tcam.x1() += 0.2*length; tcam.x2() = tcam.x1() + length; // extend away from pole and set length
-				tcam.expand_in_y(hwidth );
-				tcam.expand_in_z(hheight);
-				cube_t window(tcam), shroud(tcam), mount(tcam);
-				window.expand_in_y(-0.35*hwidth );
-				window.expand_in_z(-0.35*hheight);
-				set_wall_width(window, tcam.x2(), 0.01*length, 0);
-				shroud.x1() += 0.85*length; shroud.x2() += 0.1*length;
-				shroud.z2() += shroud_thick;
-				cube_t shroud_t(shroud), shroud_l(shroud), shroud_r(shroud); // top, left, right
-				shroud_t.z1()  = tcam.z2();
-				shroud_l.y2()  = tcam.y1(); shroud_l.y1() -= shroud_thick;
-				shroud_r.y1()  = tcam.y2(); shroud_r.y2() += shroud_thick;
-				shroud_l.z1() += hheight;   shroud_r.z1() += hheight; // starts halfway up
-				mount.x1() = attach_pt.x; mount.x2() = tcam.x1() + hwidth;
-				mount.expand_in_y(-0.6*hwidth); // shrink width
-				mount.z2() = tcam.z1(); mount.z1() -= 0.4*hheight; // below the camera
-				unsigned const start_ix(qbds.untex_qbd.verts.size());
-				cube_t    const parts [5] = {tcam,  mount, shroud_t, shroud_l, shroud_r};
-				colorRGBA const colors[5] = {WHITE, GRAY,  WHITE,    WHITE,    WHITE   };
-				for (unsigned n = 0; n < 5; ++n) {dstate.draw_cube(qbds.untex_qbd, parts[n], colors[n], 0, 0.0, 0, 0, 0, 0, 1.0, 1.0, 1.0, 0, 1);} // no_cull=1 since it's rotated
-				dstate.draw_cube(qbds.untex_qbd, window, BLACK, 0, 0.0, 6, 0, 0, 0, 1.0, 1.0, 1.0, 0, 1); // no_cull=1, draw X only (only really need one side)
-				rotate_verts(qbds.untex_qbd.verts, plus_y, -0.20*PI, attach_pt, start_ix); // tilt downward
-				rotate_verts(qbds.untex_qbd.verts, plus_z, -0.25*PI, attach_pt, start_ix); // rotate 45 degrees to face the intersection
+				if (dstate.check_cube_visible(bc_test, 0.25*dist_scale)) {
+					float const length(1.8*pole_radius), hwidth(0.32*pole_radius), hheight(0.24*pole_radius), shroud_thick(0.04*hwidth);
+					cube_t tcam;
+					tcam.set_from_point(attach_pt);
+					tcam.x1() += 0.2*length; tcam.x2() = tcam.x1() + length; // extend away from pole and set length
+					tcam.expand_in_y(hwidth );
+					tcam.expand_in_z(hheight);
+					cube_t window(tcam), shroud(tcam), mount(tcam);
+					window.expand_in_y(-0.35*hwidth );
+					window.expand_in_z(-0.35*hheight);
+					set_wall_width(window, tcam.x2(), 0.01*length, 0);
+					shroud.x1() += 0.85*length; shroud.x2() += 0.1*length;
+					shroud.z2() += shroud_thick;
+					cube_t shroud_t(shroud), shroud_l(shroud), shroud_r(shroud); // top, left, right
+					shroud_t.z1()  = tcam.z2();
+					shroud_l.y2()  = tcam.y1(); shroud_l.y1() -= shroud_thick;
+					shroud_r.y1()  = tcam.y2(); shroud_r.y2() += shroud_thick;
+					shroud_l.z1() += hheight;   shroud_r.z1() += hheight; // starts halfway up
+					mount.x1() = attach_pt.x; mount.x2() = tcam.x1() + hwidth;
+					mount.expand_in_y(-0.6*hwidth); // shrink width
+					mount.z2() = tcam.z1(); mount.z1() -= 0.4*hheight; // below the camera
+					unsigned const start_ix(qbds.untex_qbd.verts.size());
+					cube_t    const parts [5] = {tcam,  mount, shroud_t, shroud_l, shroud_r};
+					colorRGBA const colors[5] = {WHITE, GRAY,  WHITE,    WHITE,    WHITE   };
+					for (unsigned n = 0; n < 5; ++n) {dstate.draw_cube(qbds.untex_qbd, parts[n], colors[n], 0, 0.0, 0, 0, 0, 0, 1.0, 1.0, 1.0, 0, 1);} // no_cull=1 since it's rotated
+					dstate.draw_cube(qbds.untex_qbd, window, BLACK, 0, 0.0, 6, 0, 0, 0, 1.0, 1.0, 1.0, 0, 1); // no_cull=1, draw X only (only really need one side)
+					rotate_verts(qbds.untex_qbd.verts, plus_y, -0.20*PI, attach_pt, start_ix); // tilt downward
+					rotate_verts(qbds.untex_qbd.verts, plus_z, -0.25*PI, attach_pt, start_ix); // rotate 45 degrees to face the intersection
+				}
 			}
 		}
 	}
@@ -1417,7 +1418,7 @@ void power_pole_t::draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist
 				} // for n
 				wire_mask |= (1 << d); // mark wires as drawn in this dim
 			}
-			if (d == 1 && !tf_bcube.is_all_zeros()) { // connect wire to transformer if running in y dim
+			if (!shadow_only && d == 1 && !tf_bcube.is_all_zeros()) { // connect wire to transformer if running in y dim
 				float const spacing(0.3*tf_bcube.get_sz_dim(!d));
 				point const tf_top_center(cube_top_center(tf_bcube));
 
@@ -1426,7 +1427,7 @@ void power_pole_t::draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist
 						(tf_top_center + vector3d((n - 1.0)*spacing, 0.0, standoff_height-0.5f*wire_radius))}; // top wire, bottom transformer
 					draw_wire(pts, wire_radius, black, m_qbd);
 				}
-				if (!shadow_only && tf_bcube.closest_dist_less_than(camera_bs, 0.1*dmax)) { // draw insulator standoffs
+				if (tf_bcube.closest_dist_less_than(camera_bs, 0.1*dmax)) { // draw insulator standoffs
 					unsigned verts_start(s_qbd.verts.size()), verts_end(0);
 
 					for (unsigned n = 0; n < 3; ++n) {
@@ -3386,7 +3387,7 @@ void city_flag_t::draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist_
 	// draw the pole
 	float const dmax(dist_scale*dstate.draw_tile_dist*(horizontal ? 0.7 : 1.0)); // horizontals flag poles are less visible
 	if (!shadow_only && !bcube.closest_dist_less_than(dstate.camera_bs, 0.75*dmax)) return;
-	unsigned const ndiv = 16;
+	unsigned const ndiv(shadow_only ? 8 : 16);
 	float const sphere_radius((horizontal ? 1.5 : 1.0)*pole_radius);
 	point ce[2] = {pole_base, pole_base};
 	if (horizontal) {ce[1][!dim] = bcube.d[!dim][dir] + (dir ? 1.0 : -1.0)*sphere_radius;}
@@ -3394,7 +3395,7 @@ void city_flag_t::draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist_
 	add_cylin_as_tris(qbds.untex_spec_qbd.verts, ce, pole_radius, (horizontal ? 1.0 : 0.5)*pole_radius, WHITE, ndiv, 0); // (truncated, if vertical) cone, sides only
 	// draw the gold sphere at the top; it's not easy to assign this a gold specular color, so it's left with white specular
 	//if (shadow_only) return; // too small to cast a shadow?
-	if (!shadow_only && !bcube.closest_dist_less_than(dstate.camera_bs, 0.4*dmax)) return;
+	if (!shadow_only && !bcube.closest_dist_less_than(dstate.camera_bs, 0.25*dmax)) return;
 	color_wrapper const cw(GOLD);
 	dstate.temp_verts.clear();
 	get_sphere_triangles(dstate.temp_verts, ce[1], sphere_radius, ndiv);
