@@ -1789,10 +1789,16 @@ void sculpture_t::draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist_
 	cube_t base(bcube);
 	base.z2() = bcube.z1() + 0.025*bcsz.z;
 	base.expand_by_xy(-0.25*bcsz); // shrink
+	dstate.draw_cube(qbds.untex_qbd, base, base_color, 1); // base; skip_bottom=1
+	
+	if (!shadow_only) { // set specular/metal parameters
+		dstate.s.set_specular_color(get_specular_color(base_color), 60.0);
+		dstate.s.set_metalness(0.5); // painted metal
+		qbds.untex_qbd.draw_and_clear(); // must draw now with the correct specular values
+	}
 	float const cylin_radius(rmin*rgen.rand_uniform(0.15, 0.2));
 	unsigned const cylin_ndiv(max(4U, ndiv/2));
 	draw_fast_cylinder(point(pos.x, pos.y, base.z2()), point(pos.x, pos.y, zmax+cylin_radius), cylin_radius, cylin_radius, cylin_ndiv, 0, 4); // untextured, sides and top
-	dstate.draw_cube(qbds.untex_qbd, base, base_color, 1); // base; skip_bottom=1
 
 	if (add_torus) { // horizontal bar connecting torus
 		bool const dim(rgen.rand_bool());
@@ -1807,6 +1813,7 @@ void sculpture_t::draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist_
 		float const cylin_radius2(cylin_radius*rgen.rand_uniform(0.3, 0.5));
 		draw_fast_cylinder(p1, point(pos.x, pos.y, p1.z), cylin_radius2, cylin_radius2, cylin_ndiv, 0, 4); // untextured, sides only
 	}
+	if (!shadow_only) {dstate.s.clear_specular_and_metalness();}
 }
 
 // bike racks

@@ -1007,7 +1007,6 @@ void enable_flares(int tid) { // used for clouds and smoke
 	enable_blend();
 	if (draw_model == 0) {select_texture((tid < 0) ? BLUR_TEX : tid);}
 }
-
 void disable_flares() {
 	disable_blend();
 	glDepthMask(GL_TRUE);
@@ -1021,7 +1020,6 @@ void draw_one_tquad(float x1, float y1, float x2, float y2, float z, int prim_ty
 	verts[3] = vert_norm_tc(point(x2, y1, z), plus_z, 1, 0);
 	draw_verts(verts, 4, prim_type); // GL_TRIANGLE_FAN (quads) or GL_PATCHES
 }
-
 void draw_tquad(float xsize, float ysize, float z, int prim_type) { // Note: normal is +z
 	draw_one_tquad(-xsize, -ysize, xsize, ysize, z, prim_type);
 }
@@ -1029,7 +1027,6 @@ void draw_tquad(float xsize, float ysize, float z, int prim_type) { // Note: nor
 
 // ordered p1+, p1-, p2-, p2+
 int get_line_as_quad_pts(point const &p1, point const &p2, float w1, float w2, point pts[4]) {
-
 	int npts(0);
 	vector3d const v1(get_camera_pos(), (p1 + p2)*0.5);
 	float const dmax(1.0E5*max(w1, w2));
