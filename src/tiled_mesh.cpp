@@ -182,9 +182,7 @@ float get_tt_fog_based_far_clip(float min_camera_dist) {
 
 grass_tile_manager_t grass_tile_manager;
 
-void update_tiled_terrain_grass_vbos() {grass_tile_manager.clear_vbo();}
 void update_tiled_grass_colors() {grass_tile_manager.clear();} // regenerate grass
-
 
 #define BILINEAR_INTERP(arr, var, x, y) (y*(x*arr[1][1].var + (1.0f-x)*arr[1][0].var) + (1.0f-y)*(x*arr[0][1].var + (1.0f-x)*arr[0][0].var))
 
@@ -3628,7 +3626,6 @@ void end_tiled_terrain_lightning() {terrain_tile_draw.end_lightning();}
 void clear_tiled_terrain(bool no_regen_buildings) {terrain_tile_draw.clear(no_regen_buildings);}
 void draw_tiled_terrain_clouds(bool reflection_pass) {terrain_tile_draw.draw_tile_clouds(reflection_pass);}
 void draw_tiled_terrain_decid_tree_shadows() {terrain_tile_draw.draw_decid_tree_shadows();}
-void reset_tiled_terrain_state() {terrain_tile_draw.clear_vbos_tids();}
 void clear_tiled_terrain_shaders() {terrain_tile_draw.free_compute_shader();}
 void draw_tiled_terrain_water(shader_t &s, float zval) {terrain_tile_draw.draw_water(s, zval);}
 bool check_player_tiled_terrain_collision() {return terrain_tile_draw.check_player_collision();}

@@ -129,11 +129,3 @@ void load_flare_textures() {
 	tex_loaded = 1;
 }
 
-
-void free_flare_textures() {
-
-	for (unsigned i = 0; i < NUM_SHINE; i++) {free_texture(shineTex[i]);}
-	for (unsigned i = 0; i < NUM_FLARE; i++) {free_texture(flareTex[i]);}
-	tex_loaded = 0;
-}
-

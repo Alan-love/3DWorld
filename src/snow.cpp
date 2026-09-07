@@ -322,8 +322,6 @@ class snow_renderer {
 	vector<unsigned> indices, strip_offsets;
 	map<point, unsigned> vmap[2]; // {prev, next} rows
 public:
-	// can't free in the destructor because the gl context may be destroyed before this point
-	//~snow_renderer() {free_vbos();}
 	bool empty() const {return data.empty();}
 
 	void add_all_strips(vector<strip_t> const &strips) {
@@ -379,8 +377,6 @@ private:
 		return ix;
 	}
 public:
-	void free_vbos() {vbo_mgr.clear_vbos();}
-
 	void update_region(unsigned strip_ix, unsigned strip_pos, unsigned strip_len, float new_z) { // Note: could use ranges/blocks optimization
 		
 		if (!vbo_mgr.vbo) return; // vbo not allocated, so all will be updated when it gets allocated during drawing
@@ -664,11 +660,6 @@ void gen_snow_coverage() {
 
 
 tile_blend_tex_data_t snow_tbt_data;
-
-void reset_snow_vbos() {
-	snow_draw.free_vbos();
-	snow_tbt_data.clear_context();
-}
 
 void draw_snow(bool shadow_only) {
 

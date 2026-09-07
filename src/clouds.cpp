@@ -211,9 +211,6 @@ bool cloud_manager_t::create_texture(bool force_recreate) {
 	return 1;
 }
 
-
-void free_cloud_textures() {cloud_manager.free_textures();}
-
 void cloud_manager_t::free_textures() {
 	free_texture(cloud_tid);
 	free_fbo(fbo_id);
@@ -311,15 +308,11 @@ void render_spherical_section(indexed_mesh_draw<vert_wrap_t> &imd, float size, f
 
 indexed_mesh_draw<vert_wrap_t> cloud_imd;
 
-void free_cloud_context() {cloud_imd.free_context();}
-
-
 vector3d get_cloud_offset(float rel_vel_scale) {
 	float const cloud_rel_vel = 1.0; // relative cloud velocity compared to camera velocity (0: clouds follow the camera, 1: clouds are stationary)
 	point const camera(get_camera_pos()), world_pos(camera + vector3d((xoff2-xoff)*DX_VAL, (yoff2-yoff)*DY_VAL, 0.0));
 	return -camera + rel_vel_scale*cloud_rel_vel*world_pos;
 }
-
 
 // not a plane, but a spherical section
 void draw_cloud_planes(float terrain_zmin, bool reflection_pass, bool draw_ceil, bool draw_floor) {

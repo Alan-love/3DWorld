@@ -166,16 +166,8 @@ void init_lights();
 bool export_modmap(string const &filename);
 void reset_planet_defaults();
 void invalidate_cached_stars();
-void clear_default_vao();
 void create_sin_table();
-void clear_sm_tree_vbos();
-void clear_scenery_vbos();
-void clear_asteroid_contexts();
-void clear_quad_ix_buffer_context();
 void clear_vbo_ring_buffer();
-void free_cloud_context();
-void free_universe_context();
-void free_animal_context();
 void setup_linear_fog(colorRGBA const &color, float fog_end);
 void write_map_mode_heightmap_image();
 void apply_grass_scale();
@@ -226,43 +218,11 @@ bool check_gl_error(unsigned loc_id) {
 void display_window_resized() {invalidate_cached_stars();}
 void post_window_redisplay () {glutPostRedisplay();} // Schedule a new display event
 
-
-void clear_context() { // free all textures, shaders, VBOs, etc.; used at shutdown, but technically not needed
-
-	reset_textures();
-	free_universe_context();
-	free_model_context();
-	free_voxel_context();
-	free_sphere_vbos();
-	clear_shaders();
-	reset_snow_vbos();
-	update_grass_vbos();
-	update_tiled_terrain_grass_vbos();
-	clear_tree_context();
-	clear_sm_tree_vbos();
-	clear_scenery_vbos();
-	reset_tiled_terrain_state();
-	free_cobj_draw_group_vbos();
-	clear_univ_obj_contexts();
-	clear_asteroid_contexts();
-	clear_quad_ix_buffer_context();
-	clear_vbo_ring_buffer();
-	clear_default_vao();
-	free_cloud_context();
-	free_animal_context();
-	reflective_cobjs.free_textures();
-	clear_landscape_vbo_now();
-	//clear_building_vbos(); // too slow/not needed?
-	free_city_context();
-}
-
-
 void quit_3dworld() { // called once at the end for proper cleanup
 
 	cout << "quitting" << endl;
 	kill_current_raytrace_threads();
 	end_building_rt_job();
-	clear_context();
 	exit_openal();
 
 	if (!universe_only) {

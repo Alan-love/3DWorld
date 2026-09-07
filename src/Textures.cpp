@@ -197,8 +197,6 @@ unsigned char *landscape0 = NULL;
 
 
 extern bool mesh_difuse_tex_comp, water_is_lava, invert_bump_maps, no_store_model_textures_in_memory;
-extern unsigned smoke_tid, dl_tid, elem_tid, gb_tid, dl_bc_tid, reflection_tid, room_mirror_ref_tid, depth_tid, empty_smap_tid;
-extern unsigned frame_buffer_RGB_tid, skybox_tid, skybox_cube_tid, univ_reflection_tid;
 extern int world_mode, read_landscape, default_ground_tex, xoff2, yoff2, DISABLE_WATER;
 extern int scrolling, dx_scroll, dy_scroll, display_mode, iticks, universe_only, window_width, window_height;
 extern float zmax, zmin, glaciate_exp, relh_adj_tex, vegetation, fticks;
@@ -430,36 +428,6 @@ float get_tex_ar(int id) {
 
 void free_textures() {
 	for (unsigned i = 0; i < textures.size(); ++i) {textures[i].gl_delete();}
-}
-
-
-void reset_textures() {
-
-	cout << "Freeing textures..." << endl; // only print if something was loaded?
-	free_textures();
-	free_smiley_textures(); // should this be guarded by a conditional?
-	free_flare_textures();
-	free_shadow_map_textures();
-	free_cloud_textures();
-	free_teleporter_textures();
-	free_texture(smoke_tid);
-	free_texture(dl_tid);
-	free_texture(elem_tid);
-	free_texture(gb_tid);
-	free_texture(dl_bc_tid);
-	free_texture(reflection_tid);
-	free_texture(depth_tid);
-	free_texture(sky_zval_tid);
-	free_texture(empty_smap_tid);
-	free_texture(frame_buffer_RGB_tid);
-	free_texture(skybox_tid);
-	free_texture(skybox_cube_tid);
-	free_texture(univ_reflection_tid);
-	free_texture(room_mirror_ref_tid);
-	free_building_indir_texture();
-	free_font_texture_atlas();
-	for (texture_map_t::iterator i = noise_tex_3ds.begin(); i != noise_tex_3ds.end(); ++i) {free_texture(i->second);}
-	noise_tex_3ds.clear();
 }
 
 void setup_landscape_tex_colors(colorRGBA const &c1, colorRGBA const &c2) { // c1 = high, c2 = low

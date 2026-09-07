@@ -2742,7 +2742,7 @@ void model3ds::clear() {
 	tmgr.clear();
 }
 
-void model3ds::free_context() {
+void model3ds::free_context() { // unused
 	for (iterator m = begin(); m != end(); ++m) {m->free_context();}
 	tmgr.free_tids();
 }
@@ -2927,8 +2927,6 @@ void model3d_stats_t::print() const {
 
 
 // ************ Free Functions ************
-
-void free_model_context() {all_models.free_context();}
 
 void render_models(int shadow_pass, int reflection_pass, int trans_op_mask, vector3d const &xlate) { // shadow_only: 0=non-shadow pass, 1=sun/moon shadow, 2=dynamic shadow
 	all_models.render((shadow_pass != 0), reflection_pass, trans_op_mask, xlate);

@@ -2008,10 +2008,6 @@ void render_voxel_data(bool shadow_pass) {
 	terrain_voxel_model.render(lod_level, shadow_pass);
 }
 
-void free_voxel_context() {
-	terrain_voxel_model.free_context();
-}
-
 bool point_inside_voxel_terrain(point const &pos) {
 	if (world_mode != WMODE_GROUND) return 0;
 	return terrain_voxel_model.point_inside_volume(pos);

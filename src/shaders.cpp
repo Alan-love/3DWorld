@@ -629,11 +629,6 @@ bool setup_shaders() {
 	return 0;
 }
 
-void clear_shaders() {
-	clear_cached_shaders();
-	shader_manager.clear();
-}
-
 void reload_all_shaders() { // clears and reloads *everything*
 	// Note: do we want/need some function called every frame that check if shader files have been modified and calls this?
 	cout << "Reloading all shaders" << endl;

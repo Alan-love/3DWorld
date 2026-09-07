@@ -795,7 +795,6 @@ void tree_data_t::clear_vbo_ixs() {
 	branch_manager.reset_vbos_to_zero();
 }
 void tree_data_t::clear_context() {
-
 	render_leaf_texture.free_context();
 	render_branch_texture.free_context();
 	branch_manager.clear_vbos();
@@ -1259,7 +1258,6 @@ void tree::clear_context() {
 }
 
 int tree::delete_tree() {
-
 	clear_context();
 	if (!created)  return 0;
 	if (tree_coll_level) {remove_collision_objects();}
@@ -2407,11 +2405,6 @@ void exp_damage_trees(point const &epos, float damage, float bradius, int type) 
 
 void add_tree_cobjs   () {t_trees.add_cobjs();}
 void remove_tree_cobjs() {t_trees.remove_cobjs();}
-
-void clear_tree_context() {
-	t_trees.clear_context();
-	tree_data_manager.clear_context();
-}
 
 
 // tree fires

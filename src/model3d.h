@@ -711,7 +711,6 @@ template<typename T> bool split_polygon(polygon_t const &poly, vector<T> &ppts, 
 
 bool use_model3d_bump_maps();
 void coll_tquads_from_triangles(vector<triangle> const &triangles, vector<coll_tquad> &ppts, colorRGBA const &color);
-void free_model_context();
 void render_models(int shadow_pass, int reflection_pass, int trans_op_mask=3, vector3d const &xlate=zero_vector);
 void ensure_model_reflection_cube_maps();
 void auto_calc_model_zvals();

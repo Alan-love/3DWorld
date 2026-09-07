@@ -1365,11 +1365,6 @@ void select_smiley_texture(int smiley_id) {
 	bind_2d_texture(tid);
 }
 
-void free_smiley_textures() {
-	if (sstates == NULL) return;
-	for (int i = 0; i < num_smileys; ++i) {free_texture(sstates[i].tid);}
-}
-
 void clear_cached_waypoints() {
 	if (sstates == NULL) return;
 	for (int i = 0; i < num_smileys; ++i) {sstates[i].last_waypoint = -1;}

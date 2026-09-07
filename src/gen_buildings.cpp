@@ -6125,11 +6125,6 @@ cube_t get_grid_bcube_for_building(building_t const &b) {
 	ret = building_tiles.get_grid_bcube_for_building(b);
 	return ret;
 }
-void clear_building_vbos() {
-	building_creator     .clear_vbos();
-	building_creator_city.clear_vbos();
-	building_tiles       .clear_vbos();
-}
 
 // city interface
 void set_buildings_pos_range(cube_t const &pos_range) {global_building_params.set_pos_range(pos_range);}

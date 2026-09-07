@@ -82,7 +82,6 @@ public:
 font_texture_manager_t font_texture_manager; // singleton
 
 void load_font_texture_atlas(string const &fn) {font_texture_manager.load(fn);}
-void free_font_texture_atlas() {font_texture_manager.free_gl_state();}
 
 bool is_vertical_text(string const &text) {
 	if (text.size() < 3 || !(text.size() & 1)) return 0; // expecting N chars and N-1 newlines

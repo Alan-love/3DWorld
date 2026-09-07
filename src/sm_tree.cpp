@@ -615,11 +615,6 @@ void gen_small_trees() { // called in ground mode
 	cout << "small trees: " << small_trees.size() << endl;
 }
 
-void clear_sm_tree_vbos() {
-	small_trees.clear_vbos();
-	tree_instances.clear_vbos();
-}
-
 void add_small_tree_coll_objs() {small_trees.add_cobjs();} // doesn't handle rotation angle
 void remove_small_tree_cobjs () {small_trees.remove_cobjs();}
 

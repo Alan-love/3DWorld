@@ -174,8 +174,6 @@ unsigned create_vao() {
 
 unsigned default_vao(0);
 
-void clear_default_vao() {delete_and_zero_vao(default_vao);}
-
 void bind_vao(unsigned vao) { // okay if vao is zero
 	if (use_core_context && vao == 0) {
 		if (!default_vao) {default_vao = create_vao();}

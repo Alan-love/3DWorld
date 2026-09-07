@@ -135,8 +135,6 @@ public:
 
 animal_model_loader_t animal_model_loader;
 
-void free_animal_context() {animal_model_loader.free_context();}
-
 // static functions for animal types
 bool fish_t     ::type_enabled() {return animal_model_loader.load_fish_model();}
 bool butterfly_t::type_enabled() {return animal_model_loader.load_butterfly_model();}

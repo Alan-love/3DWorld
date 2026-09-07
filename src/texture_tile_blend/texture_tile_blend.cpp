@@ -9,7 +9,6 @@
 
 
 GLuint CreateGLTextureFromTextureDataStruct(const TextureDataFloat& im, bool wrap, bool generateMips) {
-
 	if (im.data.empty()) return 0;
 	GLuint texture(0);
 	setup_texture(texture, generateMips, wrap, wrap);
@@ -19,7 +18,6 @@ GLuint CreateGLTextureFromTextureDataStruct(const TextureDataFloat& im, bool wra
 }
 
 void tile_blend_tex_data_t::bind_shader(shader_t &s) const {
-
 	assert(textures_valid());
 	unsigned const tu_id = 21; // use a value that won't conflict with other
 	bind_texture_tu(tid_tinput, tu_id+1);
@@ -33,7 +31,6 @@ void tile_blend_tex_data_t::bind_shader(shader_t &s) const {
 }
 
 void tile_blend_tex_data_t::create_textures(texture_t const &texture) {
-
 	timer_t timer("Create Tile Blend Textures");
 	assert(texture.ncolors == 3); // only supports RGB for now
 	unsigned const num_bytes(texture.num_bytes());

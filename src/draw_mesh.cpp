@@ -414,12 +414,6 @@ template<typename T> void draw_mesh_mvd_core(T &mvd) {
 mesh_vertex_draw_vbo mvd_vbo;
 tile_blend_tex_data_t mesh_tbt_data;
 
-void clear_landscape_vbo_now() { // called during context switch or shutdown
-	mesh_data_vao_mgr.clear();
-	mvd_vbo.clear();
-	mesh_tbt_data.clear_context();
-}
-
 void draw_mesh_mvd(bool reflection_pass) {
 
 	shader_t s;

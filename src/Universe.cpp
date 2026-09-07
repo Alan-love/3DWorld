@@ -2126,9 +2126,7 @@ unsigned get_texture_size(float psize) {
 }
 
 
-void free_universe_context() {universe.free_context();}
-
-void universe_t::free_context() { // should be OK even if universe isn't setup
+void universe_t::free_context() { // should be OK even if universe isn't setup; unused
 
 	for (unsigned z = 0; z < U_BLOCKS; ++z) { // z
 		for (unsigned y = 0; y < U_BLOCKS; ++y) { // y

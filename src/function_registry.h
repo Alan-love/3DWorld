@@ -150,7 +150,6 @@ void apply_red_sky(colorRGBA &color);
 colorRGBA get_cloud_color();
 void get_avg_sky_color(colorRGBA &avg_color);
 float get_cloud_density(point const &pt, vector3d const &dir);
-void free_cloud_textures();
 void draw_puffy_clouds(int order, bool no_update=0);
 float get_cloud_zmax();
 void set_cloud_uniforms(shader_t &s, unsigned tu_id);
@@ -240,7 +239,6 @@ void draw_cube(point const &pos, float sx, float sy, float sz, bool texture, flo
 void draw_cube_verts_only(cube_t const &c);
 void gen_quad_tex_coords(float *tdata, unsigned num, unsigned stride);
 void gen_quad_tri_tex_coords(float *tdata, unsigned num, unsigned stride);
-void free_sphere_vbos();
 void setup_sphere_vbos();
 void draw_cylin_fast(float r1, float r2, float l, int ndiv, bool texture, float tex_scale_len=1.0, float z_offset=0.0);
 void begin_sphere_draw(bool textured);
@@ -255,7 +253,6 @@ void draw_sphere_vbo_back_to_front(point const &pos, float radius, int ndiv, boo
 float integrate_water_dist(point const &targ_pos, point const &src_pos, float const water_z);
 void water_color_atten_pt(float *c, int x, int y, point const &pos, point const &p1, point const &p2);
 void set_landscape_texgen(float tex_scale, int xoffset, int yoffset, int xsize, int ysize, shader_t &shader, unsigned detail_tu_id);
-void clear_landscape_vbo_now();
 void display_mesh(bool shadow_pass=0, bool reflection_pass=0);
 void draw_water_sides(shader_t &shader, int check_zvals);
 float get_tt_fog_top();
@@ -283,14 +280,12 @@ void end_tiled_terrain_lightning();
 void draw_tiled_terrain_clouds(bool reflection_pass);
 void draw_tiled_terrain_decid_tree_shadows();
 void clear_tiled_terrain(bool no_regen_buildings=0);
-void reset_tiled_terrain_state();
 void clear_tiled_terrain_shaders();
 float get_tiled_terrain_water_level();
 bool try_bind_tile_smap_at_point(point const &pos, shader_t &s, bool check_only=0, unsigned *lod_level=nullptr);
 void invalidate_tile_smap_at_pt(point const &pos, float radius, bool repeat_next_frame=0);
 uint64_t get_tile_id_containing_point(point const &pos);
 uint64_t get_tile_id_containing_point_no_xyoff(point const &pos);
-void update_tiled_terrain_grass_vbos();
 void draw_tiled_terrain_water(shader_t &s, float zval);
 bool sphere_int_tiled_terrain(point &pos, float radius);
 bool check_player_tiled_terrain_collision();
@@ -381,7 +376,6 @@ void set_city_lighting_shader_opts(shader_t &s, cube_t const &lights_bcube, bool
 size_t get_city_model_gpu_mem();
 cube_t get_city_lights_bcube();
 void next_pedestrian_animation();
-void free_city_context();
 bool has_city_trees();
 
 // function prototypes - physics
@@ -454,7 +448,6 @@ void proc_moving_cobjs();
 // function prototypes - objects
 void pre_rt_bvh_build_hook();
 void post_rt_bvh_build_hook();
-void free_cobj_draw_group_vbos();
 
 // function prototypes - coll_cell_search
 void build_static_moving_cobj_tree();
@@ -632,7 +625,6 @@ void frame_buffer_to_texture(unsigned &tid, bool is_depth);
 void depth_buffer_to_texture(unsigned &tid);
 void frame_buffer_RGB_to_texture(unsigned &tid);
 void free_textures();
-void reset_textures();
 void free_texture(unsigned &tid);
 void setup_landscape_tex_colors(colorRGBA const &c1, colorRGBA const &c2);
 colorRGBA texture_color(int tid);
@@ -668,7 +660,6 @@ bool is_billboard_texture_transparent(point const *const points, point const &po
 // function prototypes - sun flares
 void DoFlares(point const &from, point const &at, point const &light, float near_clip, float size, float intensity, int start_ix=0);
 void load_flare_textures();
-void free_flare_textures();
 
 // function prototypes - gameplay/ai
 bool camera_collision(int index, int obj_index, vector3d const &velocity, point const &position, float energy, int type);
@@ -731,13 +722,11 @@ void free_dodgeballs(bool camera, bool smileys);
 int gen_smiley_or_player_pos(point &pos, int index);
 colorRGBA get_smiley_team_color(int smiley_id, bool ignore_teams=0);
 void select_smiley_texture(int smiley_id);
-void free_smiley_textures();
 void clear_cached_waypoints();
 int get_ammo_or_obj(int wid);
 int wid_need_weapon(int wid);
 void create_portal_textures();
 void draw_teleporters();
-void free_teleporter_textures();
 void draw_jump_pads();
 void setup_dynamic_teleporters();
 bool maybe_teleport_object(point &opos, float oradius, int player_id, int type, bool small_object=0);
@@ -815,7 +804,6 @@ void setup_current_system(float sun_intensity=1.0);
 void apply_univ_physics();
 void draw_universe(bool static_only=0, bool skip_closest=0, bool no_move=0, int no_distant=0, bool gen_only=0, bool no_asteroid_dust=0);
 void draw_universe_stats();
-void clear_univ_obj_contexts();
 void clear_cached_shaders();
 
 // function prototypes - lightmap
@@ -863,7 +851,6 @@ void split_polygon_to_cobjs(coll_obj const &cobj, coll_obj_group &split_polygons
 // function prototypes - shaders
 char const *append_ix(string &s, unsigned i, bool as_array);
 bool setup_shaders();
-void clear_shaders();
 void reload_all_shaders();
 bool shader_is_active();
 void check_mvm_update();
@@ -873,7 +860,6 @@ void set_point_sprite_mode(bool enabled);
 // function prototypes - snow
 bool snow_enabled();
 void gen_snow_coverage();
-void reset_snow_vbos();
 void draw_snow(bool shadow_only=0);
 bool get_snow_height(point const &p, float radius, float &zval, vector3d &norm, bool crush_snow=0);
 bool crush_snow_at_pt(point const &p, float radius);
@@ -899,7 +885,6 @@ pos_dir_up get_pt_cube_frustum_pdu(point const &pos, cube_t const &bounds);
 void draw_scene_bounds_and_light_frustum(point const &lpos);
 void create_shadow_map();
 void update_shadow_matrices();
-void free_shadow_map_textures();
 
 // function prototypes - raytrace
 float get_scene_radius();
@@ -913,7 +898,6 @@ bool gen_voxels_from_cobjs(coll_obj_group &cobjs);
 float gen_voxel_rock(voxel_model &model, point const &center, float radius, unsigned size, unsigned num_blocks=1, int rseed=456);
 bool parse_voxel_option(FILE *fp);
 void render_voxel_data(bool shadow_pass);
-void free_voxel_context();
 bool point_inside_voxel_terrain(point const &pos);
 float get_voxel_terrain_ao_lighting_val(point const &pos);
 bool update_voxel_sphere_region(point const &center, float radius, float val_at_center, int shooter, unsigned num_fragments=0);
@@ -978,7 +962,6 @@ void update_deformation(dwobject &obj);
 
 // function prototypes - draw_text
 void load_font_texture_atlas(string const &fn="");
-void free_font_texture_atlas();
 void draw_text(colorRGBA const &color, float x, float y, float z, char const *text, float tsize=1.0);
 inline void draw_text(colorRGBA const &color, float x, float y, float z, string const &s, float tsize=1.0) {draw_text(color, x, y, z, s.c_str(), tsize);}
 void check_popup_text();
@@ -1030,10 +1013,8 @@ bool get_buildings_line_hit_color(point const &p1, point const &p2, colorRGBA &c
 bool have_buildings();
 size_t get_buildings_gpu_mem_usage();
 vector3d get_buildings_max_extent();
-void clear_building_vbos();
-int create_buildings_tile(int x, int y, bool allow_flatten);
+int  create_buildings_tile(int x, int y, bool allow_flatten);
 bool remove_buildings_tile(int x, int y);
-void free_building_indir_texture();
 void end_building_rt_job();
 
 // function prototypes - csg

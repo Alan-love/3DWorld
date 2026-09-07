@@ -119,11 +119,6 @@ void draw_teleporters() {
 	disable_blend();
 	teleporters[2].clear(); // clear in-hand teleporters (there for drawing only)
 }
-void free_teleporter_textures() {
-	for (unsigned d = 0; d < 2; ++d) { // both static and dynamic teleporters (though only static should have textures allocated)
-		for (auto i = teleporters[d].begin(); i != teleporters[d].end(); ++i) {i->free_context();}
-	}
-}
 
 bool teleporter::do_portal_draw() const {return (enabled && is_portal && distance_to_camera(pos) < 60.0*radius);} // transparent, and not too far away
 

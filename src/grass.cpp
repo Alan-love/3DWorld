@@ -1057,7 +1057,6 @@ void update_grass_length_width(float new_grass_length, float new_grass_width) {
 	}
 }
 
-
 void update_grass_vbos() {
 	grass_manager.clear_vbo();
 	flower_manager.clear_vbo();

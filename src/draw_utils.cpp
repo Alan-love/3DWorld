@@ -179,10 +179,8 @@ vbo_ring_buffer_t vbo_ring_buffer[2] = {vbo_ring_buffer_t(1 << 23), vbo_ring_buf
 unsigned active_buffer(0);
 
 void clear_vbo_ring_buffer() {
-	vbo_ring_buffer[0].clear();
-	vbo_ring_buffer[1].clear();
+	for (unsigned d = 0; d < 2; ++d) {vbo_ring_buffer[d].clear();}
 }
-
 unsigned get_vbo_ring_buffers_size() {return (vbo_ring_buffer[0].get_alloced_size() + vbo_ring_buffer[1].get_alloced_size());}
 
 void const *get_dynamic_vbo_ptr(void const *const verts, unsigned size_bytes) {
@@ -797,8 +795,8 @@ public:
 
 quad_ix_buffer_t quad_ix_buffer; // singleton
 
-unsigned get_quad_ix_buffer_size () {return quad_ix_buffer.get_alloced_size();}
-void clear_quad_ix_buffer_context() {quad_ix_buffer.free_context();}
+unsigned get_quad_ix_buffer_size() {return quad_ix_buffer.get_alloced_size();}
+
 void draw_quads_as_tris(unsigned num_quad_verts, unsigned start_quad_vert, unsigned num_instances) {
 	quad_ix_buffer.draw_quads_as_tris(num_quad_verts, start_quad_vert, num_instances);
 }

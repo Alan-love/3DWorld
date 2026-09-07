@@ -1169,7 +1169,7 @@ vector<unsigned> const &cobj_draw_groups::get_draw_group(int group_id, coll_obj 
 
 // ******************* OBJ_DRAW_GROUP MEMBERS ******************
 
-void obj_draw_group::free_vbo() {
+void obj_draw_group::free_vbo() { // unused
 	assert(!inside_beg_end);
 	if (!use_vbo) return;
 	if (vbo) {delete_and_zero_vbo(vbo);}
@@ -1232,9 +1232,5 @@ void obj_draw_group::add_draw_polygon(point const *const points, vector3d const 
 		verts.emplace_back(points[quad_to_tris_ixs[i]], normal);
 	}
 	if (use_vbo) {end_cix = cix+1;}
-}
-
-void free_cobj_draw_group_vbos() {
-	for (vector<obj_draw_group>::iterator i = obj_draw_groups.begin(); i != obj_draw_groups.end(); ++i) {i->free_vbo();}
 }
 

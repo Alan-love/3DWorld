@@ -46,7 +46,6 @@ extern cobj_draw_groups cdraw_groups;
 extern platform_cont platforms;
 
 void draw_trees(bool shadow_only=0, bool reflection_pass=0);
-void free_light_source_gl_state();
 void set_shadow_tex_params(unsigned &tid, bool is_array, bool is_csm, bool use_white_border=0);
 
 
@@ -249,7 +248,6 @@ smap_vertex_cache_t smap_vertex_cache;
 
 
 bool shadow_map_enabled() {return (shadow_map_sz > 0);}
-void free_smap_vbo() {smap_vertex_cache.free();}
 void register_movable_cobj_shadow(unsigned cid) {smap_vertex_cache.register_movable_cobj(cid);}
 
 
@@ -795,7 +793,7 @@ void create_shadow_map() {
 	animate2 = 0; // disable any animations or generated effects
 	display_mode &= ~0x08; // disable occlusion culling
 	// check VBO
-	if (scene_smap_vbo_invalid == 2) {free_smap_vbo();} // force rebuild of VBO
+	if (scene_smap_vbo_invalid == 2) {smap_vertex_cache.free();} // force rebuild of VBO
 	// render shadow maps to textures
 	check_gl_error(198);
 	ensure_smap_data();
@@ -814,11 +812,4 @@ void update_shadow_matrices() {
 	assert(scene_smap_vbo_invalid != 2);
 	create_shadow_map_inner(1); // no_update=1
 }
-
-void free_shadow_map_textures() {
-	for (unsigned l = 0; l < smap_data.size(); ++l) {smap_data[l].free_gl_state();}
-	free_smap_vbo();
-	free_light_source_gl_state(); // free any shadow maps within light sources
-}
-
 

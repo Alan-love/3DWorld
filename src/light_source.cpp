@@ -483,9 +483,6 @@ public:
 unsigned const NUM_SMAP_MGRS = 2;
 local_smap_manager_t local_smap_manager[NUM_SMAP_MGRS]; // {normal/city, building_interiors}
 
-void free_light_source_gl_state() { // free shadow maps
-	for (unsigned i = 0; i < NUM_SMAP_MGRS; ++i) {local_smap_manager[i].free_gl_state();}
-}
 size_t get_dlights_smap_gpu_mem() {
 	size_t mem(0);
 	for (unsigned i = 0; i < NUM_SMAP_MGRS; ++i) {mem += local_smap_manager[i].get_gpu_mem();}
