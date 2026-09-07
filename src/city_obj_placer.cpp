@@ -614,9 +614,10 @@ void city_obj_placer_t::place_trees_in_plot(road_plot_t const &plot, vect_cube_t
 		if (point_in_cubes_xy_exp(plot_cuts, pos, radius_exp))  continue; // no retry
 		// check walkways; waklway elevators haven't been placed yet for this plot, so add extra padding
 		if (check_walkway_coll_xy(pos, (coll_radius + radius))) continue; // no retry
+		if (!is_sm_tree && !has_planter) {pos.z += 0.02*radius*rgen.rand_float();} // shift up a slight random amount to expose more roots
 		// size is randomly selected by the tree generator using default values; allow bushes in parks
 		place_tree(pos, radius, ttype, colliders, &tree_pos, allow_bush, add_bush, is_sm_tree, has_planter, 0.0, pine_xy_sz);
-		if (plot.is_park) continue; // skip row logic and just place trees randomly throughout the park
+		if (!has_planter) continue; // skip row logic and just place trees randomly throughout the park or residential area
 		// now that we're here, try to place more trees at this same distance from the road in a row
 		bool const dim(min((pos.x - plot.x1()), (plot.x2() - pos.x)) < min((pos.y - plot.y1()), (plot.y2() - pos.y)));
 		bool const dir((pos[dim] - plot.d[dim][0]) < (plot.d[dim][1] - pos[dim]));
