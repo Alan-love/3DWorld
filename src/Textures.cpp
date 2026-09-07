@@ -513,15 +513,15 @@ void texture_t::calc_color() { // incorrect in is_16_bit_gray mode
 	if (normal_map) {color = WHITE; return;} // color not used for normal maps, set to white
 	if (defer_load() && !is_allocated()) {color = WHITE; return;} // texture not loaded - this is the best we can do
 	if (color != DEF_TEX_COLOR) return; // color already calculated; happens for leaf textures
-	//highres_timer_t timer("Texture Color"); // 519ms
+	//highres_timer_t timer("Texture Color"); // 240ms
 	assert(is_allocated());
-	float colors[4] = {0.0}, weight(0.0);
+	float colors[4] = {}, weight(0.0);
 	unsigned const size(num_pixels());
 	has_binary_alpha = 1;
 
 	if (ncolors == 4) { // RGBA - with alpha component
 		for (unsigned i = 0; i < size; ++i) {
-			int const offset(i*ncolors);
+			unsigned const offset(4*i);
 			unsigned char const alpha(data[offset+3]);
 			float const cscale(alpha); // alpha scale
 			UNROLL_3X(colors[i_] += cscale*data[offset+i_];);
@@ -540,7 +540,8 @@ void texture_t::calc_color() { // incorrect in is_16_bit_gray mode
 			icolors[1] = icolors[2] = icolors[0]; // set G and B to the calculated value of R
 		}
 		else { // RGB
-			for (unsigned i = 0; i < size; ++i) {UNROLL_3X(icolors[i_] += data[i*ncolors+i_];);}
+			assert(ncolors == 3);
+			for (unsigned i = 0; i < size; ++i) {UNROLL_3X(icolors[i_] += data[3*i+i_];);}
 		}
 		UNROLL_3X(color[i_] = icolors[i_]/(255.0*size);) // all weights are 1.0
 		color.alpha = 1.0;
