@@ -2573,7 +2573,7 @@ void city_obj_placer_t::add_ssign_and_slight_plot_colliders(vector<road_plot_t> 
 }
 
 template<typename T> void city_obj_placer_t::draw_objects(vector<T> const &objs, city_obj_groups_t const &groups, draw_state_t &dstate,
-	float dist_scale, bool shadow_only, bool has_immediate_draw, bool draw_qbd_as_quads, float specular, float shininess)
+	float dist_scale, bool shadow_only, bool has_immediate_draw, bool draw_qbd_as_quads, float specular, float shininess, float metalness)
 {
 	if (groups.empty() || !dstate.check_cube_visible(groups.get_bcube(), dist_scale)) return;
 	T::pre_draw(dstate, shadow_only);
@@ -2603,7 +2603,7 @@ template<typename T> void city_obj_placer_t::draw_objects(vector<T> const &objs,
 				untex_qbd.draw_and_clear(); // matte
 
 				if (!untex_spec_qbd.empty()) { // specular
-					dstate.s.set_specular(specular, shininess); // shiny; values are per-object type
+					dstate.s.set_specular(specular, shininess, metalness); // shiny and possibly metal; values are per-object type
 					untex_spec_qbd.draw_and_clear();
 					dstate.s.clear_specular();
 				}
@@ -3041,7 +3041,7 @@ void city_obj_placer_t::draw_detail_objects(draw_state_t &dstate, bool shadow_on
 	draw_objects(mboxes,    mbox_groups,     dstate, 0.04, shadow_only, 1);
 	draw_objects(ppoles,    ppole_groups,    dstate, 0.20, shadow_only, 0);
 	draw_objects(signs,     sign_groups,     dstate, 0.25, shadow_only, 1, 1); // draw_qbd_as_quads=1
-	draw_objects(flags,     flag_groups,     dstate, 0.18, shadow_only, 1);
+	draw_objects(flags,     flag_groups,     dstate, 0.18, shadow_only, 1, 0, 0.75, 60.0, 0.5); // specular painted metal
 	draw_objects(tcones,    tcone_groups,    dstate, 0.08, shadow_only, 1);
 	draw_objects(sculptures,sculpt_groups,   dstate, 0.18, shadow_only, 1);
 	draw_objects(swings,    swing_groups,    dstate, 0.06, shadow_only, 1);

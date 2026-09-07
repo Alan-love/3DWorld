@@ -3391,14 +3391,14 @@ void city_flag_t::draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist_
 	point ce[2] = {pole_base, pole_base};
 	if (horizontal) {ce[1][!dim] = bcube.d[!dim][dir] + (dir ? 1.0 : -1.0)*sphere_radius;}
 	else {ce[1].z = bcube.z2() - sphere_radius;} // vertical pole
-	add_cylin_as_tris(qbds.untex_qbd.verts, ce, pole_radius, (horizontal ? 1.0 : 0.5)*pole_radius, WHITE, ndiv, 0); // (truncated, if vertical) cone, sides only
-	// draw the gold sphere at the top
+	add_cylin_as_tris(qbds.untex_spec_qbd.verts, ce, pole_radius, (horizontal ? 1.0 : 0.5)*pole_radius, WHITE, ndiv, 0); // (truncated, if vertical) cone, sides only
+	// draw the gold sphere at the top; it's not easy to assign this a gold specular color, so it's left with white specular
 	//if (shadow_only) return; // too small to cast a shadow?
 	if (!shadow_only && !bcube.closest_dist_less_than(dstate.camera_bs, 0.4*dmax)) return;
 	color_wrapper const cw(GOLD);
 	dstate.temp_verts.clear();
 	get_sphere_triangles(dstate.temp_verts, ce[1], sphere_radius, ndiv);
-	for (vert_wrap_t const &v : dstate.temp_verts) {qbds.untex_qbd.verts.emplace_back(v.v, (v.v - ce[1]).get_norm(), 0.0, 0.0, cw);}
+	for (vert_wrap_t const &v : dstate.temp_verts) {qbds.untex_spec_qbd.verts.emplace_back(v.v, (v.v - ce[1]).get_norm(), 0.0, 0.0, cw);}
 }
 bool city_flag_t::proc_sphere_coll(point &pos_, point const &p_last, float radius_, point const &xlate, vector3d *cnorm) const {
 	if (sphere_cube_int_update_pos(pos_, radius_, (flag_bcube + xlate), p_last, 0, cnorm)) return 1; // flag coll
