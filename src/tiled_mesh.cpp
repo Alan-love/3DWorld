@@ -1106,6 +1106,8 @@ void tile_t::create_texture(mesh_xy_grid_cache_t &height_gen) {
 						bool const add_grass(has_city_grass && city_has_grass_at(city_query_pos, HALF_DXY, grass_blocker)); // radius = grid square
 
 						if (add_grass) {
+							// it would be nice to have variable grass density, for example lower at the base of trees or in empty spaces between residential yards;
+							// however, the ground is a solid grass texture from city plot drawing, with no dirt from the tiled terrain system, so this doesn't really look good
 							mesh_weight_data[off+2] = 255; // full grass
 							float const mh(zvals[ix]); // should be flat, so just use LLC height sample
 							add_grass_block_at(x, y, mh, mh, grass_block_dim);
