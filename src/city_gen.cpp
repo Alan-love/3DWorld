@@ -1538,6 +1538,11 @@ public:
 						dstate.draw_stoplights_and_street_signs(isecs[i], roads, b->ranges[TYPE_ISEC2 + i], city_id, 1);
 					}
 				}
+				if (camera_pdu.pos.z < bcube.z1()) { // sun/moon below city level, draw entire ground plane as a shadow caster
+					cube_t shadow_cube(bcube);
+					shadow_cube.z2() = bcube.z1(); // set to zero height
+					dstate.draw_cube(dstate.qbd_untextured, shadow_cube, WHITE);
+				}
 			}
 		}
 		else if (player_in_basement >= 2) {} // no roads/plots if player is in the basement, but still draw streetlights
