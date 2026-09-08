@@ -703,11 +703,11 @@ struct pos_dir_up { // defines a view frustum
 
 	point pos;
 	vector3d dir, upv, upv_, cp;
-	float angle, tterm, sterm, x_sterm, behind_sphere_mult, near_, far_;
-	double A; // aspect ratio x/y
-	bool valid;
+	float angle=0, tterm=0, sterm=0, x_sterm=0, behind_sphere_mult=0, near_=0, far_=0;
+	double A=0; // aspect ratio x/y
+	bool valid=0;
 
-	pos_dir_up(void) : angle(0.0f), tterm(0.0f), sterm(0.0f), x_sterm(0.0f), behind_sphere_mult(0.0f), near_(0.0f), far_(0.0f), A(0.0), valid(0) {}
+	pos_dir_up(void) {}
 	pos_dir_up(point const &p, vector3d const &d, vector3d const &u, float angle_, float n, float f, float a=0.0, bool no_zoom=0);
 	void orthogonalize_up_dir();
 	bool point_visible_test(point const &pos_) const;
@@ -734,10 +734,9 @@ struct pos_dir_up { // defines a view frustum
 
 
 struct cylinder_3dw : public line_3dw { // size = 32
+	float r1=0.0, r2=0.0;
 
-	float r1, r2;
-
-	cylinder_3dw() : r1(0.0), r2(0.0) {}
+	cylinder_3dw() {}
 	cylinder_3dw(point const &p1_, point const &p2_, float r1_, float r2_) : line_3dw(p1_, p2_), r1(r1_), r2(r2_) {}
 	void calc_bcube(cube_t &bcube) const;
 	float get_volume() const {return PI*(r1*r1 + r1*r2 + r2*r2)*get_length()/3.0f;}
@@ -883,10 +882,10 @@ struct colorRGBA : public colorRGB { // size = 16
 
 struct tex_range_t {
 
-	float x1, y1, x2, y2;
-	bool clip_quad, swap_xy;
+	float x1=0.0, y1=0.0, x2=1.0, y2=1.0;
+	bool clip_quad=0, swap_xy=0;
 
-	tex_range_t() : x1(0.0), y1(0.0), x2(1.0), y2(1.0), clip_quad(0), swap_xy(0) {}
+	tex_range_t() {}
 	tex_range_t(float x1_, float y1_, float x2_, float y2_, bool clip_quad_=0, bool swap_xy_=0) : x1(x1_), y1(y1_), x2(x2_), y2(y2_), clip_quad(clip_quad_), swap_xy(swap_xy_) {}
 	void mirror_x() {swap(x1, x2);}
 	void mirror_y() {swap(y1, y2);}
@@ -1013,26 +1012,22 @@ struct ray3d { // size = 40
 class line_tquad_draw_t;
 
 struct beam3d : public ray3d { // size = 48
+	bool distant=0;
+	short shooter=0;
+	float intensity=0.0;
 
-	bool distant;
-	short shooter;
-	float intensity;
-
+	beam3d() {}
 	beam3d(bool dist, int shoot, point const &pt0, point const &pt1, colorRGBA const &c, float int_=1.0)
 		: ray3d(pt0, pt1, c), distant(dist), shooter(shoot), intensity(int_) {}
-	beam3d() : distant(0), shooter(0), intensity(0.0f) {}
 	void draw(line_tquad_draw_t &drawer) const;
 };
 
 
-class line3d { // size = 28
-
-public:
-	float width;
+struct line3d { // size = 28
+	float width=0.0;
 	vector<point> points;
-	colorRGBA color;
+	colorRGBA color=colorRGBA(0,0,0,0);
 
-	line3d() : width(0.0), color(0,0,0,0) {}
 	void draw_lines(bool fade_ends, bool no_end_draw=0) const;
 	bool empty() const {return points.empty();}
 };
@@ -1148,13 +1143,12 @@ public:
 
 
 struct camera_filter {
-
-	int tid;
-	unsigned time, init_time; // in ticks
-	bool fades;
+	int tid=-1;
+	unsigned time=0, init_time=0; // in ticks
+	bool fades=0;
 	colorRGBA color;
 
-	camera_filter() : tid(-1), time(0), init_time(0), fades(0) {}
+	camera_filter() {}
 	camera_filter(colorRGBA const &c, unsigned t, int tid_, bool fades_) : tid(tid_), time(t), init_time(t), fades(fades_), color(c) {}
 	void draw(bool apply_texture=1);
 };
@@ -1171,10 +1165,8 @@ struct portal {
 };
 
 struct fire_elem_t {
+	float hp=0.0, fuel=0.0, burn_amt=0.0;
 
-	float hp, fuel, burn_amt;
-
-	fire_elem_t() : hp(0.0), fuel(0.0), burn_amt(0.0) {}
 	bool burn(float val);
 	void next_frame(float burn_rate, float consume_rate, float die_rate=1.0);
 	static float get_burn_rate();
@@ -1213,13 +1205,12 @@ struct water_params_t {
 
 
 struct text_string_t {
-
 	string str;
 	point pos;
-	float size;
-	colorRGBA color;
+	float size=0.0;
+	colorRGBA color=colorRGBA(0,0,0,0);
 
-	text_string_t() : size(0.0), color(0,0,0,0) {}
+	text_string_t() {}
 	text_string_t(string const &s, point const &p, float sz, colorRGBA const &c) : str(s), pos(p), size(sz), color(c) {}
 };
 
