@@ -28,7 +28,6 @@ struct tile_offset_t {
 
 
 class animal_t : public sphere_t {
-
 public:
 	vector3d velocity;
 protected:

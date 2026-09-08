@@ -404,7 +404,6 @@ struct vector4d : public vector3d { // size = 16
 
 
 struct sphere_t {
-
 	point pos;
 	float radius;
 	
@@ -981,7 +980,6 @@ public:
 
 
 template<typename T> struct triangle_t {
-
 	T pts[3];
 
 	triangle_t() {}
@@ -1004,7 +1002,6 @@ typedef triangle_t<vert_norm_tc> triangle_vntc;
 
 
 struct ray3d { // size = 40
-
 	point pts[2];
 	colorRGBA color;
 	
@@ -1162,19 +1159,16 @@ struct camera_filter {
 	void draw(bool apply_texture=1);
 };
 
-
 struct portal {
-
 	point pts[4]; // quads only, for now
 	vector3d normal; // for back face determination
 
-	static void pre_draw(vector<vert_wrap_t> &verts);
+	static void pre_draw (vector<vert_wrap_t> &verts);
 	static void post_draw(vector<vert_wrap_t> &verts);
 	void draw(vector<vert_wrap_t> &verts) const;
 	point get_center_pt() const {return (pts[0] + pts[1] + pts[2] + pts[3])*0.25;}
 	bool is_visible(int reflection_pass) const;
 };
-
 
 struct fire_elem_t {
 
@@ -1191,14 +1185,11 @@ class shader_t;
 class vpc_shader_t;
 
 class volume_part_cloud {
-
 public:
 	typedef vert_norm_comp vert_type_t;
-
 protected:
 	static vector<vert_type_t> unscaled_points[2];
 	vector<vert_type_t> points;
-
 public:
 	static colorRGBA gen_color(rand_gen_t &rgen);
 	static void calc_unscaled_points(bool simplified);
@@ -1214,7 +1205,6 @@ public:
 
 
 struct water_params_t {
-
 	float alpha, mud, algae, bright, reflect, green, wave_amp;
 	water_params_t() {set_def_water();}
 	void set_def_water();
@@ -1237,7 +1227,6 @@ class popup_text_t : public text_string_t {
 	float dist=0.0, time=1.0, tfticks_last_drawn=0.0;
 	unsigned mode=0; // 0=one time, 1=on enter, 2=continuous
 	bool any_active=0, prev_active=0;
-
 public:
 	bool read(FILE *fp, unsigned &line_num);
 	void write(std::ostream &out) const;
@@ -1353,7 +1342,6 @@ struct status_bar_t {
 // status bar icons
 enum {ICON_HEALTH=0, ICON_SHIELD, ICON_POWER, ICON_DRUNK, ICON_TOILET, ICON_WATER, ICON_OXYGEN, ICON_CARRY, NUM_ICONS};
 
-
 // world modes
 enum {WMODE_GROUND=0, WMODE_UNIVERSE, WMODE_INF_TERRAIN, NUM_WMODE};
 
@@ -1395,7 +1383,6 @@ enum {LIGHTING_SKY=0, LIGHTING_GLOBAL, LIGHTING_LOCAL, LIGHTING_COBJ_ACCUM, LIGH
 
 // heightmap generation modes
 enum {MGEN_SINE=0, MGEN_SIMPLEX, MGEN_PERLIN, MGEN_SIMPLEX_GPU, MGEN_DWARP_GPU, MGEN_END};
-
 
 // shadow mask bits
 #define MESH_SHADOW      0x02

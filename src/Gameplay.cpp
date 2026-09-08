@@ -1050,7 +1050,6 @@ bool sawblade_collision(int index, int obj_index, vector3d const &velocity, poin
 // WEAPON/EFFECTS CODE
 // ***********************************
 
-
 void gen_rubble(int type, int num, point const &pos, int shooter, float const p[7]) {
 
 	obj_group &objg(obj_groups[coll_id[type]]);
@@ -2463,7 +2462,6 @@ void do_cblade_damage_and_update_pos(point &pos, int shooter) {
 // DRAWING CODE
 // ***********************************
 
-
 struct team_stats_t {
 	int kills=0, deaths=0, score=0;
 	void add(player_state const &s) {kills += s.tot_kills; deaths += s.deaths; score += s.get_score();}
@@ -2548,7 +2546,6 @@ void print_debug_text(string const &text, int priority) {
 // ***********************************
 // GAME CONTROL/QUERY CODE
 // ***********************************
-
 
 void init_game_state() {
 

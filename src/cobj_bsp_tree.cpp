@@ -21,7 +21,6 @@ extern platform_cont platforms;
 
 // *** coll_tquad / tquad_t ***
 
-
 coll_tquad::coll_tquad(coll_obj const &c) : tquad_t(c.npoints), normal(c.norm), cid(c.id) {
 	assert(is_cobj_valid(c));
 	for (unsigned i = 0; i < npts; ++i) {pts[i] = c.points[i];}
@@ -65,7 +64,6 @@ cube_t tquad_t::get_bcube() const {
 
 
 // *** cobj_tree_base ***
-
 
 bool cobj_tree_base::get_root_bcube(cube_t &bc) const {
 	if (nodes.empty()) return 0;
@@ -112,7 +110,6 @@ bool cobj_tree_base::node_ix_mgr::check_node(unsigned &nix) const {
 
 
 // *** cobj_tree_simple_type_t ***
-
 
 inline float get_vlo(coll_tquad const &t, unsigned dim) {
 	float vlo(min(min(t.pts[0][dim], t.pts[1][dim]), t.pts[2][dim]));
@@ -187,7 +184,6 @@ template<typename T> void cobj_tree_simple_type_t<T>::build_tree(unsigned nix, u
 	nodes[nix].start = nodes[nix].end = 0; // branch node has no leaves
 }
 
-
 template<typename T> void cobj_tree_simple_type_t<T>::build_tree_top(bool verbose) {
 
 	nodes.reserve(get_conservative_num_nodes(objects.size()));
@@ -212,7 +208,6 @@ template class cobj_tree_simple_type_t<colored_cube_t>;
 
 // *** cobj_tree_tquads_t ***
 
-
 void cobj_tree_tquads_t::calc_node_bbox(tree_node &n) const {
 	assert(n.start < n.end);
 	cube_t &c(n);
@@ -220,7 +215,6 @@ void cobj_tree_tquads_t::calc_node_bbox(tree_node &n) const {
 	for (unsigned i = n.start; i < n.end; ++i) {objects[i].update_bcube(c);} // bbox union
 	c.expand_by(POLY_TOLER);
 }
-
 
 void cobj_tree_tquads_t::add_cobjs(coll_obj_group const &cobjs, bool verbose) {
 
@@ -236,7 +230,6 @@ void cobj_tree_tquads_t::add_cobjs(coll_obj_group const &cobjs, bool verbose) {
 	build_tree_top(verbose);
 	PRINT_TIME(" Cobj Tree Triangles Create (from Cobjs)");
 }
-
 
 bool cobj_tree_tquads_t::check_coll_line(point const &p1, point const &p2, point &cpos, vector3d &cnorm, colorRGBA *color, int *cindex, int ignore_cobj, bool exact) const {
 
@@ -271,9 +264,7 @@ bool cobj_tree_tquads_t::check_coll_line(point const &p1, point const &p2, point
 
 // *** cobj_tree_sphere_t ***
 
-
 void cobj_tree_sphere_t::calc_node_bbox(tree_node &n) const {
-
 	assert(n.start < n.end);
 	cube_t &c(n);
 
@@ -305,7 +296,6 @@ void cobj_tree_sphere_t::get_ids_int_sphere(point const &center, float radius, v
 
 
 // *** cobj_bvh_tree ***
-
 
 bool cobj_bvh_tree::create_cixs() {
 
@@ -610,8 +600,7 @@ void cobj_bvh_tree::build_tree(unsigned nix, unsigned skip_dims, unsigned depth,
 	calc_node_bbox(n);
 	unsigned const num(n.size());
 	max_eq(max_depth, depth);
-	if (check_for_leaf(num, skip_dims)) return; // base case
-	
+	if (check_for_leaf(num, skip_dims)) return; // base case	
 	// determine split dimension and value
 	float max_sz(0), sval(0);
 	unsigned const dim(n.get_split_dim(max_sz, sval, skip_dims));
@@ -679,7 +668,6 @@ cobj_bvh_tree cobj_tree_dynamic(&coll_objects, 0, 1, 0, 0, 0);
 cobj_bvh_tree cobj_tree_occlude(&coll_objects, 1, 0, 1, 0, 0);
 cobj_bvh_tree cobj_tree_static_moving(&coll_objects, 1, 0, 0, 0, 0);
 //cobj_tree_tquads_t cobj_tree_triangles;
-
 
 cobj_bvh_tree &get_tree(bool dynamic) {
 	return (dynamic ? cobj_tree_dynamic : cobj_tree_static);

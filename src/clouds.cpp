@@ -400,9 +400,7 @@ void draw_cloud_planes(float terrain_zmin, bool reflection_pass, bool draw_ceil,
 
 // *** nebula code ***
 
-
 void move_in_front_of_far_clip(point_d &pos, point const &camera, float &size, float dist, float dscale);
-
 
 /*static*/ colorRGBA volume_part_cloud::gen_color(rand_gen_t &rgen) {
 	return colorRGBA(rgen.rand_uniform(0.3, 1.0), rgen.rand_uniform(0.1, 0.5), rgen.rand_uniform(0.2, 0.9), 1.0);

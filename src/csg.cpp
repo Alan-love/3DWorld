@@ -23,7 +23,6 @@ bool sphere_t::contains_point(point const &p) const {return dist_less_than(pos, 
 
 // *** RECT IMPLEMENTATION ***
 
-
 rect::rect(float const r[3][2], unsigned d0, unsigned d1) { // projection from 3D => 2D
 	assert(d0 <= 3 && d1 <= 3 && d0 != d1);
 	d[0][0] = r[d0][0]; d[0][1] = r[d0][1]; d[1][0] = r[d1][0]; d[1][1] = r[d1][1];
@@ -126,13 +125,11 @@ void rect::print() const {
 
 // *** CUBE_T IMPLEMENTATION ***
 
-
 void cube_t::set_from_points(point const *const pts, unsigned npts) {
 	assert(npts > 0);
 	set_from_point(pts[0]);
 	for (unsigned i = 1; i < npts; ++i) {union_with_pt(pts[i]);} // get bounding xy rectangle
 }
-
 
 std::string cube_t::str() const {
 
@@ -205,7 +202,6 @@ float cube_t::get_overlap_volume(const cube_t &cube) const {
 	return volume;
 }
 
-
 vector3d cube_t::closest_side_dir(point const &pos, unsigned skip_dims) const {
 
 	int dir(-1);
@@ -256,7 +252,6 @@ int cube_t::closest_face(point const &pos) const { // works for points inside or
 	return face;
 }
 
-
 bool cube_t::cube_merge(cube_t const &cube) { // simplified version of csg_cube::cube_merge() without the edge_flags
 
 	unsigned compat[3], nc(0), ci(0);
@@ -280,7 +275,6 @@ bool cube_t::cube_merge(cube_t const &cube) { // simplified version of csg_cube:
 	}
 	return 0;
 }
-
 
 void cube_t::get_points(point pts[8]) const {
 
@@ -325,7 +319,6 @@ bool remove_cube_if_contains_pt_xy(vect_cube_t &cubes, vector3d const &pos, unsi
 
 // *** CSG_CUBE IMPLEMENTATION ***
 
-
 // returns 1 if entire cube is removed
 bool csg_cube::subtract_from_internal(const csg_cube &cube, vector<csg_cube> &output, bool do_merge) const { // subtract ourself from cube
 
@@ -345,7 +338,6 @@ bool csg_cube::subtract_from_internal(const csg_cube &cube, vector<csg_cube> &ou
 		}
 		vals[i][++n[i]] = cube.d[i][1];
 	}
-
 	// build voxel table
 	for (i3[0] = 0; i3[0] < n[0]; ++i3[0]) {
 		for (i3[1] = 0; i3[1] < n[1]; ++i3[1]) {
@@ -356,7 +348,6 @@ bool csg_cube::subtract_from_internal(const csg_cube &cube, vector<csg_cube> &ou
 			}
 		}
 	}
-
 	// merge adjacent voxels
 	if (VOXEL_MERGE) {
 		for (unsigned dim = 0; dim < 3; ++dim) { // rotate the cube slicing direction
@@ -390,7 +381,6 @@ bool csg_cube::subtract_from_internal(const csg_cube &cube, vector<csg_cube> &ou
 			}
 		}
 	}
-
 	// generate output cubes
 	for (i3[0] = 0; i3[0] < n[0]; ++i3[0]) {
 		for (i3[1] = 0; i3[1] < n[1]; ++i3[1]) {
@@ -464,7 +454,6 @@ bool csg_cube::subtract_from_cube(coll_obj_group &new_cobjs, coll_obj const &cob
 	}
 	return 1;
 }
-
 
 // subtract ourself from cobj; returns 1 if some work is done
 bool csg_cube::subtract_from_cylinder(coll_obj_group &new_cobjs, coll_obj &cobj) const { // subtract ourself from cobjs[index]
@@ -542,7 +531,6 @@ bool csg_cube::subtract_from_cylinder(coll_obj_group &new_cobjs, coll_obj &cobj)
 	} // for i
 	return 1;
 }
-
 
 // returns 1 if some work is done
 bool csg_cube::subtract_from_polygon(coll_obj_group &new_cobjs, coll_obj const &cobj) const { // subtract ourself from cobjs[index]
@@ -682,7 +670,6 @@ float get_cube_dmax() {
 	return REL_DMAX*(X_SCENE_SIZE + Y_SCENE_SIZE);
 }
 
-
 // could do this dynamically as cubes are split
 bool csg_cube::cube_merge(csg_cube &cube) {
 
@@ -752,7 +739,6 @@ bool csg_cube::cube_merge(csg_cube &cube) {
 	return 0;
 }
 
-
 void csg_cube::unset_adjacent_edge_flags(coll_obj &cobj) const {
 
 	assert(cobj.type == COLL_CUBE);
@@ -770,7 +756,6 @@ void csg_cube::unset_adjacent_edge_flags(coll_obj &cobj) const {
 		}
 	}
 }
-
 
 void csg_cube::unset_intersecting_edge_flags(coll_obj &cobj) const {
 
@@ -793,7 +778,6 @@ void csg_cube::unset_intersecting_edge_flags(coll_obj &cobj) const {
 
 // *** CSG ALGORITHM CODE ***
 
-
 void coll_obj_group::remove_invalid_cobjs() {
 	coll_obj_group cobjs2;
 
@@ -802,7 +786,6 @@ void coll_obj_group::remove_invalid_cobjs() {
 	}
 	this->swap(cobjs2);
 }
-
 
 void coll_obj_group::check_cubes() {
 
@@ -818,7 +801,6 @@ void coll_obj_group::check_cubes() {
 		}
 	}
 }
-
 
 // Note: also sorts by alpha so that transparency works correctly
 void coll_obj_group::merge_cubes() { // only merge compatible cubes
@@ -926,7 +908,6 @@ void coll_obj_group::remove_overlapping_cubes(int min_split_destroy_thresh) { //
 
 // **********************************************
 
-
 bool coll_obj::subtract_from_cobj(coll_obj_group &new_cobjs, csg_cube const &cube, bool include_polys) {
 
 	bool removed(0);
@@ -1002,7 +983,6 @@ unsigned get_closest_val_index(float val, vector<double> const &sval) {
 	assert(0);
 	return 0;
 }
-
 
 // split T-junctions of cubes in the same group
 void coll_obj_group::subdiv_cubes() {
@@ -1118,6 +1098,4 @@ color_tid_vol::color_tid_vol(coll_obj const &cobj, float volume_, float thicknes
 bool color_tid_vol::maybe_is_glass() const {
 	return ((color.alpha < 0.5) || (tid < 0 || tid == WHITE_TEX)); // partially transparent or untextured
 }
-
-
 

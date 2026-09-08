@@ -292,7 +292,6 @@ struct cobj_groups_t : public deque<cobj_group_t> { // use deque rather than vec
 
 
 class coll_obj_group : public vector<coll_obj> {
-
 public:
 	bool has_lt_atten=0, has_voxel_cobjs=0;
 	cobj_id_set_t dynamic_ids, drawn_ids, platform_ids;
