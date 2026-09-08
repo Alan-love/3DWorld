@@ -1667,9 +1667,6 @@ hcap_with_dist_t::hcap_with_dist_t(hcap_space_t const &hs, cube_t const &plot, v
 
 // manholes
 
-manhole_t::manhole_t(point const &pos_, float radius_) : city_obj_t(pos_, radius_) {
-	set_bcube_from_vcylin(pos, get_height(), radius);
-}
 /*static*/ void manhole_t::pre_draw(draw_state_t &dstate, bool shadow_only) {
 	assert(!shadow_only); // not drawn in the shadow pass
 	select_texture(MANHOLE_TEX);
@@ -1698,8 +1695,6 @@ trampoline_t::trampoline_t(point const &pos_, float height, rand_gen_t &rgen) :
 	colorRGBA const colors[NUM_COLORS] = {BLUE, RED, YELLOW, BLUE, GREEN};
 	color = colors[rgen.rand() % NUM_COLORS];
 }
-
-// flowers: can use get_texture_by_name("sunflower.jpg")
 
 // traffic cones
 

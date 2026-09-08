@@ -294,7 +294,7 @@ struct parking_space_t { // parking space; not drawn
 typedef vector<parking_space_t> vect_parking_space_t;
 
 struct manhole_t : public city_obj_t {
-	manhole_t(point const &pos_, float radius_);
+	manhole_t(point const &pos_, float radius_) : city_obj_t(pos_, radius_) {set_bcube_from_vcylin(pos, get_height(), radius);}
 	float get_height() const {return 0.01*radius;}
 	static void pre_draw(draw_state_t &dstate, bool shadow_only);
 	void draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist_scale, bool shadow_only) const;

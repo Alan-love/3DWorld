@@ -1365,13 +1365,10 @@ void city_obj_placer_t::place_detail_objects(road_plot_t &plot, vect_cube_t &blo
 	for (auto f = fountains.begin()+fountains_start; f != fountains.end(); ++f) { // now add the fountain blockers
 		add_cube_to_colliders_and_blockers(f->bcube, colliders, blockers);
 	}
-	// place planters; don't add planters in parks or residential areas
-	if (plot.is_commercial()) {
+	// place planters; no colliders - pedestrians avoid the trees instead
+	if (plot.is_commercial()) { // don't add planters in parks or residential areas
 		float const planter_height(0.05*car_length), planter_radius(0.25*car_length);
-
-		for (auto i = tree_pos.begin(); i != tree_pos.end(); ++i) {
-			planter_groups.add_obj(tree_planter_t(*i, planter_radius, planter_height), planters); // no colliders for planters; pedestrians avoid the trees instead
-		}
+		for (point const &p : tree_pos) {planter_groups.add_obj(tree_planter_t(p, planter_radius, planter_height), planters);}
 	}
 	// place commercial sculptures
 	if (plot.is_commercial()) {
