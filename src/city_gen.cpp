@@ -3267,7 +3267,8 @@ public:
 		dstate.unset_untextured_material();
 	}
 	void draw_wind_turbines(bool shadow_only) { // non-const because dstate is modified
-		for (wind_turbine_t const &t : wind_turbines) {t.draw(dstate, shadow_only);}
+		float const fog_dist(get_inf_terrain_fog_dist());
+		for (wind_turbine_t const &t : wind_turbines) {t.draw(dstate, fog_dist, shadow_only);}
 	}
 	void draw_label() {dstate.show_label_text();}
 

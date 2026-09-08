@@ -1622,8 +1622,9 @@ void wind_turbine_t::next_frame(vector3d const &xlate) {
 bool wind_turbine_t::proc_sphere_coll(point &pos_, point const &p_last, float radius_, point const &xlate, vector3d *cnorm) const {
 	return sphere_city_obj_cylin_coll(pos, base_radius, pos_, p_last, radius_, xlate, cnorm);
 }
-void wind_turbine_t::draw(road_draw_state_t &dstate, bool shadow_only) const { // Note: shadows are not dynamically updated
+void wind_turbine_t::draw(road_draw_state_t &dstate, float fog_dist, bool shadow_only) const { // Note: shadows are not dynamically updated
 	float const dist_scale = 0.65;
+	if (!dist_less_than(pos, dstate.camera_bs, min(dist_scale*dstate.draw_tile_dist, fog_dist))) return; // too far
 	bool const animate(!shadow_only || enable_wind_turbine_shadows()); // enable animations if not in shadow pass or if shadows are updated
 	city_draw_qbds_t qbds; // unused
 	animation_state_t anim_state(animate, ANIM_ID_WIND_TUR, rot_angle);
