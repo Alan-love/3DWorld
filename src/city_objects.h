@@ -98,7 +98,13 @@ struct bench_t : public oriented_city_obj_t {
 };
 
 struct tree_planter_t : public city_obj_t {
-	tree_planter_t(point const &pos_, float radius_, float height);
+	tree_planter_t(point const &pos_, float radius_, float height) : city_obj_t(pos_, radius_) {set_bcube_from_vcylin(pos, height, radius);}
+	static void pre_draw(draw_state_t &dstate, bool shadow_only);
+	void draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist_scale, bool shadow_only) const;
+};
+
+struct tree_dirt_t : public city_obj_t {
+	tree_dirt_t(point const &pos_, float radius_, float height) : city_obj_t(pos_, radius_) {set_bcube_from_vcylin(pos, height, radius);}
 	static void pre_draw(draw_state_t &dstate, bool shadow_only);
 	void draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist_scale, bool shadow_only) const;
 };
@@ -898,6 +904,7 @@ public: // road network needs access to parking lots and driveways for drawing
 private:
 	vector<bench_t> benches;
 	vector<tree_planter_t> planters;
+	vector<tree_dirt_t> tree_dirts;
 	vector<trashcan_t> trashcans;
 	vector<fire_hydrant_t> fhydrants;
 	vector<substation_t> sstations;
@@ -951,7 +958,7 @@ private:
 		pool_groups, plad_groups, chair_groups, pdeck_groups, ppole_groups, hcap_groups, manhole_groups, mbox_groups, tcone_groups, pigeon_groups, bird_groups, sign_groups,
 		stopsign_groups, flag_groups, nrack_groups, park_wf_groups, pgate_groups, cline_groups, ppath_groups, swing_groups, tramp_groups, umbrella_groups, bike_groups,
 		dumpster_groups, plant_groups, flower_groups, picnic_groups, bb_hoop_groups, pond_groups, walkway_groups, pillar_groups, wwe_groups, uge_groups, p_solar_groups,
-		gass_groups, bldg_groups, bball_groups, pfloat_groups, sewer_groups, sculpt_groups, brack_groups;
+		gass_groups, bldg_groups, bball_groups, pfloat_groups, sewer_groups, sculpt_groups, brack_groups, tdirt_groups;
 	skyway_t skyway; // optional
 	vect_parking_space_t pspaces;
 	vector<park_heightmap_t> park_hmaps;

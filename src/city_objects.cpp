@@ -76,6 +76,41 @@ void disable_hemi_lighting_pre_post(draw_state_t &dstate, bool shadow_only, bool
 	if (!shadow_only) {dstate.s.add_uniform_float("hemi_lighting_scale", (is_post ? 0.5 : 0.0));} // disable or restore
 }
 
+void add_cylin_as_tris(vector<vert_norm_tc_color> &verts, point const ce[2], float r1, float r2, color_wrapper const &cw,
+	unsigned ndiv, unsigned draw_top_bot, float tst=1.0, float tss=1.0, bool swap_ts_tt=0)
+{
+	// added as individual triangles; would be more efficient to use indexed triangles
+	vector3d v12;
+	vector_point_norm const &vpn(gen_cylinder_data(ce, r1, r2, ndiv, v12));
+	vert_norm_tc_color quad_pts[4];
+
+	for (unsigned i = 0; i < ndiv; ++i) { // similar to gen_cylinder_quads(), but with a color
+		for (unsigned j = 0; j < 2; ++j) {
+			unsigned const S(i + j), s(S%ndiv);
+			vector3d const normal(vpn.n[s] + vpn.n[(S+ndiv-1)%ndiv]); // normalize?
+			float const ts(S*tss);
+			quad_pts[2*j+0].assign(vpn.p[(s<<1)+!j], normal, (swap_ts_tt ?      j *tst : ts), (swap_ts_tt ? ts :      j *tst), cw.c);
+			quad_pts[2*j+1].assign(vpn.p[(s<<1)+ j], normal, (swap_ts_tt ? (1.0-j)*tst : ts), (swap_ts_tt ? ts : (1.0-j)*tst), cw.c);
+		}
+		for (unsigned n = 0; n < 6; ++n) {verts.push_back(quad_pts[q2t_ixs[n]]);}
+
+		for (unsigned d = 0; d < 2; ++d) { // draw bottom and top triangle(s)
+			if (!(draw_top_bot & (1<<d))) continue;
+			unsigned const I((i+1)%ndiv);
+			vector3d const normal(d ? v12 : -v12);
+			verts.emplace_back(ce[d], normal, 0.5, 0.5, cw);
+			verts.emplace_back(vpn.p[(i<<1)+d], normal, 0.5*(1.0 + vpn.n[i].x), 0.5*(1.0 + vpn.n[i].y), cw);
+			verts.emplace_back(vpn.p[(I<<1)+d], normal, 0.5*(1.0 + vpn.n[I].x), 0.5*(1.0 + vpn.n[I].y), cw);
+		}
+	} // for i
+}
+void add_cylin_as_tris(vector<vert_norm_tc_color> &verts, point const &p1, point const &p2, float r1, float r2, color_wrapper const &cw,
+	unsigned ndiv, unsigned draw_top_bot, float tst=1.0, float tss=1.0, bool swap_ts_tt=0)
+{
+	point const ce[2] = {p1, p2};
+	add_cylin_as_tris(verts, ce, r1, r2, cw, ndiv, draw_top_bot, tst, tss, swap_ts_tt);
+}
+
 // model_city_obj_t
 
 // can't call get_model_id() virtual, must pass model_id in
@@ -219,11 +254,25 @@ void bench_t::draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist_scal
 	}
 }
 
+// tree dirt rings
+
+/*static*/ void tree_dirt_t::pre_draw(draw_state_t &dstate, bool shadow_only) {
+	if (!shadow_only) {select_texture(DIRT_TEX);}
+}
+void tree_dirt_t::draw(draw_state_t &dstate, city_draw_qbds_t &qbds, float dist_scale, bool shadow_only) const {
+	if (!dstate.check_cube_visible(bcube, dist_scale)) return;
+	float const r_base(0.5*bcube.dx()), tc_scale(0.5/r_base);
+	unsigned const ndiv(max(4U, min(32U, unsigned(2.5f*dist_scale*dstate.get_lod_factor(pos))))), verts_start(qbds.qbd.verts.size());
+	add_cylin_as_tris(qbds.qbd.verts, cube_bot_center(bcube), cube_top_center(bcube), r_base, 0.1*r_base, LT_GRAY, ndiv, 0); // sides only
+
+	// change tex coords to map to [-0.5, 0.5] in XY, which looks better for dirt
+	for (auto v = qbds.qbd.verts.begin()+verts_start; v != qbds.qbd.verts.end(); ++v) {
+		for (unsigned d = 0; d < 2; ++d) {v->t[d] = (v->v[d] - pos[d])*tc_scale;}
+	}
+}
+
 // tree planters
 
-tree_planter_t::tree_planter_t(point const &pos_, float radius_, float height) : city_obj_t(pos_, radius_) {
-	set_bcube_from_vcylin(pos, height, radius);
-}
 /*static*/ void tree_planter_t::pre_draw(draw_state_t &dstate, bool shadow_only) {
 	if (!shadow_only) {select_texture((dstate.pass_ix == 0) ? (int)DIRT_TEX : get_texture_by_name("roads/sidewalk.jpg"));}
 }
@@ -1213,40 +1262,6 @@ bool power_pole_t::add_wire(point const &p1, point const &p2, bool add_pole, boo
 	city_obj_t::post_draw(dstate, shadow_only);
 }
 
-void add_cylin_as_tris(vector<vert_norm_tc_color> &verts, point const ce[2], float r1, float r2, color_wrapper const &cw,
-	unsigned ndiv, unsigned draw_top_bot, float tst=1.0, float tss=1.0, bool swap_ts_tt=0)
-{
-	// added as individual triangles; would be more efficient to use indexed triangles
-	vector3d v12;
-	vector_point_norm const &vpn(gen_cylinder_data(ce, r1, r2, ndiv, v12));
-	vert_norm_tc_color quad_pts[4];
-
-	for (unsigned i = 0; i < ndiv; ++i) { // similar to gen_cylinder_quads(), but with a color
-		for (unsigned j = 0; j < 2; ++j) {
-			unsigned const S(i + j), s(S%ndiv);
-			vector3d const normal(vpn.n[s] + vpn.n[(S+ndiv-1)%ndiv]); // normalize?
-			float const ts(S*tss);
-			quad_pts[2*j+0].assign(vpn.p[(s<<1)+!j], normal, (swap_ts_tt ?      j *tst : ts), (swap_ts_tt ? ts :      j *tst), cw.c);
-			quad_pts[2*j+1].assign(vpn.p[(s<<1)+ j], normal, (swap_ts_tt ? (1.0-j)*tst : ts), (swap_ts_tt ? ts : (1.0-j)*tst), cw.c);
-		}
-		for (unsigned n = 0; n < 6; ++n) {verts.push_back(quad_pts[q2t_ixs[n]]);}
-
-		for (unsigned d = 0; d < 2; ++d) { // draw bottom and top triangle(s)
-			if (!(draw_top_bot & (1<<d))) continue;
-			unsigned const I((i+1)%ndiv);
-			vector3d const normal(d ? v12 : -v12);
-			verts.emplace_back(ce[d], normal, 0.5, 0.5, cw);
-			verts.emplace_back(vpn.p[(i<<1)+d], normal, 0.5*(1.0 + vpn.n[i].x), 0.5*(1.0 + vpn.n[i].y), cw);
-			verts.emplace_back(vpn.p[(I<<1)+d], normal, 0.5*(1.0 + vpn.n[I].x), 0.5*(1.0 + vpn.n[I].y), cw);
-		}
-	} // for i
-}
-void add_cylin_as_tris(vector<vert_norm_tc_color> &verts, point const &p1, point const &p2, float r1, float r2, color_wrapper const &cw,
-	unsigned ndiv, unsigned draw_top_bot, float tst=1.0, float tss=1.0, bool swap_ts_tt=0)
-{
-	point const ce[2] = {p1, p2};
-	add_cylin_as_tris(verts, ce, r1, r2, cw, ndiv, draw_top_bot, tst, tss, swap_ts_tt);
-}
 void draw_wire(point const *const pts, float radius, color_wrapper const &cw, quad_batch_draw &untex_qbd, unsigned ndiv=4) { // pts is size 2
 	vector_point_norm const &vpn(gen_cylinder_data(pts, radius, radius, ndiv));
 

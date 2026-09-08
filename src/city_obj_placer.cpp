@@ -544,8 +544,8 @@ bool try_place_obj(cube_t const &plot, vect_cube_t &blockers, rand_gen_t &rgen, 
 	}
 	return 0;
 }
-void place_tree(point const &pos, float radius, int ttype, vect_cube_t &colliders, vector<point> *tree_pos,
-	bool allow_bush, bool add_bush, bool is_sm_tree, bool has_planter, float custom_size=0.0, float pine_xy_sz=1.0)
+void place_tree(point const &pos, float radius, int ttype, vect_cube_t &colliders, bool allow_bush, bool add_bush,
+	bool is_sm_tree, bool has_planter, float custom_size=0.0, float pine_xy_sz=1.0)
 {
 	tree_placer.add(pos, custom_size, ttype, allow_bush, add_bush, is_sm_tree, pine_xy_sz); // use same tree type
 	// use 15% of the placement radius for collision (trunk + planter), smaller if no planter
@@ -553,7 +553,6 @@ void place_tree(point const &pos, float radius, int ttype, vect_cube_t &collider
 	bcube.set_from_sphere(pos, (has_planter ? 0.15 : 0.05)*radius);
 	bcube.z2() += max(radius, 0.25f*city_params.road_width); // increase cube height; make sure it's taller than people
 	colliders.push_back(bcube);
-	if (tree_pos != nullptr) {tree_pos->push_back(pos);}
 }
 void resize_blockers_for_trees(vect_cube_t &blockers, unsigned six, unsigned eix, float resize_amt) {
 	float const height_thresh(1.5*city_params.get_nom_car_size().z);
@@ -614,9 +613,11 @@ void city_obj_placer_t::place_trees_in_plot(road_plot_t const &plot, vect_cube_t
 		if (point_in_cubes_xy_exp(plot_cuts, pos, radius_exp))  continue; // no retry
 		// check walkways; waklway elevators haven't been placed yet for this plot, so add extra padding
 		if (check_walkway_coll_xy(pos, (coll_radius + radius))) continue; // no retry
-		if (!is_sm_tree && !has_planter) {pos.z += 0.02*radius*rgen.rand_float();} // shift up a slight random amount to expose more roots
+		point const pos_at_ground(pos); // before Z offset
+		if (!is_sm_tree && !has_planter) {pos.z += 0.05*radius*rgen.rand_float();} // shift up a slight random amount to expose more roots
 		// size is randomly selected by the tree generator using default values; allow bushes in parks
-		place_tree(pos, radius, ttype, colliders, &tree_pos, allow_bush, add_bush, is_sm_tree, has_planter, 0.0, pine_xy_sz);
+		place_tree(pos, radius, ttype, colliders, allow_bush, add_bush, is_sm_tree, has_planter, 0.0, pine_xy_sz);
+		tree_pos.push_back(pos_at_ground);
 		if (!has_planter) continue; // skip row logic and just place trees randomly throughout the park or residential area
 		// now that we're here, try to place more trees at this same distance from the road in a row
 		bool const dim(min((pos.x - plot.x1()), (plot.x2() - pos.x)) < min((pos.y - plot.y1()), (plot.y2() - pos.y)));
@@ -629,7 +630,8 @@ void city_obj_placer_t::place_trees_in_plot(road_plot_t const &plot, vect_cube_t
 			if (!check_pt_and_place_blocker(pos, blockers, coll_radius, (spacing - bldg_extra_radius))) continue; // placement failed
 			if (point_in_cubes_xy_exp(plot_cuts, pos, radius_exp)) continue;
 			if (check_walkway_coll_xy(pos, coll_radius))           continue; // hit walkway
-			place_tree(pos, radius, ttype, colliders, &tree_pos, allow_bush, add_bush, is_sm_tree, has_planter); // use same tree type
+			place_tree(pos, radius, ttype, colliders, allow_bush, add_bush, is_sm_tree, has_planter); // use same tree type
+			tree_pos.push_back(pos);
 		} // for n
 	} // for n
 	resize_blockers_for_trees(blockers, buildings_end, input_blockers_end, non_buildings_overlap); // undo initial expand
@@ -1365,10 +1367,18 @@ void city_obj_placer_t::place_detail_objects(road_plot_t &plot, vect_cube_t &blo
 	for (auto f = fountains.begin()+fountains_start; f != fountains.end(); ++f) { // now add the fountain blockers
 		add_cube_to_colliders_and_blockers(f->bcube, colliders, blockers);
 	}
-	// place planters; no colliders - pedestrians avoid the trees instead
+	// place planters and dirt; no colliders - pedestrians avoid the trees instead
 	if (plot.is_commercial()) { // don't add planters in parks or residential areas
 		float const planter_height(0.05*car_length), planter_radius(0.25*car_length);
 		for (point const &p : tree_pos) {planter_groups.add_obj(tree_planter_t(p, planter_radius, planter_height), planters);}
+	}
+	else { // dirt only
+		float const dirt_height(0.06*car_length), dirt_radius(0.25*car_length);
+
+		for (point const &p : tree_pos) {
+			float const dirt_sz(rgen.rand_uniform(0.5, 1.0));
+			tdirt_groups.add_obj(tree_dirt_t(p, dirt_sz*dirt_radius, dirt_sz*dirt_height), tree_dirts);
+		}
 	}
 	// place commercial sculptures
 	if (plot.is_commercial()) {
@@ -1917,7 +1927,7 @@ void city_obj_placer_t::place_residential_plot_objects(road_plot_t const &plot, 
 				if (!check_valid_house_obj_place(pos, radius, radius, wall_pos, dim, dir, tree_bc, house, blockers, prev_blockers_end, yard_blockers_start)) continue;
 				// Note: we can't test objects such as balconies and fire escapes, so we might end up with a pine tree intersecting them
 				int const ttype(0); // 0=pine, 1=short pine, 2=palm
-				place_tree(pos, radius, ttype, colliders, nullptr, 0, 0, 1, 0, tree_scale, pine_xy_sz); // tree_pos=nullptr, allow_bush=0, add_bush=0, is_sm_tree=1, has_planter=0
+				place_tree(pos, radius, ttype, colliders, 0, 0, 1, 0, tree_scale, pine_xy_sz); // allow_bush=0, add_bush=0, is_sm_tree=1, has_planter=0
 				blockers.push_back(tree_bc); // includes branches
 			} // for n
 		}
@@ -2702,6 +2712,7 @@ void city_obj_placer_t::gen_parking_and_place_objects(vector<road_plot_t> &plots
 	place_birds(city_bcube, rgen); // after placing other objects
 	bench_groups   .create_groups(benches,   all_objs_bcube);
 	planter_groups .create_groups(planters,  all_objs_bcube);
+	tdirt_groups   .create_groups(tree_dirts,all_objs_bcube);
 	trashcan_groups.create_groups(trashcans, all_objs_bcube);
 	fhydrant_groups.create_groups(fhydrants, all_objs_bcube);
 	sstation_groups.create_groups(sstations, all_objs_bcube);
@@ -3095,6 +3106,7 @@ void city_obj_placer_t::draw_detail_objects(draw_state_t &dstate, bool shadow_on
 		for (dstate.pass_ix = 0; dstate.pass_ix < 2; ++dstate.pass_ix) { // {dirt, stone}
 			draw_objects(planters, planter_groups, dstate, 0.1, shadow_only, 0); // dist_scale=0.1
 		}
+		draw_objects(tree_dirts, tdirt_groups, dstate, 0.1, shadow_only, 0); // dist_scale=0.1
 	}
 	for (dstate.pass_ix = 0; dstate.pass_ix < 4; ++dstate.pass_ix) { // {0=in-ground walls, 1=in-ground water, 2=above ground sides, 3=above ground water}
 		if (shadow_only && dstate.pass_ix != 2) continue; // only above ground pools are drawn in the shadow pass
@@ -3265,7 +3277,7 @@ bool city_obj_placer_t::proc_sphere_coll(point &pos, point const &p_last, vector
 	if (proc_vector_sphere_coll(clines,    cline_groups,    pos, p_last, radius, xlate, cnorm)) return 1;
 	if (proc_vector_sphere_coll(sculptures,sculpt_groups,   pos, p_last, radius, xlate, cnorm)) return 1;
 	if (proc_vector_sphere_coll(bike_racks,brack_groups,    pos, p_last, radius, xlate, cnorm)) return 1;
-	// Note: no coll with tree_planters because the tree coll should take care of it;
+	// Note: no coll with tree_planters or tree_dirts because the tree coll should take care of it;
 	// no coll with hcaps, manholes, sewers, tcones, flowers, pladders, bballs, pfloats, pigeons, ppaths, or birds
 	return had_coll;
 }
@@ -3305,7 +3317,7 @@ bool city_obj_placer_t::line_intersect(point const &p1, point const &p2, float &
 	check_vector_line_intersect(picnics,   picnic_groups,   p1, p2, t, ret);
 	check_vector_line_intersect(bldgs,     bldg_groups,     p1, p2, t, ret);
 	for (gas_station_t const &gs : gstations) {ret |= gs.line_intersect(p1, p2, t);}
-	// Note: nothing to do for parking lots, tree_planters, hcaps, manholes, sewers, tcones, sculptures, flowers, pladders, chairs, pdecks, bballs, pfloats,
+	// Note: nothing to do for parking lots, tree_planters, tree_dirts, hcaps, manholes, sewers, tcones, sculptures, flowers, pladders, chairs, pdecks, bballs, pfloats,
 	// bike_racks, clines, pigeons, ppaths, park_wfs, or birds;
 	// mboxes, swings, tramps, umbrellas, bikes, plants, ponds, p_solars, bb_hoops, statues, and skyways are ignored because they're small or not simple shapes
 	return ret;
@@ -3417,7 +3429,7 @@ bool city_obj_placer_t::get_color_at_xy(point const &pos, vect_cube_t const &plo
 	if (check_city_obj_pt_xy_contains(pgate_groups,    pgates,    pos, obj_ix, 0)) {color = YELLOW;   return 1;}
 	if (check_city_obj_pt_xy_contains(park_wf_groups,  park_wfs,  pos, obj_ix, 1)) {color = colorRGBA(0.1, 0.3, 0.1); return 1;} // is_cylin=1
 	if (check_vect_cube_contains_pt_xy(plot_cuts, pos)) {color = colorRGBA(0.7, 0.7, 1.0); return 1;} // mall skylight; very light blue
-	// Note: ppoles, hcaps, manholes, sewers, mboxes, tcones, sculptures, flowers, pladders, chairs, stopsigns, flags, clines, pigeons, birds, swings,
+	// Note: tree_dirts, ppoles, hcaps, manholes, sewers, mboxes, tcones, sculptures, flowers, pladders, chairs, stopsigns, flags, clines, pigeons, birds, swings,
 	// umbrellas, bikes, statues, pfloats, bike_racks, plants, and wfounts are skipped; pillars aren't visible under walkways;
 	// free standing signs can be added, but they're small and expensive to iterate over and won't contribute much
 	return 0;
