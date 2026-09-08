@@ -364,10 +364,7 @@ void process_univ_objects() {
 						float const elastic((lod_coll ? 0.1 : 1.0)*SBODY_COLL_ELASTIC);
 						upos_point_type const cpos(asteroid.pos + norm*min(rsum, 1.1*dist)); // move away from the asteroid, but limit the distance to smooth the response
 						proc_collision(uobj, cpos, asteroid.pos, asteroid.radius, asteroid.get_velocity(), 1.0, elastic, asteroid.get_fragment_tid(obj_pos));
-
-						if (is_ship && clobj.asteroid_field == AST_BELT_ID) { // ship collision with asteroid belt
-							//clobj.get_asteroid_belt().detach_asteroid(clobj.asteroid); // incomplete
-						}
+						//if (is_ship && clobj.asteroid_field == AST_BELT_ID) {} // ship collision with asteroid belt?
 					}
 				}
 			}

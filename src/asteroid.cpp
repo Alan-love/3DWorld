@@ -1255,8 +1255,7 @@ void uasteroid_cont::draw(point_d const &pos_, point const &camera, shader_t &s,
 
 void uasteroid_cont::remove_asteroid(unsigned ix) {
 	assert(ix < size());
-	//std::swap(at(ix), back()); pop_back();
-	erase(begin()+ix); // probably okay if empty after this call
+	erase(begin()+ix); // safer than swapping with back(); probably okay if empty after this call
 }
 
 void uasteroid_belt::remove_asteroid(unsigned ix) {
@@ -1270,22 +1269,6 @@ void uasteroid_belt::remove_asteroid(unsigned ix) {
 		*o++ = *i;
 	}
 	cloud_insts.erase(o, cloud_insts.end());
-}
-
-
-void uasteroid_cont::detach_asteroid(unsigned ix) {
-
-	assert(ix < size());
-	// create a new asteroid (AS_MODEL_HMAP) from the instance and copy all the parameters
-	uasteroid const &inst(operator[](ix));
-	uobj_asteroid *asteroid(uobj_asteroid::create(inst.pos, inst.radius, AST_FIELD_MODEL, inst.get_fragment_tid(inst.pos), inst.get_rseed(), 0)); // lt=0
-	asteroid->set_vel  (inst.get_velocity());
-	asteroid->set_scale(inst.get_scale   ());
-	// TODO: what about rotations? set from inst.rot_axis/inst.rot_ang? but dir and upv aren't used for drawing uobj_asteroid_hmap
-	//asteroid->set_dir();
-	//asteroid->set_upv();
-	add_uobj(asteroid);
-	remove_asteroid(ix);
 }
 
 void uasteroid_cont::destroy_asteroid(unsigned ix) {
