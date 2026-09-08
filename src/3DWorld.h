@@ -9,7 +9,6 @@
 
 #include "globals.h"
 #include <stdio.h>
-#include <stdlib.h>
 #include <math.h>
 #include "gl_includes.h"
 #include "rand_gen.h"
@@ -22,7 +21,6 @@
 #include <iostream>
 #include <string>
 #include <sstream>
-#include <iterator>
 
 #undef timer_t
 
