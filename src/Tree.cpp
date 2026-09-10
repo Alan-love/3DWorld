@@ -172,7 +172,7 @@ struct render_tree_branches_to_texture_t : public render_tree_to_texture_t {
 
 
 void tree_lod_render_t::finalize() {
-	sort(leaf_vect.begin(),   leaf_vect.end());
+	sort(leaf_vect  .begin(), leaf_vect  .end());
 	sort(branch_vect.begin(), branch_vect.end());
 }
 
@@ -539,7 +539,6 @@ inline colorRGB tree_leaf::calc_leaf_color(colorRGBA const &leaf_color, colorRGB
 }
 
 colorRGB tree_data_t::get_leaf_color(unsigned i) const {
-
 	if (leaf_data_allocated()) {
 		assert((i<<2) < leaf_data.size());
 		return leaf_data[i<<2].get_c3(); // return color of first vertex since they all should be the same
@@ -585,7 +584,6 @@ void tree_data_t::remove_leaf_ix(unsigned i, bool update_data) {
 	if (i < leaves.size()) {mark_leaf_changed(i);} // not the last leaf
 }
 
-
 void tree::remove_leaf(unsigned i, bool update_data) {
 	
 	if (!leaf_cobjs.empty()) {
@@ -606,7 +604,6 @@ bool tree::spraypaint_leaves(point const &pos, float radius, colorRGBA const &co
 	}
 	return tdata().spraypaint_leaves((pos - tree_center), radius, color, 0); // only this call actually changes leaf colors
 }
-
 
 bool tree_data_t::spraypaint_leaves(point const &pos, float radius, colorRGBA const &color, bool check_only) {
 
@@ -861,7 +858,6 @@ void tree_data_t::draw_leaf_quads_from_vbo(unsigned max_leaves) const {
 	assert(max_leaves <= leaves.size() && leaf_data.size() >= 4*leaves.size());
 	draw_quads_as_tris(4*max_leaves);
 }
-
 void tree_data_t::draw_leaves_shadow_only(float size_scale) {
 	if (leaves.empty()) return;
 	select_texture(tree_types[tree_type].leaf_tex);
@@ -870,7 +866,6 @@ void tree_data_t::draw_leaves_shadow_only(float size_scale) {
 
 
 float tree::calc_size_scale(point const &draw_pos) const {
-
 	float const dist_sq(distance_to_camera_sq(draw_pos));
 
 	if (world_mode == WMODE_INF_TERRAIN) {
@@ -2006,16 +2001,9 @@ int tree_builder_t::generate_next_cylin(int cylin_num, int ncib, bool branch_jus
 	float const t_end(((rgen.rand_int(1,3) == 1) ? 1.0f : 5.0f)*PI_TWO + rgen.rand_int(2,8)*PI_16); //either PI/2 to PI or 5*PI/2 to 3*PI - controls branch droopiness
 	int add_deg_rotate(int(0.01*cylin_num*sinf(t_start+(t_end-t_start)*cylin_num/ncib)*branch_curveness)); //how much wavy the branch will be --in degrees
 	int rg[2] = {};
-
-	if (cylin_num < int(ncib/3)) { //how much to start the starting deg_scale
-		rg[0] = 5; rg[1] = 10;
-	}
-	else if (cylin_num < int(ncib*2/3)) { //scale for trig function -- to scale the middle of a branch
-		rg[0] = 5; rg[1] = 10;
-	}
-	else { //how much to end the ending deg_scale
-		rg[0] = 1; rg[1] = 5;
-	}
+	if      (cylin_num < int(ncib/3  )) {rg[0] = 5; rg[1] = 10;} // how much to start the starting deg_scale
+	else if (cylin_num < int(ncib*2/3)) {rg[0] = 5; rg[1] = 10;} // scale for trig function -- to scale the middle of a branch
+	else                                {rg[0] = 1; rg[1] =  5;} // how much to end the ending deg_scale
 	add_deg_rotate  *= rgen.rand_int(rg[0], rg[1]);
 	branch_deflected = false;
 
@@ -2260,7 +2248,6 @@ void tree::write_to_cobj_file(std::ostream &out) const {
 	}
 	else {
 		// 'E': // place tree: xpos ypos size type [zpos [tree_4th_branches]], type: TREE_MAPLE = 0, TREE_LIVE_OAK = 1, TREE_A = 2, TREE_B = 3, 4 = TREE_PAPAYA
-		//fscanf(fp, "%f%f%f%i%f%i", &pos.x, &pos.y, &fvals[0], &ivals[0], &pos.z, local_tree_4th_branches)
 		out << "E " << tree_center.x << " " << tree_center.y << " " << size << " " << type << " " << tree_center.z << " " << tree_4th_branches << endl;
 	}
 }
@@ -2309,7 +2296,6 @@ void tree_data_manager_t::ensure_init() {
 void tree_data_manager_t::clear_context() {
 	for (iterator i = begin(); i != end(); ++i) {i->clear_context();}
 }
-
 void tree_data_manager_t::on_leaf_color_change() {
 	for (iterator i = begin(); i != end(); ++i) {i->on_leaf_color_change();}
 }
@@ -2326,7 +2312,6 @@ size_t tree_cont_t::get_gpu_mem() const {
 	for (const_iterator i = begin(); i != end(); ++i) {mem += i->get_gpu_mem();}
 	return mem;
 }
-
 float tree_cont_t::get_rmax() const {
 	float rmax(0.0);
 	for (const_iterator i = begin(); i != end(); ++i) {rmax = max(rmax, i->get_radius());}
@@ -2355,30 +2340,24 @@ unsigned tree_cont_t::get_closest_tree_type(point const &pos) const {
 void tree_cont_t::update_zmax(float &tzmax) const {
 	for (const_iterator i = begin(); i != end(); ++i) {tzmax = max(tzmax, (i->get_center().z + i->get_radius()));}
 }
-
 void tree_cont_t::shift_by(vector3d const &vd) {
 	for (iterator i = begin(); i != end(); ++i) {i->shift_tree(vd);}
 }
-
 void tree_cont_t::add_cobjs() {
 	for (iterator i = begin(); i != end(); ++i) {i->add_tree_collision_objects();}
 	calc_bcube();
 }
-
 void tree_cont_t::calc_bcube() {
 	all_bcube.set_to_zeros();
 	for (iterator i = begin(); i != end(); ++i) {i->add_bounds_to_bcube(all_bcube);}
 }
-
 void tree_cont_t::clear_context() {
 	for (iterator i = begin(); i != end(); ++i) {i->clear_context();}
 }
-
 void tree_cont_t::check_render_textures() {
 	//timer_t timer("Check Render Textures"); // 1463 total, 239 max
 	for (iterator i = begin(); i != end(); ++i) {i->check_render_textures();}
 }
-
 void tree_cont_t::apply_exp_damage(point const &epos, float damage, float bradius, int type) {
 	blastr const br(0, ETYPE_FIRE, NO_SOURCE, bradius, damage, epos, plus_z, YELLOW, RED);
 	for (iterator i = begin(); i != end(); ++i) {i->blast_damage(&br);}
@@ -2389,15 +2368,12 @@ void shift_trees(vector3d const &vd) {
 	if (num_trees > 0) return; // dynamically created, not placed
 	t_trees.shift_by(vd);
 }
-
 bool update_decid_tree_zvals(int x1, int y1, int x2, int y2) {
 	return t_trees.update_zvals(x1, y1, x2, y2);
 }
-
 void spraypaint_tree_leaves(point const &pos, float radius, colorRGBA const &color) {
 	t_trees.spraypaint_leaves(pos, radius, color);
 }
-
 void exp_damage_trees(point const &epos, float damage, float bradius, int type) {
 	t_trees.apply_exp_damage(epos, damage, bradius, type);
 }
@@ -2430,7 +2406,6 @@ void tree::draw_fire(shader_t &s) const {
 void tree_cont_t::apply_fire(point const &pos, float radius, float val, bool spread_mode) {
 	for (iterator i = begin(); i != end(); ++i) {i->add_fire(pos, radius, val, spread_mode);}
 }
-
 void tree_cont_t::next_fire_frame() {
 	for (iterator i = begin(); i != end(); ++i) {i->next_fire_frame();}
 }

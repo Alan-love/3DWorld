@@ -88,9 +88,7 @@ unsigned create_3d_texture(unsigned xsz, unsigned ysz, unsigned zsz, unsigned nc
 	return tid;
 }
 
-void update_3d_texture(unsigned tid, unsigned xoff, unsigned yoff, unsigned zoff, unsigned xsz, unsigned ysz, unsigned zsz,
-					   unsigned ncomp, unsigned char const *const data)
-{
+void update_3d_texture(unsigned tid, unsigned xoff, unsigned yoff, unsigned zoff, unsigned xsz, unsigned ysz, unsigned zsz, unsigned ncomp, unsigned char const *const data) {
 	bind_3d_texture(tid);
 	glTexSubImage3D(GL_TEXTURE_3D, 0, xoff, yoff, zoff, xsz, ysz, zsz, get_texture_format(ncomp), GL_UNSIGNED_BYTE, data);
 }
@@ -113,7 +111,6 @@ void bind_vbo(unsigned vbo, bool is_index) { // okay if vbo is zero
 	glBindBuffer(get_buffer_target(is_index), vbo);
 	//if (vbo) {assert(glIsBuffer(vbo));}
 }
-
 void delete_vbo(unsigned vbo) {
 	if (vbo != 0) {glDeleteBuffers(1, &vbo);}
 }
@@ -126,13 +123,10 @@ unsigned mode_from_dynamic_level(int dynamic_level) {
 void upload_vbo_data(void const *const data, size_t size, bool is_index, int dynamic_level) {
 	glBufferData(get_buffer_target(is_index), size, data, mode_from_dynamic_level(dynamic_level));
 }
-
 void upload_vbo_sub_data(void const *const data, int offset, size_t size, bool is_index) {
 	glBufferSubData(get_buffer_target(is_index), offset, size, data);
 }
-
 void upload_vbo_sub_data_no_sync(void const *data, unsigned start_byte, unsigned size_bytes, bool is_index) {
-
 	assert(data && size_bytes > 0);
 	int const target(get_buffer_target(is_index));
 	void *buffer(glMapBufferRange(target, start_byte, size_bytes, (GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT)));
@@ -171,6 +165,9 @@ unsigned create_vao() {
 	assert(vao > 0);
 	return vao;
 }
+void delete_vao(unsigned vao) {
+	if (vao != 0) {glDeleteVertexArrays(1, &vao);}
+}
 
 unsigned default_vao(0);
 
@@ -181,10 +178,6 @@ void bind_vao(unsigned vao) { // okay if vao is zero
 		return;
 	}
 	glBindVertexArray(vao);
-}
-
-void delete_vao(unsigned vao) {
-	if (vao != 0) {glDeleteVertexArrays(1, &vao);}
 }
 
 
@@ -276,7 +269,6 @@ void bind_pbo(unsigned pbo_id) {glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo_id);}
 
 
 unsigned create_depth_render_buffer(unsigned xsize, unsigned ysize, bool multisample) {
-
 	unsigned depthrenderbuffer(0);
 	glGenRenderbuffers(1, &depthrenderbuffer);
 	assert(depthrenderbuffer > 0);
@@ -306,7 +298,6 @@ void render_to_texture_t::pre_render(float xsize, float ysize, unsigned nx, unsi
 	rotate_from_v2v(-plus_z, view_dir);
 	translate_to(-center);
 }
-
 void render_to_texture_t::post_render() {
 	restore_prev_mvm_pjm_state();
 	//glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -367,7 +358,6 @@ unsigned create_ssbo(unsigned data_sz, void const *const data) {
 void ensure_ssbo(unsigned &ssbo, unsigned data_sz, void const *const data) {
 	if (ssbo == 0) {ssbo = create_ssbo(data_sz, data);}
 }
-
 void update_ssbo(unsigned ssbo, unsigned data_sz, void const *const data) {
 	assert(ssbo != 0);
 	assert(data_sz > 0 && data != nullptr);
