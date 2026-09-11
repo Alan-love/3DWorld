@@ -25,10 +25,11 @@ class tree_lod_render_t {
 		tree_data_t const *td=nullptr;
 		point pos;
 		color_wrapper cw;
+		unsigned orient=0;
 
 		entry_t() {}
-		entry_t(tree_data_t const *td_, point const &pos_, colorRGBA const &color) : td(td_), pos(pos_) {assert(td); cw.set_c4(color);}
-		bool operator<(entry_t const &e) const {return (td < e.td);} // compare tree data pointer values
+		entry_t(tree_data_t const *td_, point const &pos_, unsigned o, colorRGBA const &color) : td(td_), pos(pos_), orient(o) {assert(td); cw.set_c4(color);}
+		bool operator<(entry_t const &e) const {return ((td == e.td) ? (orient < e.orient) : (td < e.td));} // comp tree data pointers then orient
 	};
 	vector<entry_t> leaf_vect, branch_vect;
 	bool enabled;
@@ -43,11 +44,11 @@ public:
 	bool empty()        const {return (!has_leaves() && !has_branches());}
 	void clear() {leaf_vect.clear(); branch_vect.clear();}
 
-	void add_leaves(tree_data_t const *td, point const &pos, float opacity) {
-		leaf_vect.emplace_back(td, pos, colorRGBA(1, 1, 1, opacity));
+	void add_leaves(tree_data_t const *td, point const &pos, unsigned orient, float opacity) {
+		leaf_vect.emplace_back(td, pos, orient, colorRGBA(1, 1, 1, opacity));
 	}
-	void add_branches(tree_data_t const *td, point const &pos, float opacity, colorRGBA const &bcolor) {
-		branch_vect.emplace_back(td, pos, colorRGBA(bcolor, opacity));
+	void add_branches(tree_data_t const *td, point const &pos, unsigned orient, float opacity, colorRGBA const &bcolor) {
+		branch_vect.emplace_back(td, pos, orient, colorRGBA(bcolor, opacity));
 	}
 	void finalize();
 	void render_billboards(shader_t &s, bool render_branches) const;
@@ -147,6 +148,11 @@ public:
 bool const TREE_BILLBOARD_MULTISAMPLE = 0;
 
 
+struct tree_texture_view_t {
+	texture_pair_t leaf_tex, branch_tex;
+	tree_texture_view_t() : leaf_tex(TREE_BILLBOARD_MULTISAMPLE), branch_tex(TREE_BILLBOARD_MULTISAMPLE) {}
+};
+
 class tree_data_t {
 
 	typedef vert_norm_comp_color leaf_vert_type_t;
@@ -158,19 +164,23 @@ class tree_data_t {
 	vector<leaf_vert_type_t> leaf_data;
 	vector<draw_cylin> all_cylins;
 	vector<tree_leaf> leaves;
-	texture_pair_t render_leaf_texture, render_branch_texture;
+	vector<tree_texture_view_t> render_textures;
 	int last_update_frame=0;
 	unsigned leaf_change_start=0, leaf_change_end=0;
 	bool reset_leaves=0, has_4th_branches=0;
 
 	void clear_vbo_ixs();
 	template<typename branch_index_t> void create_branch_vbo();
+
+	tree_texture_view_t const &get_render_texture(unsigned orient=0) const {
+		assert(orient < render_textures.size());
+		return render_textures[orient];
+	}
 public:
 	float base_radius=0, sphere_radius=0, sphere_center_zoff=0, br_scale=1.0, b_tex_scale=1.0;
 	float lr_z_cent=0, lr_x=0, lr_y=0, lr_z=0, br_x=0, br_y=0, br_z=0; // bounding cylinder data for leaves and branches
 	cube_t leaves_bcube, branches_bcube;
 
-	tree_data_t() : render_leaf_texture(TREE_BILLBOARD_MULTISAMPLE), render_branch_texture(TREE_BILLBOARD_MULTISAMPLE) {}
 	vector<draw_cylin> const &get_all_cylins() const {return all_cylins;}
 	vector<tree_leaf>  const &get_leaves    () const {return leaves;}
 	vector<tree_leaf>        &get_leaves    ()       {return leaves;}
@@ -197,8 +207,8 @@ public:
 	void draw_branches(float size_scale, bool force_low_detail, bool shadow_pass=0);
 	void ensure_leaf_vbo();
 	void draw_leaves(float size_scale);
-	texture_pair_t const &get_render_leaf_texture  () const {return render_leaf_texture  ;}
-	texture_pair_t const &get_render_branch_texture() const {return render_branch_texture;}
+	texture_pair_t const &get_render_leaf_texture  (unsigned orient=0) const {return get_render_texture(orient).leaf_tex  ;}
+	texture_pair_t const &get_render_branch_texture(unsigned orient=0) const {return get_render_texture(orient).branch_tex;}
 	bool leaf_draw_setup(bool no_leaf_reset);
 	void check_render_textures();
 	void update_normal_for_leaf(unsigned i);
@@ -296,6 +306,7 @@ public:
 	bool check_sphere_coll(point &center, float radius) const;
 	bool check_cube_int(cube_t const &c) const;
 	float calc_size_scale(point const &draw_pos) const;
+	float get_rot_angle() const;
 	void update_leaf_orients_wind();
 	void draw_branches_top(shader_t &s, tree_lod_render_t &lod_renderer, bool shadow_only, bool reflection_pass, vector3d const &xlate, int wsoff_loc);
 	void draw_leaves_top(shader_t &s, tree_lod_render_t &lod_renderer, bool shadow_only, bool reflection_pass, vector3d const &xlate,

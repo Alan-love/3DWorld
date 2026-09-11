@@ -57,6 +57,7 @@ sunlight_brightness 2.0
 tiled_terrain_fog_density 1.0 # (0.0, 1.0]
 
 ntrees 100 # most of the trees are generated city trees, so this has little effect
+num_tree_bb_orients 1 # increases draw time and GPU memory usage
 tree_size 0.2
 rotate_trees 1
 sm_tree_scale 0.8 # slightly smaller (palm trees in cities are too tall)

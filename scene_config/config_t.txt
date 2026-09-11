@@ -3,6 +3,7 @@ include config.txt
 # overrides for trees
 ntrees 150
 max_unique_trees 100
+num_tree_bb_orients 8 # increases draw time and GPU memory usage
 rotate_trees 1
 tree_4th_branches 1
 nleaves_scale 2.0

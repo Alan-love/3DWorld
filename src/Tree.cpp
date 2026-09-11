@@ -47,7 +47,7 @@ vector<tree_branch>   tree_builder_t::branch_cache;
 vector<tree_branch *> tree_builder_t::branch_ptr_cache;
 
 bool has_any_billboard_coll(0), next_has_any_billboard_coll(0), tree_4th_branches(0);
-unsigned max_unique_trees(0);
+unsigned max_unique_trees(0), num_tree_bb_orients(1);
 int tree_mode(1), tree_coll_level(2); // tree_mode: 0 = no trees, 1 = large only, 2 = small only, 3 = both large and small
 float leaf_color_coherence(0.5), tree_color_coherence(0.2), tree_deadness(-1.0), tree_dead_prob(0.0), nleaves_scale(1.0), branch_radius_scale(1.0), tree_height_scale(1.0);
 float tree_lod_scales[4] = {0, 0, 0, 0}; // branch_start, branch_end, leaf_start, leaf_end
@@ -119,6 +119,24 @@ struct render_tree_to_texture_t : public render_to_texture_shader_t {
 	}
 };
 
+vector<vector3d> orient_to_dirs;
+
+unsigned tree_camera_dir_to_orient(point const &pos, tree const &tree) {
+	if (num_tree_bb_orients == 1) return 0; // optimization
+	vector3d const dir((pos - get_camera_pos()).get_norm());
+	if (dir.x == 0.0 && dir.y == 0.0) return 0; // facing up?
+	return ((18 - round_fp((atan2(dir.y, dir.x) - tree.get_rot_angle())*(num_tree_bb_orients/TWO_PI))) & 7);
+}
+vector3d orient_to_dir(unsigned orient) {
+	if (orient_to_dirs.empty()) { // init on first call
+		assert(num_tree_bb_orients > 0 && num_tree_bb_orients <= 32); // sanity check
+		float const dt(TWO_PI/num_tree_bb_orients);
+		for (unsigned n = 0; n < num_tree_bb_orients; ++n) {orient_to_dirs.emplace_back(sin(n*dt), cos(n*dt), 0.0);}
+	}
+	assert(orient < num_tree_bb_orients);
+	return orient_to_dirs[orient];
+}
+
 struct render_tree_leaves_to_texture_t : public render_tree_to_texture_t {
 	render_tree_leaves_to_texture_t(unsigned tsize_) : render_tree_to_texture_t(tsize_) {}
 
@@ -136,13 +154,13 @@ struct render_tree_leaves_to_texture_t : public render_tree_to_texture_t {
 		tree_data_t::post_leaf_draw();
 		s.disable();
 	}
-	void render_tree(tree_data_t &t, texture_pair_t &ttex, vector3d const &view_dir=plus_y) {
+	void render_tree(tree_data_t &t, texture_pair_t &ttex, unsigned orient) {
 		if (!shaders[0].is_setup()) {setup_shader("texture_gen.part+tree_leaves_no_lighting", "simple_texture",        0);} // colors
 		if (!shaders[1].is_setup()) {setup_shader("texture_gen.part+tree_leaves_no_lighting", "write_normal_textured", 1);} // normals
 		cur_tree = &t;
 		colorRGBA const leaf_bkg_color(get_avg_leaf_color(t.get_tree_type()), 0.0); // transparent
 		bool const use_depth_buffer(1), mipmap(0); // Note: for some reason mipmaps are slow and don't look any better
-		render(ttex, t.lr_x, t.lr_z, vector3d(0.0, 0.0, t.lr_z_cent), view_dir, leaf_bkg_color, use_depth_buffer, mipmap);
+		render(ttex, t.lr_x, t.lr_z, vector3d(0.0, 0.0, t.lr_z_cent), orient_to_dir(orient), leaf_bkg_color, use_depth_buffer, mipmap);
 	}
 };
 
@@ -159,14 +177,14 @@ struct render_tree_branches_to_texture_t : public render_tree_to_texture_t {
 		tree_data_t::post_branch_draw(0);
 		s.disable();
 	}
-	void render_tree(tree_data_t &t, texture_pair_t &ttex, vector3d const &view_dir=plus_y) {
+	void render_tree(tree_data_t &t, texture_pair_t &ttex, unsigned orient) {
 		if (!shaders[0].is_setup()) {setup_shader("no_lighting_tex_coord",     "simple_texture",        0);} // colors
 		if (!shaders[1].is_setup()) {setup_shader("tree_branches_no_lighting", "write_normal_textured", 1);} // normals
 		cur_tree = &t;
 		t.ensure_branch_vbo(); // Note: for some reason, this *must* be called before we get into draw_geom()
 		colorRGBA const branch_bkg_color(texture_color(get_tree_type().bark_tex), 0.0); // transparent
 		bool const use_depth_buffer(1), mipmap(0); // Note: for some reason mipmaps are slow and don't look any better
-		render(ttex, t.br_x, t.br_z, t.get_center(), view_dir, branch_bkg_color, use_depth_buffer, mipmap);
+		render(ttex, t.br_x, t.br_z, t.get_center(), orient_to_dir(orient), branch_bkg_color, use_depth_buffer, mipmap);
 	}
 };
 
@@ -180,19 +198,22 @@ void tree_lod_render_t::render_billboards(shader_t &s, bool render_branches) con
 
 	vector<entry_t> const &data(render_branches ? branch_vect : leaf_vect);
 	if (data.empty()) return;
-	tree_data_t const *last_td(nullptr);
 	s.add_uniform_vector3d("camera_pos", get_camera_pos());
 	s.add_uniform_vector3d("up_vector",  up_vector);
 	static vector<vert_tc_color> pts; // reused across frames
+	tree_data_t const *last_td(nullptr);
+	unsigned last_orient(0);
 
-	for (vector<entry_t>::const_iterator i = data.begin(); i != data.end(); ++i) {
-		if (i->td != last_td) {
-			assert(i->td);
-			last_td = i->td;
+	for (entry_t const &e : data) {
+		assert(e.td);
+
+		if (e.td != last_td || e.orient != last_orient) {
+			last_td = e.td;
+			last_orient = e.orient;
 			draw_and_clear_verts(pts, GL_POINTS);
-			(render_branches ? i->td->get_render_branch_texture() : i->td->get_render_leaf_texture()).bind_texture();
+			(render_branches ? e.td->get_render_branch_texture(e.orient) : e.td->get_render_leaf_texture(e.orient)).bind_texture();
 		}
-		pts.emplace_back(i->pos, (render_branches ? i->td->br_x : i->td->lr_x), (render_branches ? i->td->br_z : i->td->lr_z), i->cw.c);
+		pts.emplace_back(e.pos, (render_branches ? e.td->br_x : e.td->lr_x), (render_branches ? e.td->br_z : e.td->lr_z), e.cw.c);
 	} // for i
 	assert(!pts.empty());
 	draw_and_clear_verts(pts, GL_POINTS);
@@ -791,21 +812,26 @@ void tree_data_t::clear_vbo_ixs() {
 	branch_manager.reset_vbos_to_zero();
 }
 void tree_data_t::clear_context() {
-	render_leaf_texture.free_context();
-	render_branch_texture.free_context();
+	for (tree_texture_view_t &rt : render_textures) {
+		rt.leaf_tex  .free_context();
+		rt.branch_tex.free_context();
+	}
 	branch_manager.clear_vbos();
 	delete_vbo(leaf_vbo);
 	clear_vbo_ixs();
 }
 void tree_data_t::on_leaf_color_change() {
-	render_leaf_texture.free_context();
+	for (tree_texture_view_t &rt : render_textures) {rt.leaf_tex.free_context();}
 }
 
 unsigned tree_data_t::get_gpu_mem() const {
 	unsigned mem(branch_manager.gpu_mem + (leaf_vbo ? get_leaf_data_mem() : 0));
 	unsigned const bbsz(TREE_BILLBOARD_SIZE*TREE_BILLBOARD_SIZE*8); // 8 bytes per pixel
-	if (render_leaf_texture.is_valid  ()) {mem += bbsz;}
-	if (render_branch_texture.is_valid()) {mem += bbsz;}
+
+	for (tree_texture_view_t const &rt : render_textures) {
+		if (rt.leaf_tex.is_valid  ()) {mem += bbsz;}
+		if (rt.branch_tex.is_valid()) {mem += bbsz;}
+	}
 	return mem;
 }
 
@@ -826,14 +852,18 @@ void tree::shift_tree(vector3d const &vd) {
 
 void tree_data_t::check_render_textures() {
 
-	if (!render_leaf_texture.is_valid() && !leaves.empty()) {
-		render_tree_leaves_to_texture_t renderer(TREE_BILLBOARD_SIZE);
-		renderer.render_tree(*this, render_leaf_texture);
-	}
-	if (!render_branch_texture.is_valid() && !all_cylins.empty()) {
-		render_tree_branches_to_texture_t renderer(TREE_BILLBOARD_SIZE);
-		renderer.render_tree(*this, render_branch_texture);
-	}
+	if (render_textures.empty()) {render_textures.resize(num_tree_bb_orients);}
+
+	for (unsigned orient = 0; orient < num_tree_bb_orients; ++orient) {
+		tree_texture_view_t &rt(render_textures[orient]);
+
+		if (!rt.leaf_tex.is_valid() && !leaves.empty()) {
+			render_tree_leaves_to_texture_t(TREE_BILLBOARD_SIZE).render_tree(*this, rt.leaf_tex, orient);
+		}
+		if (!rt.branch_tex.is_valid() && !all_cylins.empty()) {
+			render_tree_branches_to_texture_t(TREE_BILLBOARD_SIZE).render_tree(*this, rt.branch_tex, orient);
+		}
+	} // for orient
 }
 
 void tree_data_t::pre_branch_draw(shader_t &s, bool shadow_only) {
@@ -877,18 +907,19 @@ float tree::calc_size_scale(point const &draw_pos) const {
 
 float tree_data_t::get_size_scale_mult() const {return (has_4th_branches ? LEAF_4TH_SCALE : 1.0);}
 
+float tree::get_rot_angle() const { // in radians
+	if (!enable_rotate_trees()) return 0.0;
+	float const xy_mult(1.0/tdata().sphere_radius); // need enough random variation between adjacent trees
+	return TWO_PI*fract(xy_mult*tree_center.x) + fract(xy_mult*tree_center.y); // random angle based on pos
+}
+
 float tree::pre_transform(vector3d const &tree_xlate) const { // returns rotation angle
 	fgPushMatrix();
 	translate_to(tree_xlate);
-	float rot_angle(0.0);
-
 	// rotate trees in tiled terrain only; ground mode has fewer trees, and they're often all unique anyway;
 	// also, ground mode trees often have collisions, dropping leaves, wind, fires, indir lighting, etc. that would be wrong when rotated
-	if (enable_rotate_trees()) {
-		float const xy_mult(1.0/tdata().sphere_radius); // need enough random variation between adjacent trees
-		rot_angle = TWO_PI*fract(xy_mult*tree_center.x) + fract(xy_mult*tree_center.y); // random angle based on pos
-		fgRotateRadians(rot_angle, 0.0, 0.0, 1.0); // rotate around Z axis
-	}
+	float const rot_angle(get_rot_angle());
+	fgRotateRadians(rot_angle, 0.0, 0.0, 1.0); // rotate around Z axis
 	return rot_angle;
 }
 void tree::post_transform() const {fgPopMatrix();}
@@ -924,7 +955,7 @@ void tree::draw_branches_top(shader_t &s, tree_lod_render_t &lod_renderer, bool 
 
 		if (td.get_render_branch_texture().is_valid() && size_scale < lod_start) {
 			geom_opacity = ((lod_denom == 0.0) ? 0.0 : CLIP_TO_01((size_scale - lod_end)/lod_denom));
-			lod_renderer.add_branches(&td, draw_pos, (1.0 - geom_opacity), bcolor);
+			lod_renderer.add_branches(&td, draw_pos, tree_camera_dir_to_orient(draw_pos, *this), (1.0 - geom_opacity), bcolor);
 		}
 		if (geom_opacity == 0.0) return;
 		s.set_uniform_float(lod_renderer.branch_opacity_loc, geom_opacity);
@@ -977,7 +1008,7 @@ void tree::draw_leaves_top(shader_t &s, tree_lod_render_t &lod_renderer, bool sh
 
 		if (td.get_render_leaf_texture().is_valid() && size_scale < lod_start) {
 			geom_opacity = ((lod_denom == 0.0) ? 0.0 : CLIP_TO_01((size_scale - lod_end)/lod_denom));
-			lod_renderer.add_leaves(&td, (draw_pos + vector3d(0.0, 0.0, (td.lr_z_cent - td.sphere_center_zoff))), (1.0 - geom_opacity));
+			lod_renderer.add_leaves(&td, (draw_pos + vector3d(0.0, 0.0, (td.lr_z_cent - td.sphere_center_zoff))), tree_camera_dir_to_orient(draw_pos, *this), (1.0 - geom_opacity));
 		}
 		if (geom_opacity == 0.0) return;
 		s.set_uniform_float(lod_renderer.leaf_opacity_loc, geom_opacity);

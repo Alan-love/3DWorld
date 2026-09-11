@@ -139,7 +139,7 @@ extern bool clear_landscape_vbo, use_dense_voxels, tree_4th_branches, model_calc
 extern bool flashlight_on, player_wait_respawn, camera_in_building, player_in_tunnel, player_on_moving_ww, player_on_escalator;
 extern int camera_flight, DISABLE_WATER, DISABLE_SCENERY, camera_invincible, onscreen_display, mesh_freq_filter, show_waypoints, last_inventory_frame;
 extern int tree_coll_level, GLACIATE, UNLIMITED_WEAPONS, destroy_thresh, MAX_RUN_DIST, mesh_gen_mode, mesh_gen_shape, map_drag_x, map_drag_y, player_in_water;
-extern unsigned NPTS, NRAYS, LOCAL_RAYS, GLOBAL_RAYS, DYNAMIC_RAYS, NUM_THREADS, MAX_RAY_BOUNCES, grass_density, max_unique_trees, shadow_map_sz;
+extern unsigned NPTS, NRAYS, LOCAL_RAYS, GLOBAL_RAYS, DYNAMIC_RAYS, NUM_THREADS, MAX_RAY_BOUNCES, grass_density, max_unique_trees, num_tree_bb_orients, shadow_map_sz;
 extern unsigned scene_smap_vbo_invalid, spheres_mode, max_cube_map_tex_sz, DL_GRID_BS;
 extern float fticks, team_damage, self_damage, player_damage, smiley_damage, smiley_speed, tree_deadness, tree_dead_prob, lm_dz_adj, nleaves_scale, flower_density, universe_ambient_scale;
 extern float mesh_scale, tree_scale, mesh_height_scale, smiley_acc, hmv_scale, last_temp, grass_length, grass_width, branch_radius_scale, tree_height_scale, planet_update_rate;
@@ -1852,6 +1852,7 @@ int load_config(string const &config_file) {
 	kw_to_val_map_t<unsigned> kwmu(error);
 	kwmu.add("grass_density", grass_density);
 	kwmu.add("max_unique_trees", max_unique_trees);
+	kwmu.add("num_tree_bb_orients", num_tree_bb_orients);
 	kwmu.add("shadow_map_sz", shadow_map_sz);
 	kwmu.add("max_ray_bounces", MAX_RAY_BOUNCES);
 	kwmu.add("num_test_snowflakes", num_snowflakes);
