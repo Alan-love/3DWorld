@@ -295,7 +295,8 @@ void render_to_texture_t::pre_render(float xsize, float ysize, unsigned nx, unsi
 	fgOrtho(-xsize, xsize, -ysize, ysize, -(xsize + ysize), (xsize + ysize));
 	fgMatrixMode(FG_MODELVIEW);
 	fgPushIdentityMatrix();
-	rotate_from_v2v(-plus_z, view_dir);
+	rotate_from_v2v(-plus_z, plus_y);
+	rotate_about((270.0 - TO_DEG*atan2(view_dir.y, view_dir.x)), plus_z);
 	translate_to(-center);
 }
 void render_to_texture_t::post_render() {
