@@ -120,18 +120,20 @@ struct render_tree_to_texture_t : public render_to_texture_shader_t {
 };
 
 vector<vector3d> orient_to_dirs;
+float angle_step_inv(0.0);
 
 unsigned tree_camera_dir_to_orient(point const &pos, tree const &tree) {
 	if (num_tree_bb_orients == 1) return 0; // optimization
-	vector3d const dir((pos - get_camera_pos()).get_norm());
-	if (dir.x == 0.0 && dir.y == 0.0) return 0; // facing up?
-	return ((18 - round_fp((atan2(dir.y, dir.x) - tree.get_rot_angle())*(num_tree_bb_orients/TWO_PI))) & 7);
+	vector3d const dir(pos - get_camera_pos());
+	if (dir.x == 0.0f && dir.y == 0.0f) return 0; // facing up?
+	return ((18 - round_fp((atan2(dir.y, dir.x) - tree.get_rot_angle())*angle_step_inv)) & (num_tree_bb_orients-1));
 }
 vector3d orient_to_dir(unsigned orient) {
 	if (orient_to_dirs.empty()) { // init on first call
-		assert(num_tree_bb_orients > 0 && num_tree_bb_orients <= 32); // sanity check
-		float const dt(TWO_PI/num_tree_bb_orients);
-		for (unsigned n = 0; n < num_tree_bb_orients; ++n) {orient_to_dirs.emplace_back(sin(n*dt), cos(n*dt), 0.0);}
+		assert(num_tree_bb_orients > 0 && num_tree_bb_orients <= 32); // sanity check; also requires num_tree_bb_orients to be a power of 2 (which is not checked)
+		angle_step_inv = num_tree_bb_orients/TWO_PI;
+		float const dt(1.0f/angle_step_inv);
+		for (unsigned n = 0; n < num_tree_bb_orients; ++n) {orient_to_dirs.emplace_back(sin(n*dt), cos(n*dt), 0.0f);}
 	}
 	assert(orient < num_tree_bb_orients);
 	return orient_to_dirs[orient];
@@ -908,8 +910,8 @@ float tree::calc_size_scale(point const &draw_pos) const {
 float tree_data_t::get_size_scale_mult() const {return (has_4th_branches ? LEAF_4TH_SCALE : 1.0);}
 
 float tree::get_rot_angle() const { // in radians
-	if (!enable_rotate_trees()) return 0.0;
-	float const xy_mult(1.0/tdata().sphere_radius); // need enough random variation between adjacent trees
+	if (!enable_rotate_trees()) return 0.0f;
+	float const xy_mult(1.0f/tdata().sphere_radius); // need enough random variation between adjacent trees
 	return TWO_PI*fract(xy_mult*tree_center.x) + fract(xy_mult*tree_center.y); // random angle based on pos
 }
 
