@@ -295,7 +295,6 @@ public:
 
 inline void align_vbo_ptr(unsigned &pos) {if (pos & 15) {pos = (pos + 16) & (~15);}}
 
-
 void const *get_dynamic_vbo_ptr(void const *const verts, unsigned size_bytes);
 void bind_dynamic_vbo();
 void ensure_texture_loaded(unsigned &tid, unsigned txsize, unsigned tysize, bool mipmap, bool nearest, bool multisample=0);
@@ -303,17 +302,17 @@ void build_texture_mipmaps(unsigned tid, unsigned dim);
 
 
 struct texture_pair_t {
-	unsigned tids[2]={}; // color, normal
+	texture_handle_t t[2]; // color, normal
 	bool multisample;
 
 	texture_pair_t(bool multisample_=0) : multisample(multisample_) {}
-	bool is_valid() const {return (tids[0] > 0 && tids[1] > 0);}
+	bool is_valid() const {return (t[0].is_bound() && t[1].is_bound());}
+	unsigned get_tid(bool ix) const {return t[ix].tid;}
 	void free_context();
 	void bind_texture() const;
 	void ensure_tid(unsigned tsize, bool mipmap);
-	bool operator==(texture_pair_t const &tp) const {return (tids[0] == tp.tids[0] && tids[1] == tp.tids[1]);}
+	bool operator==(texture_pair_t const &tp) const {return (t[0] == tp.t[0] && t[1] == tp.t[1]);}
 	bool operator!=(texture_pair_t const &tp) const {return !operator==(tp);}
-	bool operator< (texture_pair_t const &tp) const {return ((tids[0] == tp.tids[0]) ? (tids[1] < tp.tids[1]) : (tids[0] < tp.tids[0]));}
 };
 
 class render_to_texture_t {

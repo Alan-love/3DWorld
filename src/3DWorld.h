@@ -1040,7 +1040,26 @@ enum {IMG_FMT_RAW_RGB=0, IMG_FMT_BMP, IMG_FMT_RAW_INVY, IMG_FMT_RAW_RGBA, IMG_FM
 	IMG_FMT_TIFF, IMG_FMT_GEN, IMG_FMT_DDS, IMG_FMT_PPM, IMG_FMT_TEX2D, IMG_FMT_OTHER};
 
 
-class texture_t { // size >= 116
+struct texture_pair_t;
+
+struct texture_handle_t {
+protected:
+	unsigned tid=0;
+	mutable bool is_handle_resident=0;
+	mutable GLuint64 handle=0; // for bindless textures; must be mutable because it's modified when using the texture
+public:
+	friend struct texture_pair_t;
+	bool operator==(texture_handle_t const &h) const {return (tid == h.tid);}
+	bool is_bound   () const {return (tid > 0);}
+	bool is_resident() const {return is_handle_resident;}
+	void bind_gl(unsigned tu_id=0) const;
+	void gl_delete();
+	GLuint64 get_bindless_handle(bool make_tex_resident) const;
+	void make_resident() const;
+	void make_nonresident() const;
+};
+
+class texture_t : public texture_handle_t {
 
 public:
 	char type=0, format=0, use_mipmaps=0, defer_load_type=DEFER_TYPE_NONE;
@@ -1048,15 +1067,12 @@ public:
 	int width=0, height=0, ncolors=0, bump_tid=-1, alpha_tid=-1;
 	float anisotropy=1.0, mipmap_alpha_weight=1.0;
 	string name;
-
 protected:
 	unsigned char *data=nullptr, *orig_data=nullptr, *colored_data=nullptr;
-	unsigned tid=0;
 	colorRGBA color=DEF_TEX_COLOR;
 	enum {DEFER_TYPE_NONE=0, DEFER_TYPE_DDS, DEFER_TYPE_TEX2D, NUM_DEFER_TYPE};
 
 	void maybe_swap_rb(unsigned char *ptr) const;
-
 public:
 	texture_t() {}
 	texture_t(char t, char f, int w, int h, int wrap_mir, int nc, char um, string const &n, bool inv=0, bool do_comp=1, float a=1.0, float maw=1.0, bool nm=0)
@@ -1081,11 +1097,8 @@ public:
 	void set_to_color(colorRGBA const &c);
 	void maybe_assign_normal_map_tid(int nm_tid) {if (nm_tid >= 0 && bump_tid < 0) {bump_tid = nm_tid;}}
 	void alloc();
-	void bind_gl(unsigned tu_id=0) const;
-	GLuint64 get_bindless_handle(bool make_resident=1) const;
 	void free_client_mem();
 	void free_data() {gl_delete(); free_client_mem();}
-	void gl_delete();
 	void load(int index, bool allow_diff_width_height=0, bool allow_two_byte_grayscale=0, bool ignore_word_alignment=0);
 	void set_image_size(int w, int h, bool allow_diff_width_height);
 	void load_raw_bmp(int index, bool allow_diff_width_height, bool allow_two_byte_grayscale);
@@ -1131,7 +1144,6 @@ public:
 	unsigned get_tid() const {return tid;} // for passing into bind_texture_tu() calls
 	void set_color_alpha_to_one() {color.alpha = 1.0;} // to make has_alpha() return 0
 	bool has_alpha()    const {return (color.alpha < 1.0 || alpha_tid >= 0);}
-	bool is_bound()     const {return (tid > 0);}
 	bool is_allocated() const {return (data != nullptr);}
 	bool defer_load()   const {return (defer_load_type != DEFER_TYPE_NONE);}
 	bool is_loaded()    const {return (is_allocated() || defer_load());}

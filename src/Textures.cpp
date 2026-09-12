@@ -455,17 +455,27 @@ void texture_t::alloc() {
 	}
 }
 
-void texture_t::bind_gl(unsigned tu_id) const {
+void texture_handle_t::bind_gl(unsigned tu_id) const {
 	assert(tid > 0);
 	bind_texture_tu(tid, tu_id);
 }
-GLuint64 texture_t::get_bindless_handle(bool make_resident) const {
+GLuint64 texture_handle_t::get_bindless_handle(bool make_tex_resident) const {
 	assert(tid > 0);
-	GLuint64 const handle(glGetTextureHandleARB(tid));
-	if (make_resident) {glMakeTextureHandleResidentARB(handle);}
+	if (!handle) {handle = glGetTextureHandleARB(tid);}
+	assert(handle);
+	if (make_tex_resident) {make_resident();}
 	return handle;
 }
-void texture_t::gl_delete() {
+void texture_handle_t::make_resident() const {
+	assert(handle);
+	if (!is_handle_resident) {glMakeTextureHandleResidentARB(handle); is_handle_resident = 1;}
+}
+void texture_handle_t::make_nonresident() const {
+	assert(handle);
+	if (is_handle_resident) {glMakeTextureHandleNonResidentARB(handle); is_handle_resident = 0;}
+}
+void texture_handle_t::gl_delete() {
+	if (handle) {make_nonresident(); handle = 0;}
 	free_texture(tid);
 }
 
@@ -1833,15 +1843,13 @@ void build_texture_mipmaps(unsigned tid, unsigned dim) {
 
 
 void texture_pair_t::free_context() {
-	for (unsigned d = 0; d < 2; ++d) {free_texture(tids[d]);}
+	for (unsigned d = 0; d < 2; ++d) {t[d].gl_delete();}
 }
 void texture_pair_t::bind_texture() const {
-	assert(is_valid());
-	for (unsigned d = 0; d < 2; ++d) {bind_texture_tu(tids[d], d);}
+	for (unsigned d = 0; d < 2; ++d) {t[d].bind_gl(d);}
 }
 void texture_pair_t::ensure_tid(unsigned tsize, bool mipmap) {
-	ensure_texture_loaded(tids[0], tsize, tsize, mipmap, 0, multisample); // color
-	ensure_texture_loaded(tids[1], tsize, tsize, mipmap, 0, multisample); // normal
+	for (unsigned d = 0; d < 2; ++d) {ensure_texture_loaded(t[d].tid, tsize, tsize, mipmap, 0, multisample);}
 }
 
 
