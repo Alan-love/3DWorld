@@ -71,10 +71,8 @@ struct query_data {
 	uobject *ptr=nullptr;
 	bool exit_query=0, skip_self=0;
 
-	query_data(vector<cached_obj> const *const objs_, point const &pos_, float radius_, float urm_)
-		: objs(objs_), pos(pos_), urm(urm_), radius(radius_) {}
+	query_data(vector<cached_obj> const *const objs_, point const &pos_, float radius_, float urm_) : objs(objs_), pos(pos_), urm(urm_), radius(radius_) {}
 };
-
 
 struct base_query_data {
 	vector<cached_obj> const *objs;
@@ -82,10 +80,8 @@ struct base_query_data {
 	free_obj const *const questioner;
 	bool exit_query=0;
 
-	base_query_data(vector<cached_obj> const *const objs_, point const &pos_, free_obj const *const questioner_) :
-		objs(objs_), pos(pos_),	questioner(questioner_) {}
+	base_query_data(vector<cached_obj> const *const objs_, point const &pos_, free_obj const *const questioner_) : objs(objs_), pos(pos_), questioner(questioner_) {}
 };
-
 
 struct closeness_data : public base_query_data {
 	vector3d q_dir;
@@ -97,7 +93,6 @@ struct closeness_data : public base_query_data {
 		free_obj const *const questioner_, bool req_sh=0, bool rdock=0, bool fr=0) :
 		base_query_data(objs_, pos_, questioner_), dmin(dmin_), min_dist_sq(min_dist_sq_), init_dmin(dmin), req_shields(req_sh), req_dock(rdock), friendly(fr) {}
 };
-
 
 struct all_query_data : public base_query_data {
 	float dmax_rscale, max_search_dist;

@@ -21,7 +21,7 @@ extern vector<us_weapon> us_weapons;
 // what about objects created this frame that aren't sorted?
 unsigned binary_search_pos(vector<cached_obj> const &objs, point const &pos) { // returns the index before
 
-	unsigned const size((unsigned)objs.size());
+	unsigned const size(objs.size());
 	unsigned start, end;
 
 	for (start = 0, end = size; ((end - start) > 1);) {
@@ -35,7 +35,7 @@ unsigned binary_search_pos(vector<cached_obj> const &objs, point const &pos) { /
 
 void line_intersect_fo_vector(line_int_data &li_data, vector<cached_obj> const &objs, free_obj *&fobj, float urm, bool find_ships) {
 
-	unsigned const nobjs((unsigned)objs.size());
+	unsigned const nobjs(objs.size());
 	if (nobjs == 0) return;
 	float const line_radius(li_data.line_radius);
 	urm += line_radius;
@@ -318,7 +318,7 @@ bool query_func_wrap(query_data &qdata, obj_query query_func, unsigned bad_flags
 	if (cobj.flags & (BAD_QUERY_FLAGS | bad_flags)) return 1;
 	if (fabs(qdata.pos.x - cobj.pos.x) > (qdata.radius + qdata.urm)) return 0;
 	float const rsum(qdata.radius + cobj.radius);
-	if (fabs(qdata.pos.y - cobj.pos.y) > rsum) return 1;
+	if (fabs(qdata.pos.y - cobj.pos.y) > rsum)      return 1;
 	if (!dist_less_than(cobj.pos, qdata.pos, rsum)) return 1;
 	query_func(qdata, ix);
 	return 1;
@@ -335,7 +335,7 @@ template<typename data_t, typename query> void find_close_objects(data_t &qdata,
 
 	assert(qdata.objs != NULL);
 	if (qdata.objs->empty()) return;
-	unsigned const start(binary_search_pos(*(qdata.objs), qdata.pos)), nobjs((unsigned)qdata.objs->size());
+	unsigned const start(binary_search_pos(*qdata.objs, qdata.pos)), nobjs(qdata.objs->size());
 	assert(start <= nobjs);
 
 	// search to left and right until dx > dmin
@@ -454,6 +454,7 @@ free_obj *free_obj::get_closest_ship(point const &pos, float min_dist, float max
 }
 
 free_obj *u_ship::get_closest_dock(float max_dist) const {
+	assert(alignment < NUM_ALIGNMENT);
 	closeness_data cdata(&ships[alignment], pos, max_dist, radius*radius, this, 0, 1, 1);
 	find_close_objects(cdata, update_min_d);
 	return cdata.closest;

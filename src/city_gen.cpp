@@ -663,13 +663,15 @@ public:
 			if (tt <= 0.0 || tt >= 1.0 || tr <= 0.0 || tr >= 1.0) continue; // int, but centerlines not crossing - some other seg intersects, or already handled this seg
 			point p_int(p1);
 			p_int[dim] = prev_center;
-			float const z_cur(p1.z + tt*(p2.z - p1.z)); // interpolated from endpoints, assuming track is a constant slope
 			// Note: we can't just call hq.get_road_zval_at_pt(p_int) here becase the terrain may not have been flattened yet (for prev placed tracks)
 			float const z_prev(i->get_start_z() + tr*(i->get_end_z() - i->get_start_z())); // interpolated from endpoints, assuming road seg is a constant slope
-			//float const delta_z(z_cur - z_prev); // positive: track is above the road; negative: track is below the road
-			//if      (delta_z >  4.0*width) {} // bridge?
-			//else if (delta_z < -4.0*width) {} // tunnel?
-			//else
+#if 0
+			float const z_cur(p1.z + tt*(p2.z - p1.z)); // interpolated from endpoints, assuming track is a constant slope
+			float const delta_z(z_cur - z_prev); // positive: track is above the road; negative: track is below the road
+			if      (delta_z >  4.0*width) {} // bridge?
+			else if (delta_z < -4.0*width) {} // tunnel?
+			else
+#endif
 			{ // adjust the tracks to meet the road
 				p2   = p_int; // this segment will end at the road's center
 				p2.z = z_prev;
