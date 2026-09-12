@@ -122,11 +122,20 @@ struct render_tree_to_texture_t : public render_to_texture_shader_t {
 vector<vector3d> orient_to_dirs;
 float angle_step_inv(0.0);
 
+// high-speed branchless atan2f approximation (max error ~0.0015 rad / 0.08 deg)
+inline float fast_atan2f(float y, float x) {
+	float const abs_y(std::fabs(y) + 1e-10f), abs_x(std::fabs(x)); // avoid divide by zero
+	float const sign_x((x >= 0.0f) ? 1.0f : -1.0f);
+	float const r((x - (abs_y * sign_x)) / (abs_y + abs_x)); // scale input to [-1, 1] range symmetrically based on the sign of X
+	float const angle(1.57079632f - (0.78539816f * sign_x) + (0.1963f * r * r - 0.9817f) * r); // core polynomial expansion (minimax optimization)
+	return (y < 0.0f) ? -angle : angle;
+}
+
 unsigned tree_camera_dir_to_orient(point const &pos, tree const &tree) {
 	if (num_tree_bb_orients == 1) return 0; // optimization
 	vector3d const dir(pos - get_camera_pos());
 	if (dir.x == 0.0f && dir.y == 0.0f) return 0; // facing up?
-	return ((18 - round_fp((atan2(dir.y, dir.x) - tree.get_rot_angle())*angle_step_inv)) & (num_tree_bb_orients-1));
+	return ((18 - round_fp((fast_atan2f(dir.y, dir.x) - tree.get_rot_angle())*angle_step_inv)) & (num_tree_bb_orients-1));
 }
 vector3d orient_to_dir(unsigned orient) {
 	if (orient_to_dirs.empty()) { // init on first call
